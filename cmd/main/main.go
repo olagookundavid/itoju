@@ -5,6 +5,8 @@ cmd/api/main.go
 cd internal/sql/migrations/
 goose postgres postgres://djjsagev:WG11sRXwe2q1C0I9-3XhTZywTnhbZQPJ@stampy.db.elephantsql.com/djjsagev up
 goose postgres postgres://itojudb:itojudb@localhost/itojudb up
+
+docker run --name itojuapp --network itoju-network -p 8080:8080  -e DB_URL="postgres://itojudb:itojudb@post-db/itojudb?sslmode=disable" itojuapp:latest
 */
 package main
 
