@@ -56,7 +56,6 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		if app.Config.Limiter.Enabled {
-			println("rater")
 			ip := realip.FromRequest(r)
 			mu.Lock()
 			if _, found := clients[ip]; !found {
@@ -68,12 +67,10 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 			}
 			clients[ip].lastSeen = time.Now()
 			if !clients[ip].limiter.Allow() {
-				println("rater2")
 				mu.Unlock()
 				app.rateLimitExceededResponse(w, r)
 				return
 			}
-			println("rater3")
 			mu.Unlock()
 			next.ServeHTTP(w, r)
 			return
@@ -102,7 +99,13 @@ func (app *Application) RequireActivatedAndAuthedUser(next http.HandlerFunc) htt
 		next.ServeHTTP(w, r)
 	})
 }
-
+func (app *Application) Print(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		print("Went Through")
+		next.ServeHTTP(w, r)
+		print("Exitted")
+	})
+}
 func (app *Application) Authenticate(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +115,6 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 			r = app.contextSetUser(r, models.AnonymousUser)
 			r = app.contextSetTokenStatus(r, true)
 			next.ServeHTTP(w, r)
-			println("anon1")
 			return
 		}
 		headerParts := strings.Split(authorizationHeader, " ")
@@ -120,7 +122,6 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 			r = app.contextSetUser(r, models.AnonymousUser)
 			r = app.contextSetTokenStatus(r, false)
 			next.ServeHTTP(w, r)
-			println("anon2")
 			return
 		}
 		token := headerParts[1]
@@ -129,7 +130,6 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 			r = app.contextSetUser(r, models.AnonymousUser)
 			r = app.contextSetTokenStatus(r, false)
 			next.ServeHTTP(w, r)
-			println("anon2")
 			return
 		}
 
@@ -140,7 +140,6 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 				r = app.contextSetUser(r, models.AnonymousUser)
 				r = app.contextSetTokenStatus(r, false)
 				next.ServeHTTP(w, r)
-				println("anon3")
 			default:
 				app.serverErrorResponse(w, r, err)
 			}
@@ -149,7 +148,6 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 
 		r = app.contextSetTokenStatus(r, true)
 		r = app.contextSetUser(r, user)
-		println("not anon")
 		next.ServeHTTP(w, r)
 	})
 }

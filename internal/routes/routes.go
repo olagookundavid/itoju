@@ -138,6 +138,6 @@ func Routes(app *api.Application) http.Handler {
 	//Metrics
 	router.Handler(http.MethodGet, "/v1/debug/vars", expvar.Handler())
 
-	//Middleware
-	return app.Metrics(app.RecoverPanic(app.RateLimit(app.Authenticate(router))))
+	//Middlewares
+	return app.Metrics(app.RecoverPanic(app.RateLimit(app.Authenticate(app.Print(router)))))
 }
