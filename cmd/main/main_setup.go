@@ -131,7 +131,7 @@ func flagSetup(dbUrl string) *api.Config {
 	var cfg api.Config
 
 	//env and port
-	flag.IntVar(&cfg.Port, "port", 8000, "API server port")
+	flag.IntVar(&cfg.Port, "port", 8080, "API server port")
 	flag.StringVar(&cfg.Env, "env", "development", "Environment (development|staging|production)")
 	//db
 	flag.StringVar(&cfg.Db.Dsn, "db-dsn", dbUrl, "PostgreSQL DSN")
