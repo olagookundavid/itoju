@@ -90,6 +90,48 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (
 	return bowelTypeOccurrences, nil
 }
 
+func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int) (map[int]int, error) {
+	query := `
+		SELECT
+			(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
+    		SUM(no_of_times) AS total_exercises
+		FROM
+			user_exercise_metric
+		WHERE
+			user_id = $1
+			AND EXTRACT(MONTH FROM date) = $2
+		GROUP BY
+			week_of_month
+		ORDER BY
+			week_of_month;
+	`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, userID, month)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %v", err)
+	}
+	defer rows.Close()
+
+	exerciseTypeOccurrences := make(map[int]int)
+	for rows.Next() {
+		var weekOfMonth, occurrences int
+		err := rows.Scan(&weekOfMonth, &occurrences)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %v", err)
+		}
+		exerciseTypeOccurrences[weekOfMonth] = occurrences
+	}
+	for i := 1; i <= 5; i++ {
+		if _, exists := exerciseTypeOccurrences[i]; !exists {
+			exerciseTypeOccurrences[i] = 0
+		}
+	}
+
+	return exerciseTypeOccurrences, nil
+}
+
 func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQuery string) (map[int][]KeyValue, error) {
 	var query string
 

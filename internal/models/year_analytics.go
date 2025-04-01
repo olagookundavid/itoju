@@ -47,6 +47,7 @@ func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, 
 
 	return symptomOccurrences, nil
 }
+
 func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (map[int][]KeyValue, error) {
 	query := `
 	SELECT
@@ -91,6 +92,51 @@ func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (ma
 
 	return bowelTypeOccurrences, nil
 }
+
+func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) (map[int]int, error) {
+	query := `
+	SELECT
+		EXTRACT(MONTH FROM date) AS month_of_year,
+		SUM(no_of_times) AS total_exercises
+	FROM
+		user_exercise_metric
+	WHERE
+		user_id = $1
+		AND EXTRACT(YEAR FROM date) = $2
+	GROUP BY
+		month_of_year
+	ORDER BY
+		month_of_year;
+	`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, userID, year)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %v", err)
+	}
+	defer rows.Close()
+
+	exerciseTypeOccurrences := make(map[int]int)
+	for rows.Next() {
+		var monthOfYear, occurrences int
+		err := rows.Scan(&monthOfYear, &occurrences)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %v", err)
+		}
+		exerciseTypeOccurrences[monthOfYear] = occurrences
+	}
+
+	// Ensure all months from 1 to 12 have an entry in the map
+	for i := 1; i <= 12; i++ {
+		if _, exists := exerciseTypeOccurrences[i]; !exists {
+			exerciseTypeOccurrences[i] = 0
+		}
+	}
+
+	return exerciseTypeOccurrences, nil
+}
+
 func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuery string) (map[int][]KeyValue, error) {
 	var query string
 

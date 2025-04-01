@@ -29,6 +29,7 @@ func (m UrineMetricModel) GetUserUrineMetrics(userId string, date time.Time) ([]
 	SELECT uum.id, uum.time, uum.type, uum.pain, uum.tags, uum.date, uum.quantity
     FROM user_urine_metric uum
     WHERE uum.user_id = $1 AND uum.date = $2
+	ORDER BY uum.id DESC;
     `
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

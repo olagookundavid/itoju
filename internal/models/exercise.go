@@ -48,6 +48,7 @@ func (m ExerciseMetricModel) GetUserExerciseMetric(userId string, date time.Time
     SELECT uem.id, uem.name, uem.started, uem.ended, uem.tags, uem.date, uem.no_of_times
     FROM user_exercise_metric uem
     WHERE uem.user_id = $1 AND uem.date = $2
+	ORDER BY uem.id DESC;
     `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -255,3 +255,46 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 
 	return tagOccurrences, nil
 }
+
+func (m AnalyticsModel) Get7DaysExerciseOccurrences(userID string, days int) (map[string]int, error) {
+	query := fmt.Sprintf(`
+		SELECT
+    EXTRACT(DOW FROM date) AS day_of_week, 
+    SUM(no_of_times) AS total_exercises 
+FROM
+    user_exercise_metric
+WHERE
+    user_id = $1
+    AND date >= CURRENT_DATE - INTERVAL '%d days' 
+GROUP BY
+    day_of_week
+ORDER BY
+    day_of_week;
+
+	`, days)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %v", err)
+	}
+	defer rows.Close()
+
+	exerciseTypeOccurrences := make(map[string]int)
+	for rows.Next() {
+		var dayOfWeek, occurrences int
+		err := rows.Scan(&dayOfWeek, &occurrences)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %v", err)
+		}
+		exerciseTypeOccurrences[strconv.Itoa(dayOfWeek)] = occurrences
+	}
+	for i := 0; i <= 6; i++ {
+		if _, exists := exerciseTypeOccurrences[strconv.Itoa(i)]; !exists {
+			exerciseTypeOccurrences[strconv.Itoa(i)] = 0
+		}
+	}
+
+	return exerciseTypeOccurrences, nil
+}

@@ -113,16 +113,19 @@ func Routes(app *api.Application) http.Handler {
 	//7Days Analytics
 	router.Handler(http.MethodGet, "/v1/user/tag_days_analytics/:days/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsDaysAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/bowel_days_analytics/:days", app.RequireActivatedAndAuthedUser((app.GetBowelDaysAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/exercise_days_analytics/:days", app.RequireActivatedAndAuthedUser((app.GetExerciseDaysAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/syms_days_analytics/:id/:days", app.RequireActivatedAndAuthedUser((app.GetSymsDaysAnalytics)))
 
 	//Month Analytics
 	router.Handler(http.MethodGet, "/v1/user/tag_month_analytics/:month/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsMonthAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/bowel_month_analytics/:month", app.RequireActivatedAndAuthedUser((app.GetMonthBowelAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/exercise_month_analytics/:month", app.RequireActivatedAndAuthedUser((app.GetMonthExerciseAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/syms_month_analytics/:id/:month", app.RequireActivatedAndAuthedUser((app.GetSymsMonthAnalytics)))
 
 	//Year Analytics
 	router.Handler(http.MethodGet, "/v1/user/tag_year_analytics/:year/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsYearAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/bowel_year_analytics/:year", app.RequireActivatedAndAuthedUser((app.GetBowelYearAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/exercise_year_analytics/:year", app.RequireActivatedAndAuthedUser((app.GetExerciseYearAnalytics)))
 	router.Handler(http.MethodGet, "/v1/user/syms_year_analytics/:id/:year", app.RequireActivatedAndAuthedUser((app.GetSymsYearAnalytics)))
 
 	//User Points
@@ -139,5 +142,5 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodGet, "/v1/debug/vars", expvar.Handler())
 
 	//Middlewares
-	return app.Metrics(app.RecoverPanic(app.RateLimit(app.Authenticate(app.Print(router)))))
+	return app.RecoverPanic(app.Metrics(app.Authenticate(router)))
 }

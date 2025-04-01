@@ -101,3 +101,28 @@ func EnsureAllWeeksPresent(metrics map[int]float64) map[int]float64 {
 	}
 	return metrics
 }
+
+func (app *Application) GetMonthExerciseAnalytics(w http.ResponseWriter, r *http.Request) {
+
+	user := app.contextGetUser(r)
+	month, err := app.readIntParam(r, "month")
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	analytics, err := app.Models.AnalyticsMetric.GetMonthExerciseTypeOccurrences(user.ID, int(month))
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	env := envelope{
+		"message":          "Retrieved All Analytics for user",
+		"analyticsMetrics": analytics}
+
+	err = app.writeJSON(w, http.StatusOK, env, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}

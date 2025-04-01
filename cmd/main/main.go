@@ -49,7 +49,6 @@ func main() {
 	err = server.Serve(app)
 	if err != nil {
 		logger.PrintFatal(err, nil)
-
 	}
-
+	print("nil error")
 }

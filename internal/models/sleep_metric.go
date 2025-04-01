@@ -29,6 +29,7 @@ func (m SleepMetricModel) GetUserSleepMetrics(userId string, date time.Time) ([]
 	SELECT usm.id, usm.is_night, usm.time_slept, usm.time_woke_up, usm.tags, usm.date, usm.severity
     FROM user_sleep_metric usm
     WHERE usm.user_id = $1 AND usm.date = $2
+	ORDER BY usm.id DESC;
     `
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
