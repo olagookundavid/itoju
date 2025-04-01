@@ -27,6 +27,7 @@ func (m MedicationMetricModel) GetUserMedicationMetrics(userId string, date time
 	SELECT umm.id, umm.time, umm.dosage, umm.quantity, umm.name, umm.date, umm.metric
     FROM user_medication_metric umm
     WHERE umm.user_id = $1 AND umm.date = $2
+	ORDER BY umm.id DESC;
     `
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

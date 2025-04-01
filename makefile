@@ -39,7 +39,7 @@ db/migrate/up:
 .PHONY: db/migrate/upt
 db/migrate/upt:
 	echo 'Running up migrations...'
-	@cd internal/sql/migrations/ && goose postgres postgres://itojudb:itojudb@localhost/itojudb up 
+	@cd internal/sql/migrations/ && goose postgres postgres://role:password@localhost:5432/itoju?sslmode=disable up 
 .PHONY: db/migrate/downt
 db/migrate/downt:
 	@echo 'Running down migrations...'
@@ -91,7 +91,7 @@ build/api:
 .PHONY: build/docker 
 build/docker: build/api
 	@echo 'Building docker...' 
-	docker build -t itojuapp . 
+	docker build -t goliathoh/itoju:latest .
 
 .PHONY: run/docker 
 run/docker: build/docker

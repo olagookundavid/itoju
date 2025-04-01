@@ -29,6 +29,31 @@ func (app *Application) GetBowelYearAnalytics(w http.ResponseWriter, r *http.Req
 
 }
 
+func (app *Application) GetExerciseYearAnalytics(w http.ResponseWriter, r *http.Request) {
+
+	user := app.contextGetUser(r)
+	year, err := app.readIntParam(r, "year")
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	analytics, err := app.Models.AnalyticsMetric.GetYearExerciseTypeOccurrences(user.ID, int(year))
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	env := envelope{
+		"message":          "Retrieved All Analytics for user",
+		"analyticsMetrics": analytics}
+
+	err = app.writeJSON(w, http.StatusOK, env, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
 func (app *Application) GetSymsYearAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)

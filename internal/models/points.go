@@ -29,7 +29,7 @@ func (m UserPointModel) GetUserTotalPoint(userId string, sendResult chan<- int) 
 	sendResult <- *userPoint
 }
 
-func (m UserPointModel) GetUserTotalPoints(userId string, sendDayResult chan<- int, sendMonthResult chan<- int) {
+func (m UserPointModel) GetUserTotalPoints(userId string, sendDayResult chan<- int, sendWeekResult chan<- int) {
 	query := `
 	SELECT 
 		COALESCE(SUM(point) FILTER (WHERE date_trunc('day', date) = CURRENT_DATE), 0) AS today_points, 
@@ -50,14 +50,14 @@ func (m UserPointModel) GetUserTotalPoints(userId string, sendDayResult chan<- i
 
 	}
 	sendDayResult <- *userDayPoint
-	sendMonthResult <- *userMonthPoint
+	sendWeekResult <- *userMonthPoint
 }
 
 func (m UserPointModel) InsertPoint(userId, scope string, point int64) error {
 
 	tx, err := m.DB.Begin()
 	if err != nil {
-		return errors.New("could add user point")
+		return errors.New("couldn't add user point")
 	}
 
 	// Ensure to rollback the transaction in case of an error

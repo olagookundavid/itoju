@@ -39,6 +39,9 @@ func (app *Application) CreateSymsMetric(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	app.Background(func() {
+		_ = app.Models.UserPoint.InsertPoint(user.ID, "Symptoms", 10)
+	})
 	env := envelope{
 		"message": "Successfully added Symptom",
 	}

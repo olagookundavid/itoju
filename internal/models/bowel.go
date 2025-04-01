@@ -28,6 +28,7 @@ func (m BowelMetricModel) GetUserBowelMetrics(userId string, date time.Time) ([]
 	SELECT ubm.id, ubm.time, ubm.type, ubm.pain, ubm.tags, ubm.date
     FROM user_bowel_metric ubm
     WHERE ubm.user_id = $1 AND ubm.date = $2
+	ORDER BY ubm.id DESC;
     `
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
