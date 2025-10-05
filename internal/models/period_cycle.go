@@ -148,6 +148,7 @@ func (m *UserPeriodModel) UpdateCycleDay(cycleDay *CycleDay) error {
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
+		m.DB.BeginTx(ctx, nil)
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrEditConflict
