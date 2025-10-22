@@ -33,24 +33,23 @@ func (app *Application) GetUserMedicationMetrics(w http.ResponseWriter, r *http.
 }
 
 func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Request) {
-	// user := app.contextGetUser(r)
-	// id, err := app.readIDParam(r)
-	// if err != nil {
-	// 	app.NotFoundResponse(w, r)
-	// 	return
-	// }
-	// medicationMetric, err := app.Models.MedicationMetric.GetUserMedicationMetric(user.ID, id)
-	// if err != nil {
-	// 	switch {
-	// 	case errors.Is(err, models.ErrRecordNotFound):
-	// 		app.NotFoundResponse(w, r)
-	// 	default:
-	// 		app.serverErrorResponse(w, r, err)
-	// 	}
-	// 	return
-	// }
+	user := app.contextGetUser(r)
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.NotFoundResponse(w, r)
+		return
+	}
+	medicationMetric, err := app.Models.MedicationMetric.GetUserMedicationMetric(user.ID, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
 
-	var medicationMetric *models.MedicationMetric = &models.MedicationMetric{}
 	var input struct {
 		Time     *string  `json:"time"`
 		Name     *string  `json:"name"`
@@ -58,7 +57,7 @@ func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Re
 		Dosage   *float64 `json:"dosage"`
 		Quantity *float64 `json:"quantity"`
 	}
-	err := app.readJSON(w, r, &input)
+	err = app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
