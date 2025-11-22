@@ -46,12 +46,6 @@ func (m *UserPeriodModel) ReturnCycleDay(cycleID, userID string, isPeriod, isOvu
 	}
 }
 
-// func (m *UserPeriodModel) ReturnCycleDay(CMQ string, cycleID, flow, pain int, isPeriod, isOvulation bool, date time.Time, tags []string) CycleDay {
-// 	return CycleDay{
-// 		CMQ: CMQ, CycleID: cycleID, Flow: flow, Pain: pain, IsPeriod: isPeriod, IsOvulation: isOvulation, Date: date,
-// 	}
-// }
-
 func (m *UserPeriodModel) GetMenstrualCycles(userID string) ([]MenstrualCycle, error) {
 	query := `SELECT id, user_id, start_date, cycle_length, period_length
               FROM menstrual_cycles WHERE user_id = $1 ORDER BY start_date DESC`
@@ -218,4 +212,24 @@ func (m *UserPeriodModel) GetMensesCycleIds(id string) ([]string, error) {
 	}
 
 	return cycleDayIds, nil
+}
+
+func (m *UserPeriodModel) DeleteMenstrualCycle(id, user_id string) error {
+
+	query := ` DELETE FROM menstrual_cycles WHERE id = $1 AND user_id = $2 `
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
 }

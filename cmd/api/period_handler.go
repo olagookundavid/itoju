@@ -236,3 +236,30 @@ func (app *Application) UpdateMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *Application) DeleteMenstrualCycle(w http.ResponseWriter, r *http.Request) {
+
+	user := app.contextGetUser(r)
+
+	id, err := app.readStringParam(r, "id")
+	if err != nil {
+		app.NotFoundResponse(w, r)
+		return
+	}
+
+	err = app.Models.UserPeriod.DeleteMenstrualCycle(id, user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Bowel Metric successfully deleted"}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
