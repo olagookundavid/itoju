@@ -18,6 +18,7 @@ func Routes(app *api.Application) http.Handler {
 
 	//Users auth
 	router.HandlerFunc(http.MethodPost, "/v1/login", app.LoginHandler)
+	router.HandlerFunc(http.MethodPost, "/v1/social-login", app.SocialLoginHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/register", app.RegisterUserHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/password-reset", app.CreatePasswordResetTokenHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/password", app.UpdateUserPasswordHandler)
@@ -28,10 +29,11 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodPut, "/v1/users/profile_pic", app.RequireActivatedAndAuthedUser(app.UpdateUserProfilePicHandler))
 
 	//User tracked metrics
-	router.Handler(http.MethodPost, "/v1/user/metrics", app.RequireActivatedAndAuthedUser(app.SetUserMetrics))
+	metricEndp := "/v1/user/metrics"
+	router.Handler(http.MethodPost, metricEndp, app.RequireActivatedAndAuthedUser(app.SetUserMetrics))
 	router.HandlerFunc(http.MethodGet, "/v1/allmetrics", (app.GetTrackedMetrics))
-	router.Handler(http.MethodGet, "/v1/user/metrics", app.RequireActivatedAndAuthedUser((app.GetUserTrackedMetrics)))
-	router.Handler(http.MethodDelete, "/v1/user/metrics", app.RequireActivatedAndAuthedUser((app.DeleteUserTrackedMetrics)))
+	router.Handler(http.MethodGet, metricEndp, app.RequireActivatedAndAuthedUser((app.GetUserTrackedMetrics)))
+	router.Handler(http.MethodDelete, metricEndp, app.RequireActivatedAndAuthedUser((app.DeleteUserTrackedMetrics)))
 	router.Handler(http.MethodGet, "/v1/user/metrics_status/:date", app.RequireActivatedAndAuthedUser((app.GetTrackedMetricsStatus)))
 
 	//User smileys
@@ -42,16 +44,18 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodGet, "/v1/user/smileys_count/:id", app.RequireActivatedAndAuthedUser((app.GetUserSmileysCountInXDays)))
 
 	//User symptoms
+	symsEndp := "/v1/user/symptoms"
 	router.HandlerFunc(http.MethodGet, "/v1/allsymptoms", (app.GetSymptoms))
-	router.Handler(http.MethodGet, "/v1/user/symptoms", app.RequireActivatedAndAuthedUser((app.GetUserSymptoms)))
-	router.Handler(http.MethodPost, "/v1/user/symptoms", app.RequireActivatedAndAuthedUser((app.InsertUserSymptoms)))
-	router.Handler(http.MethodDelete, "/v1/user/symptoms", app.RequireActivatedAndAuthedUser((app.DeleteUserSymptoms)))
+	router.Handler(http.MethodGet, symsEndp, app.RequireActivatedAndAuthedUser((app.GetUserSymptoms)))
+	router.Handler(http.MethodPost, symsEndp, app.RequireActivatedAndAuthedUser((app.InsertUserSymptoms)))
+	router.Handler(http.MethodDelete, symsEndp, app.RequireActivatedAndAuthedUser((app.DeleteUserSymptoms)))
 
 	//User conditions
+	conditionsEndp := "/v1/user/conditions"
 	router.HandlerFunc(http.MethodGet, "/v1/allconditions", (app.GetConditions))
-	router.Handler(http.MethodGet, "/v1/user/conditions", app.RequireActivatedAndAuthedUser((app.GetUserConditions)))
-	router.Handler(http.MethodPost, "/v1/user/conditions", app.RequireActivatedAndAuthedUser((app.InsertUserConditions)))
-	router.Handler(http.MethodDelete, "/v1/user/conditions", app.RequireActivatedAndAuthedUser((app.DeleteUserConditions)))
+	router.Handler(http.MethodGet, conditionsEndp, app.RequireActivatedAndAuthedUser((app.GetUserConditions)))
+	router.Handler(http.MethodPost, conditionsEndp, app.RequireActivatedAndAuthedUser((app.InsertUserConditions)))
+	router.Handler(http.MethodDelete, conditionsEndp, app.RequireActivatedAndAuthedUser((app.DeleteUserConditions)))
 
 	//Resources
 	router.HandlerFunc(http.MethodGet, "/v1/resources", (app.GetResources))

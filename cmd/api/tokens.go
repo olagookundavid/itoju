@@ -61,6 +61,42 @@ func (app *Application) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Email string `json:"email"`
+	}
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	v := validator.New()
+	models.ValidateEmail(v, input.Email)
+	user, err := app.Models.Users.GetByEmail(input.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.invalidCredentialsResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	token, err := app.Models.Tokens.New(user.ID, 24*time.Hour, models.ScopeAuthentication)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	app.Background(func() {
+		_ = app.Models.UserPoint.InsertPoint(token.UserID, "Login", 5)
+	})
+	// Encode the token to JSON and send it in the response along with a 201 Created // status code.
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Successfully logged in User", "data": token}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse and validate the user's email address.
 	var input struct {
