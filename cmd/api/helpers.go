@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/olagookundavid/itoju/internal/validator"
+	"github.com/olagookundavid/itoju/internal/worker"
 )
 
 type envelope map[string]any
@@ -94,6 +96,17 @@ func (app *Application) readIntParam(r *http.Request, intName string) (int64, er
 	return id, nil
 }
 
+// readBoundedIntParam parses an integer route param and enforces an inclusive
+// [min, max] range, so callers can't request e.g. month=99 or days=999999.
+func (app *Application) readBoundedIntParam(r *http.Request, intName string, min, max int64) (int64, error) {
+	params := httprouter.ParamsFromContext(r.Context())
+	val, err := strconv.ParseInt(params.ByName(intName), 10, 64)
+	if err != nil || val < min || val > max {
+		return 0, fmt.Errorf("invalid %s parameter, must be between %d and %d", intName, min, max)
+	}
+	return val, nil
+}
+
 func (app *Application) readStringParam(r *http.Request, paramName string) (string, error) {
 	params := httprouter.ParamsFromContext(r.Context())
 	value := params.ByName(paramName)
@@ -161,16 +174,44 @@ func (app *Application) readInt(qs url.Values, key string, defaultValue int, v *
 	return i
 }
 
+// respond writes a JSON envelope, handling the encode error uniformly. It
+// collapses the repeated "writeJSON then serverErrorResponse" tail that ended
+// nearly every handler.
+func (app *Application) respond(w http.ResponseWriter, r *http.Request, status int, data envelope) {
+	if err := app.writeJSON(w, status, data, nil); err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// Background runs a fire-and-forget job on the bounded worker pool. Use this for
+// work the request doesn't wait on (emails, one-off setup). It caps concurrency
+// and drains on shutdown, unlike the old goroutine-per-call approach.
 func (app *Application) Background(fn func()) {
-	app.Wg.Add(1)
+	app.Pool.Submit(fn)
+}
+
+// goSafe runs a request-scoped goroutine with panic recovery. Use this — NOT the
+// pool — for in-request fan-out where the handler blocks on the results (e.g.
+// concurrent per-metric lookups), so blocking work can't starve the shared pool.
+func (app *Application) goSafe(fn func()) {
 	go func() {
-		defer app.Wg.Done()
 		defer func() {
 			if err := recover(); err != nil {
 				app.Logger.PrintError(fmt.Errorf("%s", err), nil)
 			}
 		}()
 		fn()
-		app.Wg.Wait()
 	}()
+}
+
+// AwardPoints queues a gamification point award. Awards are coalesced by the
+// PointsBatcher and written in bulk, instead of one transaction per request.
+func (app *Application) AwardPoints(userID, scope string, points int64) {
+	app.Points.Add(worker.PointEvent{UserID: userID, Scope: scope, Points: points})
+}
+
+// ShutdownBackground drains the worker pool and points batcher, bounded by ctx.
+func (app *Application) ShutdownBackground(ctx context.Context) {
+	app.Points.Shutdown(ctx)
+	app.Pool.Shutdown(ctx)
 }

@@ -131,21 +131,3 @@ func (m UrineMetricModel) DeleteUrineMetric(id int64, user_id string) error {
 	}
 	return nil
 }
-
-func (m UrineMetricModel) CheckUserEntry(userID string, date time.Time, sendbool chan<- bool) {
-
-	query := `
-	SELECT COUNT(*) AS entry_count
-	FROM user_urine_metric uum
-	WHERE uum.user_id = $1 AND uum.date = $2
-`
-	var entryCount int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(&entryCount)
-	if err != nil {
-		sendbool <- false
-		return
-	}
-	sendbool <- (entryCount > 0)
-}

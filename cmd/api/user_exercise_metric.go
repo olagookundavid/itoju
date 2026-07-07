@@ -23,10 +23,7 @@ func (app *Application) GetUserExerciseMetrics(w http.ResponseWriter, r *http.Re
 				"message":        "Retrieved All Exercise Metrics for user",
 				"exerciseMetric": exerciseMetric,
 			}
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -39,10 +36,7 @@ func (app *Application) GetUserExerciseMetrics(w http.ResponseWriter, r *http.Re
 		"exerciseMetric": exerciseMetric,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) CreateExerciseMetric(w http.ResponseWriter, r *http.Request) {
@@ -73,17 +67,12 @@ func (app *Application) CreateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Exercise", 2)
-	})
+	app.AwardPoints(user.ID, "Exercise", 2)
 	env := envelope{
 		"message": "Successfully Created Exercise Metrics!",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -93,8 +82,9 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		app.NotFoundResponse(w, r)
 		return
 	}
+	user := app.contextGetUser(r)
 
-	exerciseMetric, err := app.Models.ExerciseMetric.Get(id)
+	exerciseMetric, err := app.Models.ExerciseMetric.Get(id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -131,9 +121,11 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		exerciseMetric.Tags = *input.Tags
 	}
 
-	err = app.Models.ExerciseMetric.UpdateExerciseMetric(exerciseMetric, int(id))
+	err = app.Models.ExerciseMetric.UpdateExerciseMetric(exerciseMetric, int(id), user.ID)
 	if err != nil {
 		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
 		case errors.Is(err, models.ErrEditConflict):
 			app.editConflictResponse(w, r)
 		case errors.Is(err, models.ErrRecordAlreadyExist):
@@ -146,10 +138,7 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 	env := envelope{
 		"message": "Successfully Updated Exercise Metric",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteExerciseMetric(w http.ResponseWriter, r *http.Request) {
@@ -169,8 +158,5 @@ func (app *Application) DeleteExerciseMetric(w http.ResponseWriter, r *http.Requ
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Exercise Metric Successfully Deleted"}, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Exercise Metric Successfully Deleted"})
 }

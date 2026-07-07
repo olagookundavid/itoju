@@ -25,10 +25,7 @@ func (app *Application) GetUserBowelMetrics(w http.ResponseWriter, r *http.Reque
 		"message":      "Retrieved All Bowel Metrics for user",
 		"bowelMetrics": bowelMetric}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -88,10 +85,7 @@ func (app *Application) UpdateBowelMetric(w http.ResponseWriter, r *http.Request
 	env := envelope{
 		"message": "Successfully updated User Bowel Metrics",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) CreateBowelMetric(w http.ResponseWriter, r *http.Request) {
@@ -123,17 +117,12 @@ func (app *Application) CreateBowelMetric(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Bowel", 2)
-	})
+	app.AwardPoints(user.ID, "Bowel", 2)
 	env := envelope{
 		"message": "Successfully Created User Bowel Metrics!",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteBowelMetric(w http.ResponseWriter, r *http.Request) {
@@ -155,9 +144,5 @@ func (app *Application) DeleteBowelMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Bowel Metric successfully deleted"}, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Bowel Metric successfully deleted"})
 }

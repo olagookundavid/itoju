@@ -38,17 +38,17 @@ func (app *Application) SetUserMetrics(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for i := 0; i < len(input.Metrics); i++ {
-		_ = app.Models.Metrics.SetUserMetrics(tx, input.Metrics[i], user.ID)
+		if err = app.Models.Metrics.SetUserMetrics(tx, input.Metrics[i], user.ID); err != nil {
+			// deferred func rolls back and writes the error response
+			return
+		}
 	}
 
 	env := envelope{
 		"message": "Successfully added track metrics",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetTrackedMetrics(w http.ResponseWriter, r *http.Request) {
@@ -63,10 +63,7 @@ func (app *Application) GetTrackedMetrics(w http.ResponseWriter, r *http.Request
 		"message": "Retrieved All Trackable Metrics",
 		"metrics": metrics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetUserTrackedMetrics(w http.ResponseWriter, r *http.Request) {
@@ -82,10 +79,7 @@ func (app *Application) GetUserTrackedMetrics(w http.ResponseWriter, r *http.Req
 		"message": "Retrieved All Tracked Metrics for User",
 		"metrics": metrics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteUserTrackedMetrics(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +104,12 @@ func (app *Application) DeleteUserTrackedMetrics(w http.ResponseWriter, r *http.
 	defer func() {
 		if err != nil {
 			tx.Rollback()
-			app.serverErrorResponse(w, r, err)
+			switch {
+			case errors.Is(err, models.ErrRecordNotFound):
+				app.NotFoundResponse(w, r)
+			default:
+				app.serverErrorResponse(w, r, err)
+			}
 			return
 		}
 		err = tx.Commit()
@@ -120,27 +119,16 @@ func (app *Application) DeleteUserTrackedMetrics(w http.ResponseWriter, r *http.
 	}()
 
 	for i := 0; i < len(input.Metrics); i++ {
-		_ = app.Models.Metrics.DeleteUserMetrics(tx, user.ID, input.Metrics[i])
-	}
-
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrRecordNotFound):
-			app.NotFoundResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
+		if err = app.Models.Metrics.DeleteUserMetrics(tx, user.ID, input.Metrics[i]); err != nil {
+			// deferred func rolls back and writes the mapped error response
+			return
 		}
-		return
 	}
 
 	env := envelope{
 		"message": "Deleted Tracked Metric for User"}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetTrackedMetricsStatus(w http.ResponseWriter, r *http.Request) {
@@ -153,67 +141,14 @@ func (app *Application) GetTrackedMetricsStatus(w http.ResponseWriter, r *http.R
 
 	user := app.contextGetUser(r)
 
-	exerciseBoolResult := make(chan bool)
-	symsBoolResult := make(chan bool)
-	sleepBoolResult := make(chan bool)
-	foodBoolResult := make(chan bool)
-	medicationBoolResult := make(chan bool)
-	bowelBoolResult := make(chan bool)
-	urineBoolResult := make(chan bool)
-
-	defer close(exerciseBoolResult)
-	defer close(symsBoolResult)
-	defer close(sleepBoolResult)
-	defer close(foodBoolResult)
-	defer close(medicationBoolResult)
-	defer close(bowelBoolResult)
-	defer close(urineBoolResult)
-
-	app.Background(func() {
-		app.Models.SymsMetric.CheckUserEntry(user.ID, date, symsBoolResult)
-	})
-	app.Background(func() {
-		app.Models.SleepMetric.CheckUserEntry(user.ID, date, sleepBoolResult)
-	})
-	app.Background(func() {
-		app.Models.FoodMetric.CheckUserEntry(user.ID, date, foodBoolResult)
-	})
-	app.Background(func() {
-		app.Models.ExerciseMetric.CheckUserEntry(user.ID, date, exerciseBoolResult)
-	})
-	app.Background(func() {
-		app.Models.MedicationMetric.CheckUserEntry(user.ID, date, medicationBoolResult)
-	})
-	app.Background(func() {
-		app.Models.BowelMetric.CheckUserEntry(user.ID, date, bowelBoolResult)
-	})
-	app.Background(func() {
-		app.Models.UrineMetric.CheckUserEntry(user.ID, date, urineBoolResult)
-	})
-
-	symsBool := <-symsBoolResult
-	sleepBool := <-sleepBoolResult
-	foodBool := <-foodBoolResult
-	exerciseBool := <-exerciseBoolResult
-	medicationBool := <-medicationBoolResult
-	urineBool := <-urineBoolResult
-	bowelBool := <-bowelBoolResult
-
-	resultMap := make(map[string]bool)
-	resultMap["symptoms"] = symsBool
-	resultMap["sleep"] = sleepBool
-	resultMap["food"] = foodBool
-	resultMap["exercise"] = exerciseBool
-	resultMap["bowel"] = bowelBool
-	resultMap["medication"] = medicationBool
-	resultMap["urine"] = urineBool
+	resultMap, err := app.Models.Metrics.GetMetricsStatus(user.ID, date)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	env := envelope{
 		"message": "retrieved Tracked Metric Status for User", "metrics_status": resultMap}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

@@ -16,10 +16,7 @@ func (app *Application) GetConditions(w http.ResponseWriter, r *http.Request) {
 		"message":    "Retrieved All Conditions",
 		"conditions": conditions}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetUserConditions(w http.ResponseWriter, r *http.Request) {
@@ -35,10 +32,7 @@ func (app *Application) GetUserConditions(w http.ResponseWriter, r *http.Request
 		"message":    "Retrieved All Conditions for User",
 		"conditions": conditions}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) InsertUserConditions(w http.ResponseWriter, r *http.Request) {
@@ -70,17 +64,16 @@ func (app *Application) InsertUserConditions(w http.ResponseWriter, r *http.Requ
 	}()
 
 	for i := 0; i < len(input.Conditions); i++ {
-		_ = app.Models.Conditions.SetUserConditions(tx, input.Conditions[i], user.ID)
+		if err = app.Models.Conditions.SetUserConditions(tx, input.Conditions[i], user.ID); err != nil {
+			return
+		}
 	}
 
 	env := envelope{
 		"message": "Successfully added User Conditions",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteUserConditions(w http.ResponseWriter, r *http.Request) {
@@ -115,15 +108,13 @@ func (app *Application) DeleteUserConditions(w http.ResponseWriter, r *http.Requ
 	}()
 
 	for i := 0; i < len(input.Conditions); i++ {
-		_ = app.Models.Conditions.DeleteUserConditions(tx, user.ID, input.Conditions[i])
+		if err = app.Models.Conditions.DeleteUserConditions(tx, user.ID, input.Conditions[i]); err != nil {
+			return
+		}
 	}
 
 	env := envelope{
 		"message": "Deleted Conditions for User"}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

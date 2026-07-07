@@ -200,3 +200,45 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 	}
 	return &user, nil
 }
+
+// GetForPasswordResetOTP returns the user only when the supplied 6-digit OTP
+// matches an unexpired password-reset token belonging to that exact email.
+// Binding the lookup to the email prevents one user's OTP from matching another
+// user's token (6-digit codes have a small space, so a hash-only lookup could
+// collide across users).
+func (m UserModel) GetForPasswordResetOTP(email, otp string) (*User, error) {
+	otpHash := sha256.Sum256([]byte(otp))
+	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.isAdmin
+	FROM users
+	INNER JOIN tokens ON users.id = tokens.user_id
+	WHERE users.email = $1
+	AND tokens.hash = $2
+	AND tokens.scope = $3
+	AND tokens.expiry > $4`
+
+	args := []any{email, otpHash[:], ScopePasswordReset, time.Now()}
+	var user User
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.FirstName,
+		&user.LastName,
+		&user.Dob,
+		&user.Email,
+		&user.Password.hash,
+		&user.Activated,
+		&user.Version,
+		&user.PicNo,
+		&user.IsAdmin)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &user, nil
+}

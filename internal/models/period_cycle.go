@@ -126,8 +126,6 @@ func (m *UserPeriodModel) InsertCycleDayTx(tx *sql.Tx, day *CycleDay) error {
 
 	_, err := tx.ExecContext(ctx, query, day.CycleID, day.UserID, day.Date, day.IsPeriod, day.IsOvulation, day.Flow, day.Pain, pq.Array(day.Tags), day.CMQ, time.Now())
 	if err != nil {
-
-		print(err.Error())
 		return err
 	}
 	return nil
@@ -135,33 +133,35 @@ func (m *UserPeriodModel) InsertCycleDayTx(tx *sql.Tx, day *CycleDay) error {
 
 func (m *UserPeriodModel) UpdateCycleDay(cycleDay *CycleDay) error {
 
-	query := `UPDATE cycles_days SET flow = $1, pain = $2, is_ovulation = $3, is_period = $4, cmq = $5, tags = $6  WHERE id = $7`
+	query := `UPDATE cycles_days SET flow = $1, pain = $2, is_ovulation = $3, is_period = $4, cmq = $5, tags = $6  WHERE id = $7 AND user_id = $8`
 
-	args := []any{cycleDay.Flow, cycleDay.Pain, cycleDay.IsOvulation, cycleDay.IsPeriod, cycleDay.CMQ, pq.Array(cycleDay.Tags), cycleDay.ID}
+	args := []any{cycleDay.Flow, cycleDay.Pain, cycleDay.IsOvulation, cycleDay.IsPeriod, cycleDay.CMQ, pq.Array(cycleDay.Tags), cycleDay.ID, cycleDay.UserID}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
-		m.DB.BeginTx(ctx, nil)
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }
 
-func (m *UserPeriodModel) GetCycleDay(id string) (*CycleDay, error) {
+func (m *UserPeriodModel) GetCycleDay(id, userID string) (*CycleDay, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
-	query := ` SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq FROM cycles_days WHERE id = $1; `
+	query := ` SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq FROM cycles_days WHERE id = $1 AND user_id = $2; `
 	var cycleDay CycleDay
+	cycleDay.UserID = userID
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, id).Scan(
+	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(
 		&cycleDay.ID,
 		&cycleDay.CycleID,
 		&cycleDay.Date,

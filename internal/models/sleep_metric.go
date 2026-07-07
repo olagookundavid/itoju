@@ -131,21 +131,3 @@ func (m SleepMetricModel) DeleteSleepMetric(id int64, user_id string) error {
 	}
 	return nil
 }
-
-func (m SleepMetricModel) CheckUserEntry(userID string, date time.Time, sendbool chan<- bool) {
-
-	query := `
-	SELECT COUNT(*) AS entry_count
-	FROM user_sleep_metric usm
-	WHERE usm.user_id = $1 AND usm.date = $2
-`
-	var entryCount int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(&entryCount)
-	if err != nil {
-		sendbool <- false
-		return
-	}
-	sendbool <- (entryCount > 0)
-}

@@ -21,10 +21,7 @@ func (app *Application) GetSmileys(w http.ResponseWriter, r *http.Request) {
 		"message": "Retrieved All Smileys",
 		"smileys": smileys}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) InsertUserSmileys(w http.ResponseWriter, r *http.Request) {
@@ -62,10 +59,7 @@ func (app *Application) InsertUserSmileys(w http.ResponseWriter, r *http.Request
 		"message": "Successfully added User smiley",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -82,10 +76,7 @@ func (app *Application) GetUserSmileys(w http.ResponseWriter, r *http.Request) {
 		"message": "Retrieved All Smileys for User",
 		"smileys": smileys}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetLatestUserSmileyForToday(w http.ResponseWriter, r *http.Request) {
@@ -105,10 +96,7 @@ func (app *Application) GetLatestUserSmileyForToday(w http.ResponseWriter, r *ht
 		"message": "Retrieved All Smileys for User",
 		"smileys": smiley}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetUserSmileysCountInXDays(w http.ResponseWriter, r *http.Request) {
@@ -131,8 +119,5 @@ func (app *Application) GetUserSmileysCountInXDays(w http.ResponseWriter, r *htt
 		"total_count": totalCount,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

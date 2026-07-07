@@ -25,10 +25,7 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 		"message":      "Retrieved All Sleep Metrics for user",
 		"sleepMetrics": sleepMetric}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -45,10 +42,10 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 	dayErrChan := make(chan error)
 	nightErrChan := make(chan error)
 	var daySleepMetric, nightSleepMetric *models.SleepMetric
-	app.Background(func() {
+	app.goSafe(func() {
 		app.getUserSleepMetricAsync(user.ID, date, dayMetricChan, dayErrChan, false)
 	})
-	app.Background(func() {
+	app.goSafe(func() {
 		app.getUserSleepMetricAsync(user.ID, date, nightMetricChan, nightErrChan, true)
 	})
 	for i := 0; i < 2; i++ {
@@ -70,10 +67,7 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 		"daySleepMetric":   daySleepMetric,
 		"nightSleepMetric": nightSleepMetric,
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) getUserSleepMetricAsync(userID string, date time.Time, sendMetric chan<- (*models.SleepMetric), errChan chan<- error, isNight bool) {
@@ -142,10 +136,7 @@ func (app *Application) UpdateSleepMetric(w http.ResponseWriter, r *http.Request
 	env := envelope{
 		"message": "Successfully updated User Sleep Metrics",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) CreateSleepMetric(w http.ResponseWriter, r *http.Request) {
@@ -179,17 +170,12 @@ func (app *Application) CreateSleepMetric(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Sleep", 2)
-	})
+	app.AwardPoints(user.ID, "Sleep", 2)
 	env := envelope{
 		"message": "Successfully Created User Sleep Metrics!",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteSleepMetric(w http.ResponseWriter, r *http.Request) {
@@ -211,9 +197,5 @@ func (app *Application) DeleteSleepMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Sleep Metric successfully deleted"}, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Sleep Metric successfully deleted"})
 }

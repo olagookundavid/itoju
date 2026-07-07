@@ -1,17 +1,21 @@
 package api
 
 import (
-	"sync"
-
+	"github.com/olagookundavid/itoju/internal/firebaseauth"
 	"github.com/olagookundavid/itoju/internal/jsonlog"
+	"github.com/olagookundavid/itoju/internal/mailer"
 	"github.com/olagookundavid/itoju/internal/models"
+	"github.com/olagookundavid/itoju/internal/worker"
 )
 
 type Application struct {
-	Config Config
-	Logger *jsonlog.Logger
-	Models models.Models
-	Wg     sync.WaitGroup
+	Config   Config
+	Logger   *jsonlog.Logger
+	Models   models.Models
+	Mailer   *mailer.Mailer
+	Firebase *firebaseauth.Verifier
+	Pool     *worker.Pool
+	Points   *worker.PointsBatcher
 }
 
 type Config struct {
@@ -30,5 +34,21 @@ type Config struct {
 	}
 	Cors struct {
 		TrustedOrigins []string
+	}
+	Resend struct {
+		ApiKey string
+		From   string
+	}
+	Firebase struct {
+		ProjectID string
+	}
+	Worker struct {
+		PoolSize  int
+		QueueSize int
+	}
+	Points struct {
+		BatchSize       int
+		BufferSize      int
+		FlushIntervalMs int
 	}
 }

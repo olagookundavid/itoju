@@ -28,23 +28,28 @@ func Serve(app *api.Application) error {
 	}
 	shutdownError := make(chan error)
 
-	app.Background(
-		func() {
-			// Intercept the signals, as before.
-			quit := make(chan os.Signal, 1)
-			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-			s := <-quit
-			app.Logger.PrintInfo("shutting down server", map[string]string{"signal": s.String()})
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			err := srv.Shutdown(ctx)
-			if err != nil {
-				shutdownError <- err
-			}
-			app.Logger.PrintInfo("completing background tasks", map[string]string{"addr": srv.Addr})
+	// Long-lived signal listener: a plain goroutine (NOT the worker pool, which
+	// is for short fire-and-forget jobs).
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+		app.Logger.PrintInfo("shutting down server", map[string]string{"signal": s.String()})
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
 
-			shutdownError <- nil
-		})
+		// Stop accepting new requests, then drain outstanding background work
+		// (queued point awards, emails) before exiting.
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			shutdownError <- err
+			return
+		}
+		app.Logger.PrintInfo("completing background tasks", map[string]string{"addr": srv.Addr})
+		app.ShutdownBackground(ctx)
+
+		shutdownError <- nil
+	}()
 
 	logger.PrintInfo("starting server", map[string]string{"addr": srv.Addr, "env": app.Config.Env})
 	err := srv.ListenAndServe()

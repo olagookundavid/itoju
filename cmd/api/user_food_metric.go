@@ -23,10 +23,7 @@ func (app *Application) GetUserFoodMetrics(w http.ResponseWriter, r *http.Reques
 				"message":    "Retrieved All Food Metrics for user",
 				"foodMetric": foodMetric,
 			}
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -39,10 +36,7 @@ func (app *Application) GetUserFoodMetrics(w http.ResponseWriter, r *http.Reques
 		"foodMetric": foodMetric,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Request) {
@@ -181,17 +175,12 @@ func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Req
 				app.serverErrorResponse(w, r, err)
 				return
 			}
-			app.Background(func() {
-				_ = app.Models.UserPoint.InsertPoint(user.ID, "Food", 2)
-			})
+			app.AwardPoints(user.ID, "Food", 2)
 			env := envelope{
 				"message": "Successfully updated User Food Metrics!",
 			}
 
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
@@ -291,8 +280,5 @@ func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Req
 	env := envelope{
 		"message": "Successfully updated User Food Metrics",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

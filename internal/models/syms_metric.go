@@ -115,16 +115,16 @@ func (m SymsMetricModel) GetUserTopNSyms(userId string, interval int) ([]*SymTop
 	return outPuts, nil
 }
 
-func (m SymsMetricModel) Get(id int64) (*SymsMetric, error) {
+func (m SymsMetricModel) Get(id int64, userID string) (*SymsMetric, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
 	query := ` SELECT usm.id, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
-	FROM user_symptoms_metric usm WHERE id = $1; `
+	FROM user_symptoms_metric usm WHERE id = $1 AND user_id = $2; `
 	var symsMetric SymsMetric
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, id).Scan(&symsMetric.Id, &symsMetric.Date, &symsMetric.MorningSeverity, &symsMetric.AfternoonSeverity, &symsMetric.NightSeverity)
+	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(&symsMetric.Id, &symsMetric.Date, &symsMetric.MorningSeverity, &symsMetric.AfternoonSeverity, &symsMetric.NightSeverity)
 
 	if err != nil {
 		switch {
@@ -137,21 +137,23 @@ func (m SymsMetricModel) Get(id int64) (*SymsMetric, error) {
 	return &symsMetric, nil
 }
 
-func (m SymsMetricModel) UpdateSymsMetric(symsMetric *SymsMetric, id int) error {
+func (m SymsMetricModel) UpdateSymsMetric(symsMetric *SymsMetric, id int, userID string) error {
 
-	query := ` UPDATE user_symptoms_metric SET morning_severity = $1, afternoon_severity= $2, night_severity = $3 WHERE id = $4; `
+	query := ` UPDATE user_symptoms_metric SET morning_severity = $1, afternoon_severity= $2, night_severity = $3 WHERE id = $4 AND user_id = $5; `
 
-	args := []any{symsMetric.MorningSeverity, symsMetric.AfternoonSeverity, symsMetric.NightSeverity, symsMetric.Id}
+	args := []any{symsMetric.MorningSeverity, symsMetric.AfternoonSeverity, symsMetric.NightSeverity, symsMetric.Id, userID}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }
@@ -236,22 +238,4 @@ func (m SymsMetricModel) DaysTrackedFree(userID string) (*int, error) {
 		return nil, err
 	}
 	return &maxConsecutiveDays, err
-}
-
-func (m SymsMetricModel) CheckUserEntry(userID string, date time.Time, sendbool chan<- bool) {
-
-	query := `
-	SELECT COUNT(*) AS entry_count
-	FROM user_symptoms_metric usm
-	WHERE usm.user_id = $1 AND usm.date = $2
-`
-	var entryCount int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(&entryCount)
-	if err != nil {
-		sendbool <- false
-		return
-	}
-	sendbool <- (entryCount > 0)
 }

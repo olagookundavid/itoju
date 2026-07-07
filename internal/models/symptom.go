@@ -3,12 +3,8 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/olagookundavid/itoju/internal/jsonlog"
 )
 
 type Symptoms struct {
@@ -75,15 +71,13 @@ func (m SymptomsModel) GetUserSymptoms(userID string) ([]*Symptoms, error) {
 
 func (m SymptomsModel) SetUserSymptoms(tx *sql.Tx, symID int, userID string) error {
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	query := ` INSERT INTO user_symptoms (user_id, symptoms_id) VALUES ($1, $2)`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_, err := tx.ExecContext(ctx, query, userID, symID)
 	if err != nil {
-		logger.PrintError(fmt.Errorf("symptom error  %s", err), nil)
-		return errors.New("couldn't Add New Symptoms")
+		return fmt.Errorf("couldn't add new symptoms: %w", err)
 	}
 	return nil
 
@@ -91,7 +85,6 @@ func (m SymptomsModel) SetUserSymptoms(tx *sql.Tx, symID int, userID string) err
 
 func (m SymptomsModel) DeleteUserSymptoms(tx *sql.Tx, userId string, symptomsID int) error {
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	query := ` DELETE FROM user_symptoms
 	WHERE user_id = $1
 	AND symptoms_id = $2; `
@@ -101,8 +94,7 @@ func (m SymptomsModel) DeleteUserSymptoms(tx *sql.Tx, userId string, symptomsID 
 
 	_, err := tx.ExecContext(ctx, query, userId, symptomsID)
 	if err != nil {
-		logger.PrintError(fmt.Errorf("symptom error  %s", err), nil)
-		return errors.New("couldn't Delete Symptoms")
+		return fmt.Errorf("couldn't delete symptoms: %w", err)
 	}
 
 	return nil

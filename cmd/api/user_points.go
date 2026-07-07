@@ -29,10 +29,10 @@ func (app *Application) GetUserTotalPoints(w http.ResponseWriter, r *http.Reques
 	defer close(userDayPoint)
 	defer close(userMonthPoint)
 
-	app.Background(func() {
+	app.goSafe(func() {
 		app.Models.UserPoint.GetUserTotalPoint(user.ID, userPoint)
 	})
-	app.Background(func() {
+	app.goSafe(func() {
 		app.Models.UserPoint.GetUserTotalPoints(user.ID, userDayPoint, userMonthPoint)
 	})
 
@@ -78,8 +78,5 @@ func (app *Application) AddUserTotalPoints(w http.ResponseWriter, r *http.Reques
 		"message": pointMsg,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

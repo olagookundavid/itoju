@@ -55,15 +55,66 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if app.Config.Limiter.Enabled {
+		// When the limiter is disabled, pass the request straight through.
+		// (Previously the disabled branch fell through without calling next,
+		// which would silently drop every request if this was ever wired in.)
+		if !app.Config.Limiter.Enabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ip := realip.FromRequest(r)
+		mu.Lock()
+		if _, found := clients[ip]; !found {
+			clients[ip] = &client{
+				limiter: rate.NewLimiter(
+					rate.Limit(app.Config.Limiter.Rps),
+					app.Config.Limiter.Burst),
+			}
+		}
+		clients[ip].lastSeen = time.Now()
+		if !clients[ip].limiter.Allow() {
+			mu.Unlock()
+			app.rateLimitExceededResponse(w, r)
+			return
+		}
+		mu.Unlock()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// newAuthRateLimiter returns a wrapper that throttles sensitive auth endpoints
+// (login, register, password reset) per client IP to slow down brute-force and
+// credential-stuffing attempts, without affecting the app's data endpoints.
+func (app *Application) NewAuthRateLimiter() func(http.HandlerFunc) http.HandlerFunc {
+	type client struct {
+		limiter  *rate.Limiter
+		lastSeen time.Time
+	}
+	var (
+		mu      sync.Mutex
+		clients = make(map[string]*client)
+	)
+	go func() {
+		for {
+			time.Sleep(time.Minute)
+			mu.Lock()
+			for ip, c := range clients {
+				if time.Since(c.lastSeen) > 3*time.Minute {
+					delete(clients, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			ip := realip.FromRequest(r)
 			mu.Lock()
 			if _, found := clients[ip]; !found {
-				clients[ip] = &client{
-					limiter: rate.NewLimiter(
-						rate.Limit(app.Config.Limiter.Rps),
-						app.Config.Limiter.Burst),
-				}
+				// ~1 request/sec sustained, burst of 5.
+				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(1), 5)}
 			}
 			clients[ip].lastSeen = time.Now()
 			if !clients[ip].limiter.Allow() {
@@ -72,9 +123,21 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 				return
 			}
 			mu.Unlock()
-			next.ServeHTTP(w, r)
+			next(w, r)
+		}
+	}
+}
+
+// RequireAdminUser only allows activated, authenticated users whose account is
+// flagged as admin. Used to gate content-management and diagnostics endpoints.
+func (app *Application) RequireAdminUser(next http.HandlerFunc) http.HandlerFunc {
+	return app.RequireActivatedAndAuthedUser(func(w http.ResponseWriter, r *http.Request) {
+		user := app.contextGetUser(r)
+		if !user.IsAdmin {
+			app.NotPermittedResponse(w, r)
 			return
 		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -99,11 +162,16 @@ func (app *Application) RequireActivatedAndAuthedUser(next http.HandlerFunc) htt
 		next.ServeHTTP(w, r)
 	})
 }
-func (app *Application) Print(next http.Handler) http.Handler {
+
+// SecureHeaders sets conservative security response headers on every response.
+func (app *Application) SecureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		print("Went Through")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		// This is a JSON API; disallow embedding/loading of active content.
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
-		print("Exitted")
 	})
 }
 func (app *Application) Authenticate(next http.Handler) http.Handler {
