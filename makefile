@@ -30,11 +30,12 @@ db/psql:
 	docker exec -it post-db bash
 	psql postgres://itojudb:itojudb@localhost/itojudb?sslmode=disable
  
-## db/migrate/up: apply all up database migrations
+## db/migrate/up: apply all up database migrations to $$DB_URL
 .PHONY: db/migrate/up
 db/migrate/up:
-	echo 'Running up migrations...'
-	@cd internal/sql/migrations/ && goose postgres postgres://itojudb:itojudb@localhost/itojudb up && goose postgres postgres://koyeb-adm:rcHo1Ck7BYmf@ep-tiny-mode-a2d0vyca.eu-central-1.pg.koyeb.app/Itoju-ky up && goose postgres postgres://djjsagev:WG11sRXwe2q1C0I9-3XhTZywTnhbZQPJ@stampy.db.elephantsql.com/djjsagev up
+	@test -n "$${DB_URL}" || (echo 'DB_URL is not set' && exit 1)
+	@echo 'Running up migrations...'
+	@cd internal/sql/migrations/ && goose postgres "$${DB_URL}" up
 
 .PHONY: db/migrate/upt
 db/migrate/upt:
@@ -45,11 +46,12 @@ db/migrate/downt:
 	@echo 'Running down migrations...'
 	@cd internal/sql/migrations/ && goose postgres postgres://itojudb:itojudb@localhost/itojudb down
 
-## db/migrate/down: apply all down database migrations
+## db/migrate/down: apply all down database migrations to $$DB_URL
 .PHONY: db/migrate/down
 db/migrate/down:
+	@test -n "$${DB_URL}" || (echo 'DB_URL is not set' && exit 1)
 	@echo 'Running down migrations...'
-	@cd internal/sql/migrations/ && goose postgres postgres://itojudb:itojudb@localhost/itojudb down && goose postgres postgres://koyeb-adm:rcHo1Ck7BYmf@ep-tiny-mode-a2d0vyca.eu-central-1.pg.koyeb.app/Itoju-ky down && goose postgres postgres://djjsagev:WG11sRXwe2q1C0I9-3XhTZywTnhbZQPJ@stampy.db.elephantsql.com/djjsagev down
+	@cd internal/sql/migrations/ && goose postgres "$${DB_URL}" down
 
 # ==================================================================================== # 
 # QUALITY CONTROL 
@@ -93,7 +95,8 @@ build/docker: build/api
 	@echo 'Building docker...' 
 	docker build -t goliathoh/itoju:latest .
 
-.PHONY: run/docker 
+.PHONY: run/docker
 run/docker: build/docker
-	@echo 'Building docker...' 
-	docker run -e DB_URL=postgres://djjsagev:WG11sRXwe2q1C0I9-3XhTZywTnhbZQPJ@stampy.db.elephantsql.com/djjsagev itojuapp
+	@test -n "$${DB_URL}" || (echo 'DB_URL is not set' && exit 1)
+	@echo 'Running docker...'
+	docker run -e DB_URL="$${DB_URL}" itojuapp
