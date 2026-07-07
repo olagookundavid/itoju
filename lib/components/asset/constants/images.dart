@@ -1,0 +1,39 @@
+class Images {
+  // ignore: constant_identifier_names
+  static const String DecisionPage = "asset/png/Rectangle 196.png";
+  static const String onBoard1 = "asset/png/Rectangle 199.png";
+  static const String onBoard2 = "asset/png/Rectangle 198.png";
+  static const String onBoard3 = "asset/png/Rectangle 200.png";
+  static const String startIcon = "images/itoju_icon.png";
+  static const String endIcon = "images/final_result.png";
+  static const String success = "asset/png/signUp_success.png";
+  static const String backAche = "images/backache.svg";
+  static const String headAche = "images/headache.svg";
+  static const String fatigue = "images/fatigue.svg";
+  static const String cramps = "images/cramps.svg";
+  static const String exercise = "images/exercise.png";
+  static const String bowelMovement = "images/bowelMovement.png";
+  static const String food = "images/food.png";
+  static const String medications = "images/medications.png";
+  static const String sleep = "images/sleep.png";
+  static const String symptoms = "images/symptoms.png";
+  static const String urination = "images/urination.png";
+  static const String breakfast = "images/breakfast.png";
+  static const String dinner = "images/dinner.png";
+  static const String lunch = "images/lunch.png";
+  static const String snack = "images/snack.png";
+  static const String water = "images/water.png";
+  static const String waterglass = "images/waterglass.png";
+  static const String foodTag = "icons/food_tag.png";
+  static const String disComfort = "images/headache.png";
+  static const String type1 = "images/type1.png";
+  static const String type2 = "images/type2.png";
+  static const String type3 = "images/type3.png";
+  static const String type4 = "images/type4.png";
+  static const String type5 = "images/type5.png";
+  static const String type6 = "images/type6.png";
+  static const String type7 = "images/type7.png";
+  static const String medicationEmpty = "images/medication_empty.png";
+  static const String day = "images/day.png";
+  static const String night = "images/night.png";
+}
