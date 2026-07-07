@@ -38,10 +38,7 @@ func (app *Application) InsertMenses(w http.ResponseWriter, r *http.Request) {
 		"message": "Successfully added Menstruation Data ",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -59,10 +56,7 @@ func (app *Application) GetMenses(w http.ResponseWriter, r *http.Request) {
 					"cycle_len":  0,
 				}}
 
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
@@ -73,10 +67,7 @@ func (app *Application) GetMenses(w http.ResponseWriter, r *http.Request) {
 		"message": "Retrieved User Menses",
 		"menses":  menses}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
@@ -115,10 +106,7 @@ func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
 				"message": "Successfully updated Menstruation",
 			}
 
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
@@ -150,6 +138,8 @@ func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
 	err = app.Models.Menses.UpdateMenses(menses)
 	if err != nil {
 		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
 		case errors.Is(err, models.ErrEditConflict):
 			app.editConflictResponse(w, r)
 		default:
@@ -161,10 +151,7 @@ func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
 		"message": "Successfully updated Menstruation",
 		"menses":  menses,
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 //Body Measure
@@ -199,10 +186,7 @@ func (app *Application) InsertBodyMeasure(w http.ResponseWriter, r *http.Request
 		"message": "Successfully added Body Measure Data ",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -220,10 +204,7 @@ func (app *Application) GetBodyMeasure(w http.ResponseWriter, r *http.Request) {
 					"weight": 0,
 				}}
 
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
@@ -234,10 +215,7 @@ func (app *Application) GetBodyMeasure(w http.ResponseWriter, r *http.Request) {
 		"message":      "Retrieved User Body Measure",
 		"body_measure": bodyMeasure}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) UpdateBodyMeasure(w http.ResponseWriter, r *http.Request) {
@@ -277,10 +255,7 @@ func (app *Application) UpdateBodyMeasure(w http.ResponseWriter, r *http.Request
 				"message": "Successfully updated Body Measure",
 			}
 
-			err = app.writeJSON(w, http.StatusOK, env, nil)
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-			}
+			app.respond(w, r, http.StatusOK, env)
 			return
 
 		default:
@@ -325,8 +300,5 @@ func (app *Application) UpdateBodyMeasure(w http.ResponseWriter, r *http.Request
 		"message":      "Successfully updated Body Measure",
 		"body_measure": bodyMeasure,
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

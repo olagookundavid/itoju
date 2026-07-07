@@ -74,39 +74,41 @@ func (m ExerciseMetricModel) GetUserExerciseMetric(userId string, date time.Time
 	return exerciseMetrics, nil
 }
 
-func (m ExerciseMetricModel) UpdateExerciseMetric(exerciseMetric *ExerciseMetric, id int) error {
+func (m ExerciseMetricModel) UpdateExerciseMetric(exerciseMetric *ExerciseMetric, id int, userID string) error {
 
-	query := ` UPDATE user_exercise_metric SET started = $1, ended = $2, tags = $3, no_of_times = $4 WHERE id = $5; `
+	query := ` UPDATE user_exercise_metric SET started = $1, ended = $2, tags = $3, no_of_times = $4 WHERE id = $5 AND user_id = $6; `
 
-	args := []any{&exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.NoOfTimes, id}
+	args := []any{&exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.NoOfTimes, id, userID}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }
 
-func (m ExerciseMetricModel) Get(id int64) (*ExerciseMetric, error) {
+func (m ExerciseMetricModel) Get(id int64, userID string) (*ExerciseMetric, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
 	query := `
     SELECT uem.id, uem.name, uem.started, uem.ended, uem.tags, uem.date, uem.no_of_times
     FROM user_exercise_metric uem
-    WHERE id = $1
+    WHERE id = $1 AND user_id = $2
     `
 
 	var exerciseMetric ExerciseMetric
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, id).Scan(&exerciseMetric.ID, &exerciseMetric.Name, &exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.Date, &exerciseMetric.NoOfTimes)
+	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(&exerciseMetric.ID, &exerciseMetric.Name, &exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.Date, &exerciseMetric.NoOfTimes)
 
 	if err != nil {
 		switch {
@@ -117,24 +119,6 @@ func (m ExerciseMetricModel) Get(id int64) (*ExerciseMetric, error) {
 		}
 	}
 	return &exerciseMetric, nil
-}
-
-func (m ExerciseMetricModel) CheckUserEntry(userID string, date time.Time, sendbool chan<- bool) {
-
-	query := `
-	SELECT COUNT(*) AS entry_count
-	FROM user_exercise_metric uem
-	WHERE uem.user_id = $1 AND uem.date = $2
-`
-	var entryCount int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(&entryCount)
-	if err != nil {
-		sendbool <- false
-		return
-	}
-	sendbool <- (entryCount > 0)
 }
 
 func (m ExerciseMetricModel) DeleteExerciseMetric(id int64, user_id string) error {

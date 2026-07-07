@@ -44,6 +44,9 @@ func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, 
 		}
 		symptomOccurrences[sc.MonthOfYear] = Round(sc.AvgSev)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return symptomOccurrences, nil
 }
@@ -81,6 +84,9 @@ func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (ma
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		bowelTypeOccurrences[monthOfYear] = append(bowelTypeOccurrences[monthOfYear], KeyValue{Key: typeID, Value: occurrences})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	// Ensure all months from 1 to 12 have an entry in the map
@@ -125,6 +131,9 @@ func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) 
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		exerciseTypeOccurrences[monthOfYear] = occurrences
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	// Ensure all months from 1 to 12 have an entry in the map
@@ -271,6 +280,9 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		tagOccurrences[monthOfYear] = append(tagOccurrences[monthOfYear], KeyValue{Key: tag, Value: occurrences})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	// Ensure all months from 1 to 12 have an entry in the map

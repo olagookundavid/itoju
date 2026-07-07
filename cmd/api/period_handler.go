@@ -20,52 +20,65 @@ func (app *Application) GetMenstrualCycle(w http.ResponseWriter, r *http.Request
 	var periodDays = []models.CycleDay{}
 	var mu sync.Mutex // Mutex to control access to periodDays
 	var wg sync.WaitGroup
+	var firstErr error
 
 	for i := 0; i < len(ids); i++ {
-		print(ids[i])
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
 			defer func() {
-				if err := recover(); err != nil {
-					app.Logger.PrintError(fmt.Errorf("%s", err), nil)
+				if rec := recover(); rec != nil {
+					mu.Lock()
+					if firstErr == nil {
+						firstErr = fmt.Errorf("%s", rec)
+					}
+					mu.Unlock()
 				}
 			}()
 
 			cycleDays, err := app.Models.UserPeriod.GetCycleDays(id, user.ID)
+			// Collect errors/results under the mutex; never write to the
+			// ResponseWriter from a goroutine (it is not concurrency-safe).
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
-				app.serverErrorResponse(w, r, err)
+				if firstErr == nil {
+					firstErr = err
+				}
 				return
 			}
-
-			// Safely append the result to periodDays using a mutex
-			mu.Lock()
 			periodDays = append(periodDays, cycleDays...)
-			mu.Unlock()
-
 		}(ids[i])
 	}
 	wg.Wait()
+
+	if firstErr != nil {
+		app.serverErrorResponse(w, r, firstErr)
+		return
+	}
 
 	env := envelope{
 		"message":     "Retrieved All Period data",
 		"period_days": periodDays}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetCycleDay(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
 	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
 	}
-	periodDay, err := app.Models.UserPeriod.GetCycleDay(id)
+	periodDay, err := app.Models.UserPeriod.GetCycleDay(id, user.ID)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
@@ -73,10 +86,7 @@ func (app *Application) GetCycleDay(w http.ResponseWriter, r *http.Request) {
 		"message":    "Retrieved Period data",
 		"period_day": periodDay}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request) {
@@ -106,14 +116,12 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Roll back on any error path; the success path commits explicitly below
+	// (before the response is written) so a failed commit is still reported.
+	committed := false
 	defer func() {
-		if err != nil {
+		if !committed {
 			tx.Rollback()
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
 		}
 	}()
 
@@ -159,23 +167,27 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	if err = tx.Commit(); err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	committed = true
+
 	env := envelope{
 		"message": "Successful Created User Cycle",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) UpdateMenstrualCycle(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
 	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
 	}
 
-	cycleDay, err := app.Models.UserPeriod.GetCycleDay(id)
+	cycleDay, err := app.Models.UserPeriod.GetCycleDay(id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -231,10 +243,7 @@ func (app *Application) UpdateMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		"message":  "Successfully updated Cycle Day",
 		"cycleDay": cycleDay,
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteMenstrualCycle(w http.ResponseWriter, r *http.Request) {
@@ -257,9 +266,5 @@ func (app *Application) DeleteMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Bowel Metric successfully deleted"}, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Bowel Metric successfully deleted"})
 }

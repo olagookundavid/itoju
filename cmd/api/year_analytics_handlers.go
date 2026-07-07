@@ -7,7 +7,7 @@ import (
 func (app *Application) GetBowelYearAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	year, err := app.readIntParam(r, "year")
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -22,17 +22,14 @@ func (app *Application) GetBowelYearAnalytics(w http.ResponseWriter, r *http.Req
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
 func (app *Application) GetExerciseYearAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	year, err := app.readIntParam(r, "year")
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -47,10 +44,7 @@ func (app *Application) GetExerciseYearAnalytics(w http.ResponseWriter, r *http.
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -62,7 +56,7 @@ func (app *Application) GetSymsYearAnalytics(w http.ResponseWriter, r *http.Requ
 		app.NotFoundResponse(w, r)
 		return
 	}
-	year, err := app.readIntParam(r, "year")
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -77,17 +71,14 @@ func (app *Application) GetSymsYearAnalytics(w http.ResponseWriter, r *http.Requ
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": EnsureAllMonthsPresent(analytics)}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
 func (app *Application) GetTagsYearAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	year, err := app.readIntParam(r, "year")
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -111,10 +102,7 @@ func (app *Application) GetTagsYearAnalytics(w http.ResponseWriter, r *http.Requ
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 

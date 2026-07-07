@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base32"
+	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/olagookundavid/itoju/internal/validator"
@@ -16,6 +18,12 @@ const (
 	ScopeAuthentication = "authentication"
 	ScopePasswordReset  = "password-reset"
 )
+
+// AuthTokenTTL is how long an authentication (session) token stays valid before
+// a full re-login is required. Kept long-lived so users aren't logged out
+// frequently; the on-device app lock protects the session in the meantime, and
+// tokens can be revoked server-side via logout.
+const AuthTokenTTL = 90 * 24 * time.Hour
 
 type Token struct {
 	Plaintext string    `json:"token"`
@@ -46,12 +54,45 @@ func ValidateTokenPlaintext(v *validator.Validator, tokenPlaintext string) {
 	v.Check(len(tokenPlaintext) == 26, "token", "must be 26 bytes long")
 }
 
+func ValidateOTPPlaintext(v *validator.Validator, otp string) {
+	v.Check(otp != "", "otp", "must be provided")
+	v.Check(len(otp) == 6, "otp", "must be 6 digits long")
+}
+
+// generateOTP builds a cryptographically-random 6-digit numeric one-time code.
+// Only the SHA-256 hash is stored; the plaintext is emailed to the user.
+func generateOTP(userID string, ttl time.Duration, scope string) (*Token, error) {
+	token := &Token{
+		UserID: userID,
+		Expiry: time.Now().Add(ttl),
+		Scope:  scope,
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return nil, err
+	}
+	token.Plaintext = fmt.Sprintf("%06d", n.Int64())
+	hash := sha256.Sum256([]byte(token.Plaintext))
+	token.Hash = hash[:]
+	return token, nil
+}
+
 type TokenModel struct {
 	DB *sql.DB
 }
 
 func (m TokenModel) New(userID string, ttl time.Duration, scope string) (*Token, error) {
 	token, err := generateToken(userID, ttl, scope)
+	if err != nil {
+		return nil, err
+	}
+	err = m.Insert(token)
+	return token, err
+}
+
+// NewOTP creates and stores a 6-digit one-time code for the given user/scope.
+func (m TokenModel) NewOTP(userID string, ttl time.Duration, scope string) (*Token, error) {
+	token, err := generateOTP(userID, ttl, scope)
 	if err != nil {
 		return nil, err
 	}

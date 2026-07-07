@@ -7,7 +7,7 @@ import (
 func (app *Application) GetBowelDaysAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	days, err := app.readIntParam(r, "days")
+	days, err := app.readBoundedIntParam(r, "days", 1, 366)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -22,17 +22,14 @@ func (app *Application) GetBowelDaysAnalytics(w http.ResponseWriter, r *http.Req
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
 func (app *Application) GetExerciseDaysAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	days, err := app.readIntParam(r, "days")
+	days, err := app.readBoundedIntParam(r, "days", 1, 366)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -47,10 +44,7 @@ func (app *Application) GetExerciseDaysAnalytics(w http.ResponseWriter, r *http.
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -62,7 +56,7 @@ func (app *Application) GetSymsDaysAnalytics(w http.ResponseWriter, r *http.Requ
 		app.NotFoundResponse(w, r)
 		return
 	}
-	days, err := app.readIntParam(r, "days")
+	days, err := app.readBoundedIntParam(r, "days", 1, 366)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -77,17 +71,14 @@ func (app *Application) GetSymsDaysAnalytics(w http.ResponseWriter, r *http.Requ
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": EnsureAllDaysPresent(analytics)}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
 func (app *Application) GetTagsDaysAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	days, err := app.readIntParam(r, "days")
+	days, err := app.readBoundedIntParam(r, "days", 1, 366)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -111,10 +102,7 @@ func (app *Application) GetTagsDaysAnalytics(w http.ResponseWriter, r *http.Requ
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 

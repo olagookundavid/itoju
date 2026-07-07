@@ -54,7 +54,7 @@ func (m MensesModels) InsertMenses(menses *Menses) error {
 	INSERT INTO menstruation (user_id, period_len, cycle_len)
 	VALUES ($1, $2, $3) `
 
-	args := []any{menses.Id, menses.Cycle_len, menses.Period_len}
+	args := []any{menses.Id, menses.Period_len, menses.Cycle_len}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
@@ -71,14 +71,16 @@ func (m MensesModels) UpdateMenses(menses *Menses) error {
 	args := []any{menses.Period_len, menses.Cycle_len, menses.Id}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }

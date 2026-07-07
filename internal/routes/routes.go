@@ -16,13 +16,16 @@ func Routes(app *api.Application) http.Handler {
 	//Healthcheck
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.HealthcheckHandler)
 
-	//Users auth
-	router.HandlerFunc(http.MethodPost, "/v1/login", app.LoginHandler)
-	router.HandlerFunc(http.MethodPost, "/v1/social-login", app.SocialLoginHandler)
-	router.HandlerFunc(http.MethodPost, "/v1/register", app.RegisterUserHandler)
-	router.HandlerFunc(http.MethodPost, "/v1/password-reset", app.CreatePasswordResetTokenHandler)
-	router.HandlerFunc(http.MethodPut, "/v1/users/password", app.UpdateUserPasswordHandler)
+	//Users auth (throttled to slow brute-force / credential stuffing)
+	authLimit := app.NewAuthRateLimiter()
+	router.HandlerFunc(http.MethodPost, "/v1/login", authLimit(app.LoginHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/social-login", authLimit(app.SocialLoginHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/register", authLimit(app.RegisterUserHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/password-reset", authLimit(app.CreatePasswordResetTokenHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/verify-otp", authLimit(app.VerifyPasswordResetOTPHandler))
+	router.HandlerFunc(http.MethodPut, "/v1/users/password", authLimit(app.UpdateUserPasswordHandler))
 	router.Handler(http.MethodPut, "/v1/users/change-password", app.RequireActivatedAndAuthedUser(app.ChangeUserPasswordHandler))
+	router.Handler(http.MethodPost, "/v1/logout", app.RequireActivatedAndAuthedUser(app.LogoutHandler))
 
 	//Profile
 	router.Handler(http.MethodGet, "/v1/users/profile", app.RequireActivatedAndAuthedUser(app.GetUserProfileHandler))
@@ -57,11 +60,11 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodPost, conditionsEndp, app.RequireActivatedAndAuthedUser((app.InsertUserConditions)))
 	router.Handler(http.MethodDelete, conditionsEndp, app.RequireActivatedAndAuthedUser((app.DeleteUserConditions)))
 
-	//Resources
+	//Resources (reads are public; writes are admin-only content management)
 	router.HandlerFunc(http.MethodGet, "/v1/resources", (app.GetResources))
-	router.HandlerFunc(http.MethodPost, "/v1/resources", (app.InsertResources))
-	router.HandlerFunc(http.MethodPut, "/v1/resources/:id", (app.UpdateResources))
-	router.HandlerFunc(http.MethodDelete, "/v1/resources/:id", (app.DeleteResources))
+	router.Handler(http.MethodPost, "/v1/resources", app.RequireAdminUser(app.InsertResources))
+	router.Handler(http.MethodPut, "/v1/resources/:id", app.RequireAdminUser(app.UpdateResources))
+	router.Handler(http.MethodDelete, "/v1/resources/:id", app.RequireAdminUser(app.DeleteResources))
 
 	//Setting
 	router.Handler(http.MethodGet, "/v1/user/menses", app.RequireActivatedAndAuthedUser((app.GetMenses)))
@@ -143,9 +146,9 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodPut, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.UpdateMenstrualCycle)))
 	router.Handler(http.MethodDelete, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.DeleteMenstrualCycle)))
 
-	//Metrics
-	router.Handler(http.MethodGet, "/v1/debug/vars", expvar.Handler())
+	//Metrics (admin-only: exposes internal runtime + DB stats)
+	router.Handler(http.MethodGet, "/v1/debug/vars", app.RequireAdminUser(expvar.Handler().ServeHTTP))
 
 	//Middlewares
-	return app.RecoverPanic(app.Metrics(app.Authenticate(router)))
+	return app.RecoverPanic(app.SecureHeaders(app.Metrics(app.Authenticate(router))))
 }

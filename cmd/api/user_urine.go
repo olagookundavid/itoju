@@ -25,10 +25,7 @@ func (app *Application) GetUserUrineMetrics(w http.ResponseWriter, r *http.Reque
 		"message":      "Retrieved All Urine Metrics for user",
 		"urineMetrics": urineMetric}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -92,10 +89,7 @@ func (app *Application) UpdateUrineMetric(w http.ResponseWriter, r *http.Request
 	env := envelope{
 		"message": "Successfully updated User Urine Metrics",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) CreateUrineMetric(w http.ResponseWriter, r *http.Request) {
@@ -128,17 +122,12 @@ func (app *Application) CreateUrineMetric(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Urine", 2)
-	})
+	app.AwardPoints(user.ID, "Urine", 2)
 	env := envelope{
 		"message": "Successfully Created User Urine Metrics!",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteUrineMetric(w http.ResponseWriter, r *http.Request) {
@@ -160,9 +149,5 @@ func (app *Application) DeleteUrineMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Urine Metric successfully deleted"}, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Urine Metric successfully deleted"})
 }

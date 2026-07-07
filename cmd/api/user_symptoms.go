@@ -16,10 +16,7 @@ func (app *Application) GetSymptoms(w http.ResponseWriter, r *http.Request) {
 		"message":  "Retrieved All Symptoms",
 		"symptoms": symptoms}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetUserSymptoms(w http.ResponseWriter, r *http.Request) {
@@ -35,10 +32,7 @@ func (app *Application) GetUserSymptoms(w http.ResponseWriter, r *http.Request) 
 		"message":  "Retrieved All Symptoms for User",
 		"symptoms": symptoms}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) InsertUserSymptoms(w http.ResponseWriter, r *http.Request) {
@@ -70,17 +64,16 @@ func (app *Application) InsertUserSymptoms(w http.ResponseWriter, r *http.Reques
 	}()
 
 	for i := 0; i < len(input.Symptoms); i++ {
-		_ = app.Models.Symptoms.SetUserSymptoms(tx, input.Symptoms[i], user.ID)
+		if err = app.Models.Symptoms.SetUserSymptoms(tx, input.Symptoms[i], user.ID); err != nil {
+			return
+		}
 	}
 
 	env := envelope{
 		"message": "Successfully added User Symptoms",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteUserSymptoms(w http.ResponseWriter, r *http.Request) {
@@ -114,14 +107,12 @@ func (app *Application) DeleteUserSymptoms(w http.ResponseWriter, r *http.Reques
 	}()
 
 	for i := 0; i < len(input.Symptoms); i++ {
-		_ = app.Models.Symptoms.DeleteUserSymptoms(tx, user.ID, input.Symptoms[i])
+		if err = app.Models.Symptoms.DeleteUserSymptoms(tx, user.ID, input.Symptoms[i]); err != nil {
+			return
+		}
 	}
 	env := envelope{
 		"message": "Deleted Symptoms for User"}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

@@ -20,10 +20,7 @@ func (app *Application) GetResources(w http.ResponseWriter, r *http.Request) {
 		"message":   "Retrieved All Resources",
 		"resources": resources}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) InsertResources(w http.ResponseWriter, r *http.Request) {
@@ -56,10 +53,7 @@ func (app *Application) InsertResources(w http.ResponseWriter, r *http.Request) 
 		"message": "Successfully added Resource",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -123,10 +117,7 @@ func (app *Application) UpdateResources(w http.ResponseWriter, r *http.Request) 
 		"message":  "Successfully updated Resource",
 		"resource": resource,
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteResources(w http.ResponseWriter, r *http.Request) {
@@ -145,8 +136,5 @@ func (app *Application) DeleteResources(w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Resource successfully deleted"}, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Resource successfully deleted"})
 }

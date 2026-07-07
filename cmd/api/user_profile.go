@@ -46,8 +46,5 @@ func (app *Application) UpdateUserProfilePicHandler(w http.ResponseWriter, r *ht
 	}
 
 	env := envelope{"message": "your Profile pic as been updated"}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

@@ -129,21 +129,3 @@ func (m MedicationMetricModel) DeleteMedicationMetric(id int64, user_id string) 
 	}
 	return nil
 }
-
-func (m MedicationMetricModel) CheckUserEntry(userID string, date time.Time, sendbool chan<- bool) {
-
-	query := `
-	SELECT COUNT(*) AS entry_count
-	FROM user_medication_metric umm
-	WHERE umm.user_id = $1 AND umm.date = $2
-`
-	var entryCount int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(&entryCount)
-	if err != nil {
-		sendbool <- false
-		return
-	}
-	sendbool <- (entryCount > 0)
-}

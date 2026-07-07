@@ -47,6 +47,9 @@ func (m AnalyticsModel) GetSymptom7DaysOccurrences(userID string, symptomID int,
 		}
 		symptomOccurrences[sc.DayOfWeek] = Round(sc.AvgSev)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return symptomOccurrences, nil
 }
@@ -96,6 +99,9 @@ func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(userID string, days int) (m
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		bowelTypeOccurrences[strconv.Itoa(dayOfWeek)] = append(bowelTypeOccurrences[strconv.Itoa(dayOfWeek)], KeyValue{Key: typeID, Value: occurrences})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	for i := 0; i <= 6; i++ {
 		if _, exists := bowelTypeOccurrences[strconv.Itoa(i)]; !exists {
@@ -246,6 +252,9 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 		}
 		tagOccurrences[strconv.Itoa(dayOfWeek)] = append(tagOccurrences[strconv.Itoa(dayOfWeek)], KeyValue{Key: tag, Value: occurrences})
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	for i := 0; i <= 6; i++ {
 		if _, exists := tagOccurrences[strconv.Itoa(i)]; !exists {
@@ -289,6 +298,9 @@ ORDER BY
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		exerciseTypeOccurrences[strconv.Itoa(dayOfWeek)] = occurrences
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	for i := 0; i <= 6; i++ {
 		if _, exists := exerciseTypeOccurrences[strconv.Itoa(i)]; !exists {

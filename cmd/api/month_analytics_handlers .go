@@ -7,7 +7,7 @@ import (
 func (app *Application) GetMonthBowelAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	month, err := app.readIntParam(r, "month")
+	month, err := app.readBoundedIntParam(r, "month", 1, 12)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -22,10 +22,7 @@ func (app *Application) GetMonthBowelAnalytics(w http.ResponseWriter, r *http.Re
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -37,7 +34,7 @@ func (app *Application) GetSymsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		app.NotFoundResponse(w, r)
 		return
 	}
-	month, err := app.readIntParam(r, "month")
+	month, err := app.readBoundedIntParam(r, "month", 1, 12)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -52,17 +49,14 @@ func (app *Application) GetSymsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": EnsureAllWeeksPresent(analytics)}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
 func (app *Application) GetTagsMonthAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	month, err := app.readIntParam(r, "month")
+	month, err := app.readBoundedIntParam(r, "month", 1, 12)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -86,10 +80,7 @@ func (app *Application) GetTagsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -105,7 +96,7 @@ func EnsureAllWeeksPresent(metrics map[int]float64) map[int]float64 {
 func (app *Application) GetMonthExerciseAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	user := app.contextGetUser(r)
-	month, err := app.readIntParam(r, "month")
+	month, err := app.readBoundedIntParam(r, "month", 1, 12)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -120,9 +111,6 @@ func (app *Application) GetMonthExerciseAnalytics(w http.ResponseWriter, r *http
 		"message":          "Retrieved All Analytics for user",
 		"analyticsMetrics": analytics}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }

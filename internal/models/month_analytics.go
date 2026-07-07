@@ -43,6 +43,9 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 		}
 		symptomOccurrences[sc.WeekOfMonth] = Round(sc.AvgSev)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return symptomOccurrences, nil
 }
@@ -80,6 +83,9 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		bowelTypeOccurrences[weekOfMonth] = append(bowelTypeOccurrences[weekOfMonth], KeyValue{Key: typeID, Value: occurrences})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	for i := 1; i <= 5; i++ {
 		if _, exists := bowelTypeOccurrences[i]; !exists {
@@ -122,6 +128,9 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		exerciseTypeOccurrences[weekOfMonth] = occurrences
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	for i := 1; i <= 5; i++ {
 		if _, exists := exerciseTypeOccurrences[i]; !exists {
@@ -266,6 +275,9 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
 			return nil, fmt.Errorf("scan error: %v", err)
 		}
 		tagOccurrences[weekOfMonth] = append(tagOccurrences[weekOfMonth], KeyValue{Key: tag, Value: occurrences})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	for i := 1; i <= 5; i++ {
 		if _, exists := tagOccurrences[i]; !exists {

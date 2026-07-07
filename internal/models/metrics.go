@@ -3,12 +3,8 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/olagookundavid/itoju/internal/jsonlog"
 )
 
 type Metrics struct {
@@ -24,7 +20,6 @@ type MetricsModel struct {
 
 func (m MetricsModel) SetUserMetrics(tx *sql.Tx, metricID int, userID string) error {
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	query := ` INSERT INTO user_trackedmetric (user_id, metric_id) VALUES ($1, $2)`
 	//TODO: change to TX
 
@@ -52,8 +47,7 @@ func (m MetricsModel) SetUserMetrics(tx *sql.Tx, metricID int, userID string) er
 	defer cancel()
 	_, err := tx.ExecContext(ctx, query, userID, metricID)
 	if err != nil {
-		logger.PrintError(fmt.Errorf("metric error  %s", err), nil)
-		return errors.New("could Add User Metric")
+		return fmt.Errorf("could add user metric: %w", err)
 	}
 	return nil
 
@@ -114,8 +108,6 @@ func (m MetricsModel) GetUserMetrics(userID string) ([]*Metrics, error) {
 
 func (m MetricsModel) DeleteUserMetrics(tx *sql.Tx, userId string, metricID int) error {
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
-
 	query := ` DELETE FROM user_trackedmetric
 	WHERE user_id = $1
 	AND metric_id = $2; `
@@ -126,8 +118,41 @@ func (m MetricsModel) DeleteUserMetrics(tx *sql.Tx, userId string, metricID int)
 	_, err := tx.ExecContext(ctx, query, userId, metricID)
 	if err != nil {
 
-		logger.PrintError(fmt.Errorf("metric error  %s", err), nil)
-		return errors.New("could Delete User Metric")
+		return fmt.Errorf("could delete user metric: %w", err)
 	}
 	return nil
+}
+
+// GetMetricsStatus reports, in a single round-trip, whether the user has any
+// entry for the given date in each tracked-metric table. This replaces the old
+// 7-goroutine / 7-query fan-out with one query.
+func (m MetricsModel) GetMetricsStatus(userID string, date time.Time) (map[string]bool, error) {
+	query := `
+	SELECT
+		EXISTS(SELECT 1 FROM user_symptoms_metric  WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_sleep_metric      WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_food_metric       WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_exercise_metric   WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_medication_metric WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_bowel_metric      WHERE user_id = $1 AND date = $2),
+		EXISTS(SELECT 1 FROM user_urine_metric      WHERE user_id = $1 AND date = $2)`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var symptoms, sleep, food, exercise, medication, bowel, urine bool
+	err := m.DB.QueryRowContext(ctx, query, userID, date).Scan(
+		&symptoms, &sleep, &food, &exercise, &medication, &bowel, &urine)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]bool{
+		"symptoms":   symptoms,
+		"sleep":      sleep,
+		"food":       food,
+		"exercise":   exercise,
+		"medication": medication,
+		"bowel":      bowel,
+		"urine":      urine,
+	}, nil
 }

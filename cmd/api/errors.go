@@ -24,8 +24,12 @@ func (app *Application) serverErrorResponse(w http.ResponseWriter, r *http.Reque
 	app.logError(r, err)
 	message := "the server encountered a problem and could not process your request"
 	env := envelope{
-		"error":    message,
-		"devError": err.Error(),
+		"error": message,
+	}
+	// Only expose raw internal error details in non-production environments;
+	// in prod they leak DB/driver internals (table/column/constraint names).
+	if app.Config.Env != "production" {
+		env["devError"] = err.Error()
 	}
 	err = app.writeJSON(w, http.StatusInternalServerError, env, nil)
 	if err != nil {

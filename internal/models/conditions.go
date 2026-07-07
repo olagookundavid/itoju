@@ -3,12 +3,8 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/olagookundavid/itoju/internal/jsonlog"
 )
 
 type Conditions struct {
@@ -75,8 +71,6 @@ func (m ConditionsModel) GetUserConditions(userID string) ([]*Conditions, error)
 
 func (m ConditionsModel) SetUserConditions(tx *sql.Tx, conditionID int, userID string) error {
 
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
-
 	query := ` INSERT INTO user_conditions (user_id, conditions_id) VALUES ($1, $2)`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -86,15 +80,13 @@ func (m ConditionsModel) SetUserConditions(tx *sql.Tx, conditionID int, userID s
 
 	if err != nil {
 
-		logger.PrintError(fmt.Errorf("condition error  %s", err), nil)
-		return errors.New("could Add User Condition")
+		return fmt.Errorf("could add user condition: %w", err)
 	}
 	return nil
 
 }
 
 func (m ConditionsModel) DeleteUserConditions(tx *sql.Tx, userId string, conditionID int) error {
-	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 
 	query := ` DELETE FROM user_conditions
 	WHERE user_id = $1
@@ -105,8 +97,7 @@ func (m ConditionsModel) DeleteUserConditions(tx *sql.Tx, userId string, conditi
 
 	_, err := tx.ExecContext(ctx, query, userId, conditionID)
 	if err != nil {
-		logger.PrintError(fmt.Errorf("condition error  %s", err), nil)
-		return errors.New("could delete User Condition")
+		return fmt.Errorf("could delete user condition: %w", err)
 	}
 
 	return nil

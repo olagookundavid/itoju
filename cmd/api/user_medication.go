@@ -25,10 +25,7 @@ func (app *Application) GetUserMedicationMetrics(w http.ResponseWriter, r *http.
 		"message":           "Retrieved All Medication Metrics for user",
 		"medicationMetrics": medicationMetric}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -92,10 +89,7 @@ func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Re
 	env := envelope{
 		"message": "Successfully updated User Medication Metrics",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) CreateMedicationMetric(w http.ResponseWriter, r *http.Request) {
@@ -128,17 +122,12 @@ func (app *Application) CreateMedicationMetric(w http.ResponseWriter, r *http.Re
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Medication", 2)
-	})
+	app.AwardPoints(user.ID, "Medication", 2)
 	env := envelope{
 		"message": "Successfully Created User Medication Metrics!",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteMedicationMetric(w http.ResponseWriter, r *http.Request) {
@@ -160,9 +149,5 @@ func (app *Application) DeleteMedicationMetric(w http.ResponseWriter, r *http.Re
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Medication Metric successfully deleted"}, nil)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Medication Metric successfully deleted"})
 }

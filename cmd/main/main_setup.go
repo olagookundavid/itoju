@@ -72,14 +72,13 @@ func openDB(cfg api.Config) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Setting no default connections
-	// db.SetMaxOpenConns(cfg.Db.MaxOpenConns)
-	// db.SetMaxIdleConns(cfg.Db.MaxIdleConns)
-	// duration, err := time.ParseDuration(cfg.Db.MaxIdleTime)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// db.SetConnMaxIdleTime(duration)
+	db.SetMaxOpenConns(cfg.Db.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.Db.MaxIdleConns)
+	duration, err := time.ParseDuration(cfg.Db.MaxIdleTime)
+	if err != nil {
+		return nil, err
+	}
+	db.SetConnMaxIdleTime(duration)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -101,29 +100,36 @@ func cronJob(app *api.Application) {
 	//	}
 	c := cron.New()
 
-	_, err := c.AddFunc("@daily", func() {
+	if _, err := c.AddFunc("@daily", func() {
+		defer recoverCron(app, "delete expired tokens")
 		app.Logger.PrintInfo("Deleting Tokens from tokens table", nil)
-		err := app.Models.Tokens.DeleteAllExpiredTokens()
-		if err != nil {
+		if err := app.Models.Tokens.DeleteAllExpiredTokens(); err != nil {
 			app.Logger.PrintError(err, map[string]string{"error": "An error occured with deleting tokens from Tokens Table"})
-			return
 		}
-	})
-	_, err = c.AddFunc("@daily", func() {
-		app.Logger.PrintInfo("Deleting Over 1 week Points", nil)
-		err := app.Models.UserPoint.DeletePointRecordMoreThanWeek()
-		if err != nil {
-			app.Logger.PrintError(err, map[string]string{"error": "An error occured with deleting from points records table"})
-			return
-		}
-	})
+	}); err != nil {
+		app.Logger.PrintError(err, map[string]string{"error": "An error occured scheduling the token cleanup cron job"})
+		return
+	}
 
-	if err != nil {
-		app.Logger.PrintError(err, map[string]string{"error": "An error occured with the cron job"})
+	if _, err := c.AddFunc("@daily", func() {
+		defer recoverCron(app, "delete week-old points")
+		app.Logger.PrintInfo("Deleting Over 1 week Points", nil)
+		if err := app.Models.UserPoint.DeletePointRecordMoreThanWeek(); err != nil {
+			app.Logger.PrintError(err, map[string]string{"error": "An error occured with deleting from points records table"})
+		}
+	}); err != nil {
+		app.Logger.PrintError(err, map[string]string{"error": "An error occured scheduling the points cleanup cron job"})
 		return
 	}
 
 	c.Start()
+}
+
+// recoverCron keeps a panic inside a scheduled job from taking down the cron goroutine.
+func recoverCron(app *api.Application, job string) {
+	if r := recover(); r != nil {
+		app.Logger.PrintError(fmt.Errorf("cron job %q panicked: %v", job, r), nil)
+	}
 }
 
 func flagSetup(dbUrl string) *api.Config {
@@ -142,6 +148,18 @@ func flagSetup(dbUrl string) *api.Config {
 	flag.Float64Var(&cfg.Limiter.Rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.Limiter.Burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.Limiter.Enabled, "limiter-enabled", true, "Enable rate limiter")
+	//resend (transactional email)
+	flag.StringVar(&cfg.Resend.ApiKey, "resend-api-key", os.Getenv("RESEND_API_KEY"), "Resend API key")
+	flag.StringVar(&cfg.Resend.From, "resend-from", os.Getenv("RESEND_FROM_EMAIL"), "Resend verified sender email (e.g. Itoju <noreply@yourdomain.com>)")
+	//firebase (social login id-token verification)
+	flag.StringVar(&cfg.Firebase.ProjectID, "firebase-project-id", os.Getenv("FIREBASE_PROJECT_ID"), "Firebase project ID used to verify Google/Firebase ID tokens")
+	//background worker pool (fire-and-forget jobs)
+	flag.IntVar(&cfg.Worker.PoolSize, "worker-pool-size", 8, "Number of background worker goroutines")
+	flag.IntVar(&cfg.Worker.QueueSize, "worker-queue-size", 1024, "Background worker job queue size")
+	//points batcher
+	flag.IntVar(&cfg.Points.BatchSize, "points-batch-size", 100, "Max point awards flushed per batch")
+	flag.IntVar(&cfg.Points.BufferSize, "points-buffer-size", 2048, "Point-award intake buffer size")
+	flag.IntVar(&cfg.Points.FlushIntervalMs, "points-flush-interval-ms", 1000, "Point-award max flush interval in milliseconds")
 
 	return &cfg
 }

@@ -39,17 +39,12 @@ func (app *Application) CreateSymsMetric(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Symptoms", 10)
-	})
+	app.AwardPoints(user.ID, "Symptoms", 10)
 	env := envelope{
 		"message": "Successfully added Symptom",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 
 }
 
@@ -71,10 +66,7 @@ func (app *Application) GetUserSymsMetric(w http.ResponseWriter, r *http.Request
 		"message":    "Retrieved All Symptom Metrics for user",
 		"symsMetric": symsMetric}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetUserTopNSyms(w http.ResponseWriter, r *http.Request) {
@@ -95,10 +87,7 @@ func (app *Application) GetUserTopNSyms(w http.ResponseWriter, r *http.Request) 
 		"message":    "Retrieved All Symptom Metrics for user",
 		"symsMetric": syms}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request) {
@@ -107,8 +96,9 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 		app.NotFoundResponse(w, r)
 		return
 	}
+	user := app.contextGetUser(r)
 
-	symsMetric, err := app.Models.SymsMetric.Get(id)
+	symsMetric, err := app.Models.SymsMetric.Get(id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -139,9 +129,11 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 		symsMetric.NightSeverity = *input.NightSeverity
 	}
 
-	err = app.Models.SymsMetric.UpdateSymsMetric(symsMetric, int(id))
+	err = app.Models.SymsMetric.UpdateSymsMetric(symsMetric, int(id), user.ID)
 	if err != nil {
 		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
 		case errors.Is(err, models.ErrEditConflict):
 			app.editConflictResponse(w, r)
 		case errors.Is(err, models.ErrRecordAlreadyExist):
@@ -154,10 +146,7 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 	env := envelope{
 		"message": "Successfully updated Symptom Metric",
 	}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) DeleteSymsMetric(w http.ResponseWriter, r *http.Request) {
@@ -177,10 +166,7 @@ func (app *Application) DeleteSymsMetric(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "Symptom Metric successfully deleted"}, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "Symptom Metric successfully deleted"})
 }
 
 func (app *Application) GetDaysTrackedInARow(w http.ResponseWriter, r *http.Request) {
@@ -198,10 +184,7 @@ func (app *Application) GetDaysTrackedInARow(w http.ResponseWriter, r *http.Requ
 		"daysTrackedInARow": daysTrackedInARow,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) GetDaysTrackedFree(w http.ResponseWriter, r *http.Request) {
@@ -219,8 +202,5 @@ func (app *Application) GetDaysTrackedFree(w http.ResponseWriter, r *http.Reques
 		"daysTrackedFree": daysTrackedFree,
 	}
 
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }

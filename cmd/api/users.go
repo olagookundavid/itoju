@@ -64,9 +64,7 @@ func (app *Application) RegisterUserHandler(w http.ResponseWriter, r *http.Reque
 	// 	}
 	// })
 
-	app.Background(func() {
-		_ = app.Models.UserPoint.InsertPoint(user.ID, "Register", 10)
-	})
+	app.AwardPoints(user.ID, "Register", 10)
 	err = app.writeJSON(w, http.StatusCreated, envelope{
 		"message": "Successful Registered User",
 		"user":    user}, nil)
@@ -76,10 +74,11 @@ func (app *Application) RegisterUserHandler(w http.ResponseWriter, r *http.Reque
 }
 
 func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse and validate the user's new password and password reset token.
+	// Parse and validate the email, one-time code and the user's new password.
 	var input struct {
-		Password       string `json:"password"`
-		TokenPlaintext string `json:"token"`
+		Email    string `json:"email"`
+		Otp      string `json:"otp"`
+		Password string `json:"password"`
 	}
 	err := app.readJSON(w, r, &input)
 	if err != nil {
@@ -87,17 +86,18 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		return
 	}
 	v := validator.New()
+	models.ValidateEmail(v, input.Email)
+	models.ValidateOTPPlaintext(v, input.Otp)
 	models.ValidatePasswordPlaintext(v, input.Password)
-	models.ValidateTokenPlaintext(v, input.TokenPlaintext)
 	if !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	user, err := app.Models.Users.GetForToken(models.ScopePasswordReset, input.TokenPlaintext)
+	user, err := app.Models.Users.GetForPasswordResetOTP(input.Email, input.Otp)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
-			v.AddError("token", "invalid or expired password reset token")
+			v.AddError("otp", "invalid or expired code")
 			app.failedValidationResponse(w, r, v.Errors)
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -129,10 +129,7 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 	}
 	// Send the user a confirmation message.
 	env := envelope{"message": "your password was successfully reset"}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) ChangeUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
@@ -187,8 +184,5 @@ func (app *Application) ChangeUserPasswordHandler(w http.ResponseWriter, r *http
 	}
 	// Send the user a confirmation message.
 	env := envelope{"message": "your password was successfully changed"}
-	err = app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
