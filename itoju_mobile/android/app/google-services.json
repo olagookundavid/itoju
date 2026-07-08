@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "408390509656",
+    "project_id": "itoju-7c0f0",
+    "storage_bucket": "itoju-7c0f0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:408390509656:android:7294f851f17f989732162d",
+        "android_client_info": {
+          "package_name": "com.itoju.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "408390509656-3786ei9v9hqfr7g4hlglfajlql2fskdn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.itoju.app",
+            "certificate_hash": "7f37eb505e2e5631089e3d4a6d91a17ffce14b20"
+          }
+        },
+        {
+          "client_id": "408390509656-vu87b03a159rmk7bes0abm485g8afjpk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.itoju.app",
+            "certificate_hash": "eefaf9c9b7c02ec766c0e283d086cdc61903075a"
+          }
+        },
+        {
+          "client_id": "408390509656-rtau2hhsp10qkv5s4njebfc9kdsfp996.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmCMAu0_9GX9DBF9s-xXRzM818GsarBUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "408390509656-rtau2hhsp10qkv5s4njebfc9kdsfp996.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "408390509656-9iocsl66bcq9gm2ctobjepqo8uh51ken.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.itoju.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
