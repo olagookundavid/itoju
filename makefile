@@ -89,10 +89,10 @@ build/api:
 	# go build -ldflags='-s' -o=./bin/api ${ITOJU_BINARY} ./cmd/main
 	# GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/api ./cmd/api
 
-## build/docker: build the docker application 
-.PHONY: build/docker 
-build/docker: build/api
-	@echo 'Building docker...' 
+## build/docker: build the docker image (self-contained multi-stage build)
+.PHONY: build/docker
+build/docker:
+	@echo 'Building docker image...'
 	docker build -t goliathoh/itoju:latest .
 
 .PHONY: run/docker
