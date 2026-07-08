@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {
-                "DB_URL": "postgres://itojudb:itojudb@localhost/itojudb?sslmode=disable"
+                "DB_URL": "postgres://role:password@localhost:5432/itoju?sslmode=disable"
             },
             // "args": [
             //     "--port",
