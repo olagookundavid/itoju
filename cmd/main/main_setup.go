@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -125,6 +126,25 @@ func cronJob(app *api.Application) {
 	c.Start()
 }
 
+// envStr returns the value of env var `key`, or `fallback` when unset/empty.
+func envStr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// envInt returns the integer value of env var `key`, or `fallback` when unset
+// or unparseable.
+func envInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
 // recoverCron keeps a panic inside a scheduled job from taking down the cron goroutine.
 func recoverCron(app *api.Application, job string) {
 	if r := recover(); r != nil {
@@ -136,9 +156,9 @@ func flagSetup(dbUrl string) *api.Config {
 
 	var cfg api.Config
 
-	//env and port
-	flag.IntVar(&cfg.Port, "port", 8080, "API server port")
-	flag.StringVar(&cfg.Env, "env", "development", "Environment (development|staging|production)")
+	//env and port (env-var driven so the container/platform can configure them)
+	flag.IntVar(&cfg.Port, "port", envInt("PORT", 8080), "API server port")
+	flag.StringVar(&cfg.Env, "env", envStr("APP_ENV", "development"), "Environment (development|staging|production)")
 	//db
 	flag.StringVar(&cfg.Db.Dsn, "db-dsn", dbUrl, "PostgreSQL DSN")
 	flag.IntVar(&cfg.Db.MaxOpenConns, "db-max-open-conns", 15, "PostgreSQL max open connections")
