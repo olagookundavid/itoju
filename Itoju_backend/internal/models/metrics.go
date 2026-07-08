@@ -36,7 +36,7 @@ func (m MetricsModel) SetUserMetricsBatch(userID string, metricIDs []int) error 
 }
 
 func (m MetricsModel) GetMetrics() ([]*Metrics, error) {
-	query := ` SELECT * FROM trackedmetrics `
+	query := ` SELECT id, name FROM trackedmetrics `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

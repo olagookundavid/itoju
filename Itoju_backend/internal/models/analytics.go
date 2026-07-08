@@ -14,7 +14,7 @@ type AnalyticsModel struct {
 
 // getSymptomOccurrences retrieves the count of symptom occurrences for the specified period
 func (m AnalyticsModel) GetSymptom7DaysOccurrences(userID string, symptomID int, days int) (map[int]float64, error) {
-	query := fmt.Sprintf(`
+	query := `
 	SELECT
 		EXTRACT(DOW FROM date) AS day_of_week,
 		AVG((morning_severity + afternoon_severity + night_severity) / 3) AS average_severity
@@ -23,16 +23,16 @@ func (m AnalyticsModel) GetSymptom7DaysOccurrences(userID string, symptomID int,
 	WHERE
 		user_id = $1
 		AND symptoms_id = $2
-		AND date >= CURRENT_DATE - INTERVAL '%d days'
+		AND date >= CURRENT_DATE - make_interval(days => $3)
 	GROUP BY
 		day_of_week
 	ORDER BY
 		day_of_week;
-`, days)
+`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID)
+	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID, days)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}
@@ -67,7 +67,7 @@ type SymptomCount struct {
 }
 
 func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(userID string, days int) (map[string][]KeyValue, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
 			type,
@@ -76,16 +76,16 @@ func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(userID string, days int) (m
 			user_bowel_metric
 		WHERE
 			user_id = $1
-			AND date >= CURRENT_DATE - INTERVAL '%d days'
+			AND date >= CURRENT_DATE - make_interval(days => $2)
 		GROUP BY
 			day_of_week, type
 		ORDER BY
 			day_of_week, type;
-	`, days)
+	`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, userID)
+	rows, err := m.DB.QueryContext(ctx, query, userID, days)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}
@@ -121,7 +121,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 	var query string
 
 	if tagToQuery == "" {
-		query = fmt.Sprintf(`
+		query = `
         WITH tag_occurrences AS (
             SELECT
                 EXTRACT(DOW FROM date) AS day_of_week,
@@ -130,7 +130,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
                 user_food_metric
             WHERE
                 user_id = $1
-                AND date >= CURRENT_DATE - INTERVAL '%d days'
+                AND date >= CURRENT_DATE - make_interval(days => $2)
             UNION ALL
             SELECT
                 EXTRACT(DOW FROM date) AS day_of_week,
@@ -139,7 +139,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
                 user_food_metric
             WHERE
                 user_id = $1
-                AND date >= CURRENT_DATE - INTERVAL '%d days'
+                AND date >= CURRENT_DATE - make_interval(days => $2)
             UNION ALL
             SELECT
                 EXTRACT(DOW FROM date) AS day_of_week,
@@ -148,7 +148,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
                 user_food_metric
             WHERE
                 user_id = $1
-                AND date >= CURRENT_DATE - INTERVAL '%d days'
+                AND date >= CURRENT_DATE - make_interval(days => $2)
             UNION ALL
             SELECT
                 EXTRACT(DOW FROM date) AS day_of_week,
@@ -157,7 +157,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
                 user_food_metric
             WHERE
                 user_id = $1
-                AND date >= CURRENT_DATE - INTERVAL '%d days'
+                AND date >= CURRENT_DATE - make_interval(days => $2)
         )
         SELECT
             day_of_week,
@@ -171,10 +171,10 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
         ORDER BY
             day_of_week,
             tag;
-    `, days, days, days, days)
+    `
 	} else {
 
-		query = fmt.Sprintf(`
+		query = `
 	WITH tag_occurrences AS (
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
@@ -183,7 +183,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 			user_food_metric
 		WHERE
 			user_id = $1
-			AND date >= CURRENT_DATE - INTERVAL '%d days'
+			AND date >= CURRENT_DATE - make_interval(days => $2)
 		UNION ALL
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
@@ -192,7 +192,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 			user_food_metric
 		WHERE
 			user_id = $1
-			AND date >= CURRENT_DATE - INTERVAL '%d days'
+			AND date >= CURRENT_DATE - make_interval(days => $2)
 		UNION ALL
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
@@ -201,7 +201,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 			user_food_metric
 		WHERE
 			user_id = $1
-			AND date >= CURRENT_DATE - INTERVAL '%d days'
+			AND date >= CURRENT_DATE - make_interval(days => $2)
 		UNION ALL
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
@@ -210,7 +210,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 			user_food_metric
 		WHERE
 			user_id = $1
-			AND date >= CURRENT_DATE - INTERVAL '%d days'
+			AND date >= CURRENT_DATE - make_interval(days => $2)
 	)
 	SELECT
 		day_of_week,
@@ -219,19 +219,19 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 	FROM
 		tag_occurrences
 	WHERE
-		tag = $2
+		tag = $3
 	GROUP BY
 		day_of_week,
 		tag
 	ORDER BY
 		day_of_week;
-		`, days, days, days, days)
+		`
 
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	args := []any{userID}
+	args := []any{userID, days}
 	if tagToQuery != "" {
 		args = append(args, tagToQuery)
 	}
@@ -266,21 +266,21 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 }
 
 func (m AnalyticsModel) Get7DaysExerciseOccurrences(userID string, days int) (map[string]int, error) {
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
-    EXTRACT(DOW FROM date) AS day_of_week, 
-    SUM(no_of_times) AS total_exercises 
+    EXTRACT(DOW FROM date) AS day_of_week,
+    SUM(no_of_times) AS total_exercises
 FROM
     user_exercise_metric
 WHERE
     user_id = $1
-    AND date >= CURRENT_DATE - INTERVAL '%d days' 
+    AND date >= CURRENT_DATE - make_interval(days => $2)
 GROUP BY
     day_of_week
 ORDER BY
     day_of_week;
 
-	`, days)
+	`
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 )
 
@@ -50,27 +49,6 @@ func (m MedicationMetricModel) GetUserMedicationMetrics(userId string, date time
 		return nil, err
 	}
 	return medicationMetrics, nil
-}
-
-func (m MedicationMetricModel) GetUserMedicationMetric(userId string, id int64) (*MedicationMetric, error) {
-	query := `
-    SELECT umm.id, umm.time, umm.dosage, umm.quantity, umm.name, umm.date, umm.metric
-    FROM user_medication_metric umm
-    WHERE umm.user_id = $1 AND umm.id = $2
-    `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	row := m.DB.QueryRowContext(ctx, query, userId, id)
-
-	var medicationMetric MedicationMetric
-	err := row.Scan(&medicationMetric.ID, &medicationMetric.Time, &medicationMetric.Dosage, &medicationMetric.Quantity, &medicationMetric.Name, &medicationMetric.Date, &medicationMetric.Metric)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrRecordNotFound
-		}
-		return nil, err
-	}
-	return &medicationMetric, nil
 }
 
 func (m MedicationMetricModel) InsertMedicationMetric(userID string, medicationMetric *MedicationMetric) error {

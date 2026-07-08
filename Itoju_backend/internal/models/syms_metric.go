@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -37,8 +36,7 @@ func (m SymsMetricModel) CreateSymsMetric(userId string, symsMetric SymsMetric) 
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "unique_user_symptom_date"`:
-
+		case isUniqueViolation(err, "unique_user_symptom_date"):
 			return ErrRecordAlreadyExist
 		default:
 			return err
@@ -79,21 +77,20 @@ func (m SymsMetricModel) GetUserSymptomsMetric(userId string, date time.Time) ([
 
 func (m SymsMetricModel) GetUserTopNSyms(userId string, interval int) ([]*SymTopN, error) {
 
-	query := fmt.Sprintf(
-		`
+	query := `
 	SELECT s.name, usm.symptoms_id, COUNT(*) AS count
 	FROM user_symptoms_metric usm
 	JOIN symptoms s ON usm.symptoms_id = s.id
 	WHERE usm.user_id = $1
-	AND usm.date >= CURRENT_DATE - INTERVAL '%d days'
+	AND usm.date >= CURRENT_DATE - make_interval(days => $2)
 	GROUP BY s.name, usm.symptoms_id
 	ORDER BY count DESC
-	LIMIT 4; 
-	`, interval)
+	LIMIT 4;
+	`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	rows, err := m.DB.QueryContext(ctx, query, userId)
+	rows, err := m.DB.QueryContext(ctx, query, userId, interval)
 	if err != nil {
 		return nil, err
 	}

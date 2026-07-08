@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -52,27 +51,6 @@ func (m UrineMetricModel) GetUserUrineMetrics(userId string, date time.Time) ([]
 		return nil, err
 	}
 	return urineMetrics, nil
-}
-
-func (m UrineMetricModel) GetUserUrineMetric(userId string, id int64) (*UrineMetric, error) {
-	query := `
-    SELECT uum.id, uum.time, uum.type, uum.pain, uum.tags, uum.date, uum.quantity
-    FROM user_urine_metric uum
-    WHERE uum.user_id = $1 AND uum.id = $2
-    `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	row := m.DB.QueryRowContext(ctx, query, userId, id)
-
-	var urineMetric UrineMetric
-	err := row.Scan(&urineMetric.ID, &urineMetric.Time, &urineMetric.Type, &urineMetric.Pain, pq.Array(&urineMetric.Tags), &urineMetric.Date, &urineMetric.Quantity)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrRecordNotFound
-		}
-		return nil, err
-	}
-	return &urineMetric, nil
 }
 
 func (m UrineMetricModel) InsertUrineMetric(userID string, urineMetric *UrineMetric) error {

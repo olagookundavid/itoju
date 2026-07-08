@@ -19,7 +19,7 @@ type SymptomsModel struct {
 }
 
 func (m SymptomsModel) GetSymptoms() ([]*Symptoms, error) {
-	query := ` SELECT * FROM symptoms `
+	query := ` SELECT id, name FROM symptoms `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

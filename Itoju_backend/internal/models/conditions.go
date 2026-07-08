@@ -19,7 +19,7 @@ type ConditionsModel struct {
 }
 
 func (m ConditionsModel) GetConditions() ([]*Conditions, error) {
-	query := ` SELECT * FROM conditions `
+	query := ` SELECT id, name FROM conditions `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

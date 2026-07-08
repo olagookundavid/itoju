@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -51,27 +50,6 @@ func (m BowelMetricModel) GetUserBowelMetrics(userId string, date time.Time) ([]
 		return nil, err
 	}
 	return bowelMetrics, nil
-}
-
-func (m BowelMetricModel) GetUserBowelMetric(userId string, id int64) (*BowelMetric, error) {
-	query := `
-    SELECT ubm.id, ubm.time, ubm.type, ubm.pain, ubm.tags, ubm.date
-    FROM user_bowel_metric ubm
-    WHERE ubm.user_id = $1 AND ubm.id = $2
-    `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	row := m.DB.QueryRowContext(ctx, query, userId, id)
-
-	var bowelMetric BowelMetric
-	err := row.Scan(&bowelMetric.ID, &bowelMetric.Time, &bowelMetric.Type, &bowelMetric.Pain, pq.Array(&bowelMetric.Tags), &bowelMetric.Date)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrRecordNotFound
-		}
-		return nil, err
-	}
-	return &bowelMetric, nil
 }
 
 func (m BowelMetricModel) InsertBowelMetric(userID string, bowelMetric *BowelMetric) error {

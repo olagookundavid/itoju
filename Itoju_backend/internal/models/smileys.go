@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -27,7 +26,7 @@ type SmileysModel struct {
 
 func (m SmileysModel) GetSmileys() ([]*Smileys, error) {
 
-	query := ` SELECT * FROM smiley `
+	query := ` SELECT id, name FROM smiley `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -91,7 +90,7 @@ func (m SmileysModel) InsertUserSmileys(userID string, smiley Smileys, date time
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "user_smiley_pkey"`:
+		case isUniqueViolation(err, "user_smiley_pkey"):
 
 			return ErrRecordAlreadyExist
 		default:
@@ -103,16 +102,16 @@ func (m SmileysModel) InsertUserSmileys(userID string, smiley Smileys, date time
 
 func (m SmileysModel) GetUserSmileysCount(userID string, interval int) ([]*SmileysCount, *int, error) {
 
-	query := fmt.Sprintf(`
+	query := `
     SELECT s.name, s.id, COALESCE(COUNT(us.smiley_id), 0) AS count,
-    (SELECT COUNT(*) FROM user_smiley WHERE user_id = $1 AND granted_at >= NOW() - INTERVAL '%d days') AS total_count
+    (SELECT COUNT(*) FROM user_smiley WHERE user_id = $1 AND granted_at >= NOW() - make_interval(days => $2)) AS total_count
     FROM smiley s
-    LEFT JOIN user_smiley us ON s.id = us.smiley_id AND us.user_id = $1 AND us.granted_at >= NOW() - INTERVAL '%d days'
-    GROUP BY s.name, s.id;`, interval, interval)
+    LEFT JOIN user_smiley us ON s.id = us.smiley_id AND us.user_id = $1 AND us.granted_at >= NOW() - make_interval(days => $2)
+    GROUP BY s.name, s.id;`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	rows, err := m.DB.QueryContext(ctx, query, userID)
+	rows, err := m.DB.QueryContext(ctx, query, userID, interval)
 	if err != nil {
 		return nil, nil, err
 	}

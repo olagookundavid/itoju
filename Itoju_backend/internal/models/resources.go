@@ -31,7 +31,7 @@ func ValidateResource(v *validator.Validator, resource *Resources) {
 }
 
 func (m ResourcesModel) GetResources() ([]*Resources, error) {
-	query := ` SELECT * FROM resources `
+	query := ` SELECT id, name, imageUrl, link, tags, version FROM resources `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -67,7 +67,7 @@ func (m ResourcesModel) InsertResources(resources Resources) error {
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "resources_name_key"`:
+		case isUniqueViolation(err, "resources_name_key"):
 
 			return ErrRecordAlreadyExist
 		default:
@@ -84,14 +84,18 @@ func (m ResourcesModel) UpdateResources(resources *Resources) error {
 	args := []any{resources.Name, resources.ImageUrl, resources.Link, pq.Array(resources.Tags), resources.Id, resources.Version}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	// A 0-row update means the id/version pair didn't match — either the row is
+	// gone or another writer bumped the version first (optimistic-lock conflict).
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrEditConflict
 	}
 	return nil
 }
@@ -100,7 +104,7 @@ func (m ResourcesModel) Get(id int64) (*Resources, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
-	query := ` SELECT * FROM resources WHERE id = $1; `
+	query := ` SELECT id, name, imageUrl, link, tags, version FROM resources WHERE id = $1; `
 	var resource Resources
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

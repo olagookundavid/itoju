@@ -112,7 +112,7 @@ func (m *UserPeriodModel) InsertMenstrualCycleTx(tx *sql.Tx, cycle *MenstrualCyc
 	err := tx.QueryRowContext(ctx, query, cycle.UserID, cycle.StartDate, cycle.CycleLength, cycle.PeriodLength, time.Now()).Scan(&id)
 	if err != nil {
 		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "menstrual_cycles_start_date_key"`:
+		case isUniqueViolation(err, "menstrual_cycles_start_date_key"):
 			return "", ErrRecordAlreadyExist
 		default:
 			return "", err

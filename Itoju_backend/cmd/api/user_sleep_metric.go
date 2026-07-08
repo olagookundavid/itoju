@@ -29,57 +29,6 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 
 }
 
-/*
- func (app *Application) FormerGetUserSleepMetrics(w http.ResponseWriter, r *http.Request) {
-	date, err := app.GetDate(r)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-	user := app.contextGetUser(r)
-	dayMetricChan := make(chan *models.SleepMetric)
-	nightMetricChan := make(chan *models.SleepMetric)
-	dayErrChan := make(chan error)
-	nightErrChan := make(chan error)
-	var daySleepMetric, nightSleepMetric *models.SleepMetric
-	app.goSafe(func() {
-		app.getUserSleepMetricAsync(user.ID, date, dayMetricChan, dayErrChan, false)
-	})
-	app.goSafe(func() {
-		app.getUserSleepMetricAsync(user.ID, date, nightMetricChan, nightErrChan, true)
-	})
-	for i := 0; i < 2; i++ {
-		select {
-		case dayMetric := <-dayMetricChan:
-			daySleepMetric = dayMetric
-		case nightMetric := <-nightMetricChan:
-			nightSleepMetric = nightMetric
-		case <-dayErrChan:
-		case <-nightErrChan:
-		}
-	}
-	defer close(dayMetricChan)
-	defer close(dayErrChan)
-	defer close(nightMetricChan)
-	defer close(nightErrChan)
-	env := envelope{
-		"message":          "Retrieved All Sleep Metrics for user",
-		"daySleepMetric":   daySleepMetric,
-		"nightSleepMetric": nightSleepMetric,
-	}
-	app.respond(w, r, http.StatusOK, env)
-}
-
-func (app *Application) getUserSleepMetricAsync(userID string, date time.Time, sendMetric chan<- (*models.SleepMetric), errChan chan<- error, isNight bool) {
-	metric, err := app.Models.SleepMetric.GetUserSleepMetric(userID, date, isNight)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	sendMetric <- metric
-}
-*/
-
 func (app *Application) UpdateSleepMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 	id, err := app.readIDParam(r)

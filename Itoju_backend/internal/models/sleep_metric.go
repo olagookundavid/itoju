@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -52,27 +51,6 @@ func (m SleepMetricModel) GetUserSleepMetrics(userId string, date time.Time) ([]
 		return nil, err
 	}
 	return sleepsMetrics, nil
-}
-
-func (m SleepMetricModel) GetUserSleepMetric(userId string, id int64) (*SleepMetric, error) {
-	query := `
-    SELECT usm.id, usm.is_night, usm.time_slept, usm.time_woke_up, usm.tags, usm.date, usm.severity
-    FROM user_sleep_metric usm
-    WHERE usm.user_id = $1 AND usm.id = $2
-    `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	row := m.DB.QueryRowContext(ctx, query, userId, id)
-
-	var sleepMetric SleepMetric
-	err := row.Scan(&sleepMetric.ID, &sleepMetric.IsNight, &sleepMetric.TimeSlept, &sleepMetric.TimeWokeUp, pq.Array(&sleepMetric.Tags), &sleepMetric.Date, &sleepMetric.Severity)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrRecordNotFound
-		}
-		return nil, err
-	}
-	return &sleepMetric, nil
 }
 
 func (m SleepMetricModel) InsertSleepMetric(userID string, sleepMetric *SleepMetric) error {
