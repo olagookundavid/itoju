@@ -19,9 +19,12 @@ final dioProvider = Provider((ref) {
   return dio;
 });
 
-// const String prodUrl = 'https://testy-crysta-davidoh-428d6753.koyeb.app/v1/';
-// const String prodUrl = 'http://localhost:8080/v1/';
-const String prodUrl = 'http://10.0.2.2:8080/v1/';
+/// Injected at build time via --dart-define=BASE_URL=...
+/// Defaults to the Android-emulator localhost alias for local dev.
+const String prodUrl = String.fromEnvironment(
+  'BASE_URL',
+  defaultValue: 'http://10.0.2.2:8080/v1/',
+);
 
 final idioProvider = Provider.autoDispose((_) {
   final dio = Dio();
