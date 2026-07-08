@@ -31,6 +31,11 @@ func main() {
 
 	defer db.Close()
 
+	// Apply any pending schema migrations before serving.
+	if err := runMigrations(cfg.Db.Dsn, logger); err != nil {
+		logger.PrintFatal(err, nil)
+	}
+
 	expvarSetup(db)
 
 	dataModels := models.NewModels(db)

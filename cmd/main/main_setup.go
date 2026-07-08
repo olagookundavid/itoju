@@ -14,9 +14,33 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/olagookundavid/itoju/cmd/api"
+	"github.com/olagookundavid/itoju/internal/jsonlog"
+	sqlembed "github.com/olagookundavid/itoju/internal/sql"
 	"github.com/olagookundavid/itoju/internal/vcs"
+	"github.com/pressly/goose/v3"
 	"github.com/robfig/cron/v3"
 )
+
+// runMigrations applies all pending database migrations (embedded in the
+// binary) on startup, using a short-lived connection. goose.Up is idempotent —
+// only migrations newer than the recorded version are applied.
+func runMigrations(dsn string, logger *jsonlog.Logger) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open db for migrations: %w", err)
+	}
+	defer db.Close()
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set goose dialect: %w", err)
+	}
+	goose.SetBaseFS(sqlembed.EmbedMigrations)
+	if err := goose.Up(db, "migrations"); err != nil {
+		return fmt.Errorf("apply migrations: %w", err)
+	}
+	logger.PrintInfo("database migrations up to date", nil)
+	return nil
+}
 
 var (
 	version = vcs.Version()
