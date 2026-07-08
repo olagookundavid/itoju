@@ -5,42 +5,7 @@ import (
 	"net/http"
 
 	"github.com/olagookundavid/itoju/internal/models"
-	"github.com/olagookundavid/itoju/internal/validator"
 )
-
-func (app *Application) InsertMenses(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Period_len int `json:"period_len"`
-		Cycle_len  int `json:"cycle_len"`
-	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-	user := app.contextGetUser(r)
-	menses := &models.Menses{
-		Id: user.ID, Period_len: input.Period_len, Cycle_len: input.Cycle_len,
-	}
-	v := validator.New()
-	if models.ValidateMenses(v, menses); !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
-		return
-	}
-
-	err = app.Models.Menses.InsertMenses(menses)
-
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-	env := envelope{
-		"message": "Successfully added Menstruation Data ",
-	}
-
-	app.respond(w, r, http.StatusOK, env)
-
-}
 
 func (app *Application) GetMenses(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
@@ -71,124 +36,34 @@ func (app *Application) GetMenses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
-
 	user := app.contextGetUser(r)
-
-	menses, err := app.Models.Menses.GetMenses(user.ID)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrRecordNotFound):
-			var input struct {
-				Period_len int `json:"period_len"`
-				Cycle_len  int `json:"cycle_len"`
-			}
-			err := app.readJSON(w, r, &input)
-			if err != nil {
-				app.badRequestResponse(w, r, err)
-				return
-			}
-			menses := &models.Menses{
-				Id: user.ID, Period_len: input.Period_len, Cycle_len: input.Cycle_len,
-			}
-			v := validator.New()
-			if models.ValidateMenses(v, menses); !v.Valid() {
-				app.failedValidationResponse(w, r, v.Errors)
-				return
-			}
-
-			err = app.Models.Menses.InsertMenses(menses)
-
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-				return
-			}
-			env := envelope{
-				"message": "Successfully updated Menstruation",
-			}
-
-			app.respond(w, r, http.StatusOK, env)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
 
 	var input struct {
 		Period_len *int `json:"period_len"`
 		Cycle_len  *int `json:"cycle_len"`
 	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
-	if input.Period_len != nil {
-		menses.Period_len = *input.Period_len
-	}
-	if input.Cycle_len != nil {
-		menses.Cycle_len = *input.Cycle_len
-	}
-
-	v := validator.New()
-	if models.ValidateMenses(v, menses); !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
-		return
-	}
-	err = app.Models.Menses.UpdateMenses(menses)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrRecordNotFound):
-			app.NotFoundResponse(w, r)
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	env := envelope{
-		"message": "Successfully updated Menstruation",
-		"menses":  menses,
-	}
-	app.respond(w, r, http.StatusOK, env)
-}
-
-//Body Measure
-
-func (app *Application) InsertBodyMeasure(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Height int `json:"height"`
-		Weight int `json:"weight"`
-	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-	user := app.contextGetUser(r)
-	bodyMeasure := &models.BodyMeasure{
-		Id: user.ID, Height: input.Height, Weight: input.Weight,
-	}
-	v := validator.New()
-	if models.ValidateBodyMeasure(v, bodyMeasure); !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+	if (input.Period_len != nil && *input.Period_len < 0) ||
+		(input.Cycle_len != nil && *input.Cycle_len < 0) {
+		app.badRequestResponse(w, r, errors.New("period_len/cycle_len cannot be negative"))
 		return
 	}
 
-	err = app.Models.BodyMeasure.InsertBodyMeasure(bodyMeasure)
-
+	menses, err := app.Models.Menses.UpsertMenses(r.Context(), user.ID, input.Period_len, input.Cycle_len)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	env := envelope{
-		"message": "Successfully added Body Measure Data ",
-	}
-
-	app.respond(w, r, http.StatusOK, env)
-
+	app.respond(w, r, http.StatusOK, envelope{
+		"message": "Successfully updated Menstruation",
+		"menses":  menses,
+	})
 }
+
+//Body Measure
 
 func (app *Application) GetBodyMeasure(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
@@ -219,86 +94,29 @@ func (app *Application) GetBodyMeasure(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Application) UpdateBodyMeasure(w http.ResponseWriter, r *http.Request) {
-
 	user := app.contextGetUser(r)
-
-	bodyMeasure, err := app.Models.BodyMeasure.GetBodyMeasure(user.ID)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrRecordNotFound):
-			//Create body measure record!
-			var input struct {
-				Height int `json:"height"`
-				Weight int `json:"weight"`
-			}
-			err := app.readJSON(w, r, &input)
-			if err != nil {
-				app.badRequestResponse(w, r, err)
-				return
-			}
-			bodyMeasure := &models.BodyMeasure{
-				Id: user.ID, Height: input.Height, Weight: input.Weight,
-			}
-			v := validator.New()
-			if models.ValidateBodyMeasure(v, bodyMeasure); !v.Valid() {
-				app.failedValidationResponse(w, r, v.Errors)
-				return
-			}
-
-			err = app.Models.BodyMeasure.InsertBodyMeasure(bodyMeasure)
-
-			if err != nil {
-				app.serverErrorResponse(w, r, err)
-				return
-			}
-			env := envelope{
-				"message": "Successfully updated Body Measure",
-			}
-
-			app.respond(w, r, http.StatusOK, env)
-			return
-
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
 
 	var input struct {
 		Height *int `json:"height"`
 		Weight *int `json:"weight"`
 	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
-	if input.Height != nil {
-		bodyMeasure.Height = *input.Height
-	}
-	if input.Weight != nil {
-		bodyMeasure.Weight = *input.Weight
-	}
-
-	v := validator.New()
-	if models.ValidateBodyMeasure(v, bodyMeasure); !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+	if (input.Height != nil && *input.Height < 0) ||
+		(input.Weight != nil && *input.Weight < 0) {
+		app.badRequestResponse(w, r, errors.New("height/weight cannot be negative"))
 		return
 	}
-	err = app.Models.BodyMeasure.UpdateBodyMeasure(bodyMeasure)
+
+	bodyMeasure, err := app.Models.BodyMeasure.UpsertBodyMeasure(r.Context(), user.ID, input.Height, input.Weight)
 	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
+		app.serverErrorResponse(w, r, err)
 		return
 	}
-	env := envelope{
+	app.respond(w, r, http.StatusOK, envelope{
 		"message":      "Successfully updated Body Measure",
 		"body_measure": bodyMeasure,
-	}
-	app.respond(w, r, http.StatusOK, env)
+	})
 }

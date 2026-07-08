@@ -21,40 +21,23 @@ type UserPointReponse struct {
 func (app *Application) GetUserTotalPoints(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	userPoint := make(chan int)
-	userDayPoint := make(chan int)
-	userMonthPoint := make(chan int)
-
-	defer close(userPoint)
-	defer close(userDayPoint)
-	defer close(userMonthPoint)
-
-	app.goSafe(func() {
-		app.Models.UserPoint.GetUserTotalPoint(user.ID, userPoint)
-	})
-	app.goSafe(func() {
-		app.Models.UserPoint.GetUserTotalPoints(user.ID, userDayPoint, userMonthPoint)
-	})
-
-	// if err != nil {
-	// 	app.serverErrorResponse(w, r, err)
-	// 	return
-	// }
+	total, today, week, err := app.Models.UserPoint.GetUserPointsSummary(r.Context(), user.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	userPointResponse := UserPointReponse{
-		TotalPoints:    <-userPoint,
-		TodayPoints:    <-userDayPoint,
-		ThisWeekPoints: <-userMonthPoint,
+		TotalPoints:    total,
+		TodayPoints:    today,
+		ThisWeekPoints: week,
 	}
 
 	env := envelope{
 		"message":    "Retrieved User Total Points",
 		"user_point": userPointResponse}
 
-	err := app.writeJSON(w, http.StatusOK, env, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	app.respond(w, r, http.StatusOK, env)
 }
 
 func (app *Application) AddUserTotalPoints(w http.ResponseWriter, r *http.Request) {

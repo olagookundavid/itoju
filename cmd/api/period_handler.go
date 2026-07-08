@@ -2,9 +2,7 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/olagookundavid/itoju/internal/models"
@@ -12,48 +10,9 @@ import (
 
 func (app *Application) GetMenstrualCycle(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
-	ids, err := app.Models.UserPeriod.GetMensesCycleIds(user.ID)
+	periodDays, err := app.Models.UserPeriod.GetRecentCycleDays(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
-		return
-	}
-	var periodDays = []models.CycleDay{}
-	var mu sync.Mutex // Mutex to control access to periodDays
-	var wg sync.WaitGroup
-	var firstErr error
-
-	for i := 0; i < len(ids); i++ {
-		wg.Add(1)
-		go func(id string) {
-			defer wg.Done()
-			defer func() {
-				if rec := recover(); rec != nil {
-					mu.Lock()
-					if firstErr == nil {
-						firstErr = fmt.Errorf("%s", rec)
-					}
-					mu.Unlock()
-				}
-			}()
-
-			cycleDays, err := app.Models.UserPeriod.GetCycleDays(id, user.ID)
-			// Collect errors/results under the mutex; never write to the
-			// ResponseWriter from a goroutine (it is not concurrency-safe).
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				if firstErr == nil {
-					firstErr = err
-				}
-				return
-			}
-			periodDays = append(periodDays, cycleDays...)
-		}(ids[i])
-	}
-	wg.Wait()
-
-	if firstErr != nil {
-		app.serverErrorResponse(w, r, firstErr)
 		return
 	}
 

@@ -20,15 +20,15 @@ type MensesModels struct {
 }
 
 func ValidateMenses(v *validator.Validator, menses *Menses) {
-	v.Check(menses.Period_len >= 0, "Period length", "cannot be less or equals zero")
-	v.Check(menses.Cycle_len >= 0, "Cycle length", "cannot be less or equals zero")
+	v.Check(menses.Period_len >= 0, "Period length", "cannot be negative")
+	v.Check(menses.Cycle_len >= 0, "Cycle length", "cannot be negative")
 }
 
 func (m MensesModels) GetMenses(id string) (*Menses, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
-	query := ` SELECT * FROM menstruation WHERE user_id = $1`
+	query := `SELECT user_id, period_len, cycle_len FROM menstruation WHERE user_id = $1`
 
 	var menses Menses
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -49,38 +49,24 @@ func (m MensesModels) GetMenses(id string) (*Menses, error) {
 	return &menses, nil
 }
 
-func (m MensesModels) InsertMenses(menses *Menses) error {
-	query := `
-	INSERT INTO menstruation (user_id, period_len, cycle_len)
-	VALUES ($1, $2, $3) `
+// UpsertMenses creates or partially-updates the user's menstruation settings in
+// one atomic statement. Nil fields are left unchanged on update (and default to
+// 0 on first insert), so there is no read-then-branch race.
+func (m MensesModels) UpsertMenses(ctx context.Context, userID string, periodLen, cycleLen *int) (*Menses, error) {
+	query := `INSERT INTO menstruation (user_id, period_len, cycle_len)
+	          VALUES ($1, COALESCE($2, 0), COALESCE($3, 0))
+	          ON CONFLICT (user_id) DO UPDATE SET
+	              period_len = COALESCE($2, menstruation.period_len),
+	              cycle_len  = COALESCE($3, menstruation.cycle_len)
+	          RETURNING user_id, period_len, cycle_len`
 
-	args := []any{menses.Id, menses.Period_len, menses.Cycle_len}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	var menses Menses
+	err := m.DB.QueryRowContext(ctx, query, userID, periodLen, cycleLen).Scan(
+		&menses.Id, &menses.Period_len, &menses.Cycle_len)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-}
-
-func (m MensesModels) UpdateMenses(menses *Menses) error {
-
-	query := ` UPDATE menstruation SET period_len = $1, cycle_len = $2 WHERE user_id = $3; `
-
-	args := []any{menses.Period_len, menses.Cycle_len, menses.Id}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
-	return nil
+	return &menses, nil
 }

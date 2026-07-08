@@ -84,44 +84,21 @@ func (m UserPointModel) InsertPointsBatch(events []PointEvent) (err error) {
 	return err
 }
 
-func (m UserPointModel) GetUserTotalPoint(userId string, sendResult chan<- int) {
-	query := ` SELECT tot_point FROM user_point 
-	WHERE user_id = $1`
-	var userPoint int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userId).Scan(
-		&userPoint)
-
-	if err != nil {
-		// No row yet (new user) or a transient error: report zero points.
-		userPoint = 0
-	}
-
-	sendResult <- userPoint
-}
-
-func (m UserPointModel) GetUserTotalPoints(userId string, sendDayResult chan<- int, sendWeekResult chan<- int) {
+// GetUserPointsSummary returns the user's running total plus today's and this
+// week's points in a single query (replacing the old 2-goroutine fan-out).
+func (m UserPointModel) GetUserPointsSummary(ctx context.Context, userID string) (total, today, week int, err error) {
 	query := `
-	SELECT 
-		COALESCE(SUM(point) FILTER (WHERE date_trunc('day', date) = CURRENT_DATE), 0) AS today_points, 
-		COALESCE(SUM(point) FILTER (WHERE date_trunc('week', date) = date_trunc('week', CURRENT_DATE)), 0) AS this_week_points
+	SELECT
+		COALESCE((SELECT tot_point FROM user_point WHERE user_id = $1), 0) AS total,
+		COALESCE(SUM(point) FILTER (WHERE date_trunc('day', date) = CURRENT_DATE), 0) AS today,
+		COALESCE(SUM(point) FILTER (WHERE date_trunc('week', date) = date_trunc('week', CURRENT_DATE)), 0) AS week
 	FROM user_point_record
-	WHERE user_id = $1 `
+	WHERE user_id = $1`
 
-	var userDayPoint, userMonthPoint int
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, userId).Scan(
-		&userDayPoint,
-		&userMonthPoint)
-
-	if err != nil {
-		userDayPoint = 0
-		userMonthPoint = 0
-	}
-	sendDayResult <- userDayPoint
-	sendWeekResult <- userMonthPoint
+	err = m.DB.QueryRowContext(ctx, query, userID).Scan(&total, &today, &week)
+	return total, today, week, err
 }
 
 func (m UserPointModel) InsertPoint(userId, scope string, point int64) error {

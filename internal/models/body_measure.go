@@ -20,15 +20,15 @@ type BodyMeasureModel struct {
 }
 
 func ValidateBodyMeasure(v *validator.Validator, bodyMeasure *BodyMeasure) {
-	v.Check(bodyMeasure.Height >= 0, "Height", "cannot be less or equals zero")
-	v.Check(bodyMeasure.Weight >= 0, "Weight", "cannot be less or equals zero")
+	v.Check(bodyMeasure.Height >= 0, "Height", "cannot be negative")
+	v.Check(bodyMeasure.Weight >= 0, "Weight", "cannot be negative")
 }
 
 func (m BodyMeasureModel) GetBodyMeasure(id string) (*BodyMeasure, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
-	query := ` SELECT * FROM bodymeasure WHERE user_id = $1`
+	query := `SELECT user_id, height, weight FROM bodymeasure WHERE user_id = $1`
 
 	var bodyMeasure BodyMeasure
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -49,33 +49,23 @@ func (m BodyMeasureModel) GetBodyMeasure(id string) (*BodyMeasure, error) {
 	return &bodyMeasure, nil
 }
 
-func (m BodyMeasureModel) InsertBodyMeasure(bodyMeasure *BodyMeasure) error {
-	query := `
-	INSERT INTO bodymeasure (user_id, height, weight)
-	VALUES ($1, $2, $3) `
+// UpsertBodyMeasure creates or partially-updates the user's body measurements in
+// one atomic statement (nil fields unchanged on update, default 0 on insert).
+func (m BodyMeasureModel) UpsertBodyMeasure(ctx context.Context, userID string, height, weight *int) (*BodyMeasure, error) {
+	query := `INSERT INTO bodymeasure (user_id, height, weight)
+	          VALUES ($1, COALESCE($2, 0), COALESCE($3, 0))
+	          ON CONFLICT (user_id) DO UPDATE SET
+	              height = COALESCE($2, bodymeasure.height),
+	              weight = COALESCE($3, bodymeasure.weight)
+	          RETURNING user_id, height, weight`
 
-	args := []any{bodyMeasure.Id, bodyMeasure.Height, bodyMeasure.Weight}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
-	return err
-}
-
-func (m BodyMeasureModel) UpdateBodyMeasure(bodyMeasure *BodyMeasure) error {
-
-	query := ` UPDATE bodymeasure SET height = $1, weight = $2 WHERE user_id = $3; `
-
-	args := []any{bodyMeasure.Height, bodyMeasure.Weight, bodyMeasure.Id}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	var bodyMeasure BodyMeasure
+	err := m.DB.QueryRowContext(ctx, query, userID, height, weight).Scan(
+		&bodyMeasure.Id, &bodyMeasure.Height, &bodyMeasure.Weight)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return nil, err
 	}
-	return nil
+	return &bodyMeasure, nil
 }

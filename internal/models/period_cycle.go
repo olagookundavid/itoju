@@ -70,32 +70,34 @@ func (m *UserPeriodModel) GetMenstrualCycles(userID string) ([]MenstrualCycle, e
 	return cycles, nil
 }
 
-func (m *UserPeriodModel) GetCycleDays(cycleID, userID string) ([]CycleDay, error) {
-
-	if cycleID == "" {
-		return []CycleDay{}, nil
-	}
-
+// GetRecentCycleDays returns all cycle days for the user's 3 most recent
+// cycles in a single query (replacing the old per-cycle N+1 goroutine fan-out).
+func (m *UserPeriodModel) GetRecentCycleDays(ctx context.Context, userID string) ([]CycleDay, error) {
 	query := `SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq
-              FROM cycles_days WHERE cycle_id = $1 AND user_id = $2 ORDER BY date ASC`
+	          FROM cycles_days
+	          WHERE user_id = $1
+	            AND cycle_id IN (
+	                SELECT id FROM menstrual_cycles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 3)
+	          ORDER BY cycle_id, date ASC`
 
-	rows, err := m.DB.Query(query, cycleID, userID)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	rows, err := m.DB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var days []CycleDay
+	days := []CycleDay{}
 	for rows.Next() {
 		var day CycleDay
-		err := rows.Scan(&day.ID, &day.CycleID, &day.Date, &day.IsPeriod, &day.IsOvulation, &day.Flow, &day.Pain, pq.Array(&day.Tags), &day.CMQ)
-		if err != nil {
+		if err := rows.Scan(&day.ID, &day.CycleID, &day.Date, &day.IsPeriod, &day.IsOvulation, &day.Flow, &day.Pain, pq.Array(&day.Tags), &day.CMQ); err != nil {
 			return nil, err
 		}
 		days = append(days, day)
 	}
-	if days == nil {
-		days = []CycleDay{}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return days, nil
 }
@@ -194,36 +196,6 @@ func (m *UserPeriodModel) GetCycleDay(id, userID string) (*CycleDay, error) {
 		}
 	}
 	return &cycleDay, nil
-}
-
-func (m *UserPeriodModel) GetMensesCycleIds(id string) ([]string, error) {
-	if id == "" {
-		return nil, ErrRecordNotFound
-	}
-	query := ` SELECT id FROM menstrual_cycles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 3 `
-	var cycleDayIds []string
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	rows, err := m.DB.QueryContext(ctx, query, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var cycleDayId string
-		if err := rows.Scan(&cycleDayId); err != nil {
-			return nil, err
-		}
-		cycleDayIds = append(cycleDayIds, cycleDayId)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return cycleDayIds, nil
 }
 
 func (m *UserPeriodModel) DeleteMenstrualCycle(id, user_id string) error {
