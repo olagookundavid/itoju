@@ -124,10 +124,10 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodGet, "/v1/user/syms_days_analytics/:id/:days", app.RequireActivatedAndAuthedUser((app.GetSymsDaysAnalytics)))
 
 	//Month Analytics
-	router.Handler(http.MethodGet, "/v1/user/tag_month_analytics/:month/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsMonthAnalytics)))
-	router.Handler(http.MethodGet, "/v1/user/bowel_month_analytics/:month", app.RequireActivatedAndAuthedUser((app.GetMonthBowelAnalytics)))
-	router.Handler(http.MethodGet, "/v1/user/exercise_month_analytics/:month", app.RequireActivatedAndAuthedUser((app.GetMonthExerciseAnalytics)))
-	router.Handler(http.MethodGet, "/v1/user/syms_month_analytics/:id/:month", app.RequireActivatedAndAuthedUser((app.GetSymsMonthAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/tag_month_analytics/:year/:month/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsMonthAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/bowel_month_analytics/:year/:month", app.RequireActivatedAndAuthedUser((app.GetMonthBowelAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/exercise_month_analytics/:year/:month", app.RequireActivatedAndAuthedUser((app.GetMonthExerciseAnalytics)))
+	router.Handler(http.MethodGet, "/v1/user/syms_month_analytics/:id/:year/:month", app.RequireActivatedAndAuthedUser((app.GetSymsMonthAnalytics)))
 
 	//Year Analytics
 	router.Handler(http.MethodGet, "/v1/user/tag_year_analytics/:year/:tag", app.RequireActivatedAndAuthedUser((app.GetTagsYearAnalytics)))

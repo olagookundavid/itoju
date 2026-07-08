@@ -19,7 +19,8 @@ class ExerciseWeekChartProvider extends StateNotifier<ExerciseWeekChartState> {
     state = state.copyWith(status: Loader.loading);
     final Response response;
     try {
-      response = await dio.get('user/exercise_month_analytics/$month');
+      final year = DateTime.now().year;
+      response = await dio.get('user/exercise_month_analytics/$year/$month');
 
       var body = response.data;
       if (response.statusCode == 200) {

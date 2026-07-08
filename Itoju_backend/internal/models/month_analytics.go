@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int, month int) (map[int]float64, error) {
+func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int, year int, month int) (map[int]float64, error) {
 	query := `
 	SELECT
 		(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -16,7 +16,7 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 	WHERE
 		user_id = $1
 		AND symptoms_id = $2
-		AND EXTRACT(MONTH FROM date) = $3
+		AND date >= make_date($3, $4, 1) AND date < make_date($3, $4, 1) + INTERVAL '1 month'
 	GROUP BY
 		week_of_month
 	ORDER BY
@@ -26,7 +26,7 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 	defer cancel()
 
 	// Execute the query with the provided parameters
-	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID, month)
+	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID, year, month)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}
@@ -50,7 +50,7 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 	return symptomOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, year int, month int) (map[int][]KeyValue, error) {
 	query := `
 		SELECT
 			(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -60,7 +60,7 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (
 			user_bowel_metric
 		WHERE
 			user_id = $1
-			AND EXTRACT(MONTH FROM date) = $2
+			AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
 		GROUP BY
 			week_of_month, type
 		ORDER BY
@@ -69,7 +69,7 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, userID, month)
+	rows, err := m.DB.QueryContext(ctx, query, userID, year, month)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}
@@ -96,7 +96,7 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, month int) (
 	return bowelTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int) (map[int]int, error) {
+func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, year int, month int) (map[int]int, error) {
 	query := `
 		SELECT
 			(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -105,7 +105,7 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int
 			user_exercise_metric
 		WHERE
 			user_id = $1
-			AND EXTRACT(MONTH FROM date) = $2
+			AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
 		GROUP BY
 			week_of_month
 		ORDER BY
@@ -114,7 +114,7 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, userID, month)
+	rows, err := m.DB.QueryContext(ctx, query, userID, year, month)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}
@@ -141,7 +141,7 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, month int
 	return exerciseTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQuery string) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetMonthTagOccurrences(userID string, year int, month int, tagToQuery string) (map[int][]KeyValue, error) {
 	var query string
 
 	if tagToQuery == "" {
@@ -154,7 +154,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -163,7 +163,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -172,7 +172,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -181,7 +181,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
         )
         SELECT
             week_of_month,
@@ -206,7 +206,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -215,7 +215,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -224,7 +224,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
             UNION ALL
             SELECT
                 (EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -233,7 +233,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(MONTH FROM date) = $2
+                AND date >= make_date($2, $3, 1) AND date < make_date($2, $3, 1) + INTERVAL '1 month'
         )
         SELECT
             week_of_month,
@@ -242,7 +242,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
         FROM
             tag_occurrences
         WHERE
-            tag = $3
+            tag = $4
         GROUP BY
             week_of_month,
             tag
@@ -255,7 +255,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, month int, tagToQu
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	args := []interface{}{userID, month}
+	args := []interface{}{userID, year, month}
 	if tagToQuery != "" {
 		args = append(args, tagToQuery)
 	}

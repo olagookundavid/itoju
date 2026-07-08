@@ -20,7 +20,8 @@ class FoodDiaryWeekChartProvider extends StateNotifier<FoodDiary7ChartState> {
     state = state.copyWith(status: Loader.loading);
     final Response response;
     try {
-      response = await dio.get('user/tag_month_analytics/$month/$tag');
+      final year = DateTime.now().year;
+      response = await dio.get('user/tag_month_analytics/$year/$month/$tag');
 
       var body = response.data;
       if (response.statusCode == 200) {

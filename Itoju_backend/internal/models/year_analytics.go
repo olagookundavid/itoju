@@ -16,7 +16,7 @@ func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, 
 	WHERE
 		user_id = $1
 		AND symptoms_id = $2
-		AND EXTRACT(YEAR FROM date) = $3
+		AND date >= make_date($3, 1, 1) AND date < make_date($3 + 1, 1, 1)
 	GROUP BY
 		month_of_year
 	ORDER BY
@@ -61,7 +61,7 @@ func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (ma
 		user_bowel_metric
 	WHERE
 		user_id = $1
-		AND EXTRACT(YEAR FROM date) = $2
+		AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
 	GROUP BY
 		month_of_year, type
 	ORDER BY
@@ -108,7 +108,7 @@ func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) 
 		user_exercise_metric
 	WHERE
 		user_id = $1
-		AND EXTRACT(YEAR FROM date) = $2
+		AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
 	GROUP BY
 		month_of_year
 	ORDER BY
@@ -159,7 +159,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -168,7 +168,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -177,7 +177,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -186,7 +186,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
         )
         SELECT
             month_of_year,
@@ -211,7 +211,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -220,7 +220,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -229,7 +229,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
             UNION ALL
             SELECT
                 EXTRACT(MONTH FROM date) AS month_of_year,
@@ -238,7 +238,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
                 user_food_metric
             WHERE
                 user_id = $1
-                AND EXTRACT(YEAR FROM date) = $2
+                AND date >= make_date($2, 1, 1) AND date < make_date($2 + 1, 1, 1)
         )
         SELECT
             month_of_year,

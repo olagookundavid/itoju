@@ -12,7 +12,12 @@ func (app *Application) GetMonthBowelAnalytics(w http.ResponseWriter, r *http.Re
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetMonthBowelTypeOccurrences(user.ID, int(month))
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	analytics, err := app.Models.AnalyticsMetric.GetMonthBowelTypeOccurrences(user.ID, int(year), int(month))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -39,7 +44,12 @@ func (app *Application) GetSymsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetMonthSymptomOccurrences(user.ID, int(id), int(month))
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	analytics, err := app.Models.AnalyticsMetric.GetMonthSymptomOccurrences(user.ID, int(id), int(year), int(month))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -61,6 +71,11 @@ func (app *Application) GetTagsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 	tagToQuery, err := app.readStringParam(r, "tag")
 	if err != nil {
 		app.badRequestResponse(w, r, err)
@@ -70,7 +85,7 @@ func (app *Application) GetTagsMonthAnalytics(w http.ResponseWriter, r *http.Req
 		tagToQuery = ""
 	}
 
-	analytics, err := app.Models.AnalyticsMetric.GetMonthTagOccurrences(user.ID, int(month), tagToQuery)
+	analytics, err := app.Models.AnalyticsMetric.GetMonthTagOccurrences(user.ID, int(year), int(month), tagToQuery)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -101,7 +116,12 @@ func (app *Application) GetMonthExerciseAnalytics(w http.ResponseWriter, r *http
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetMonthExerciseTypeOccurrences(user.ID, int(month))
+	year, err := app.readBoundedIntParam(r, "year", 2000, 2100)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	analytics, err := app.Models.AnalyticsMetric.GetMonthExerciseTypeOccurrences(user.ID, int(year), int(month))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

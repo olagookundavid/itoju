@@ -18,7 +18,8 @@ class SymsWeekChartProvider extends StateNotifier<SymsWeekChartState> {
     state = state.copyWith(status: Loader.loading);
     final Response response;
     try {
-      response = await dio.get('user/syms_month_analytics/$symsId/$month');
+      final year = DateTime.now().year;
+      response = await dio.get('user/syms_month_analytics/$symsId/$year/$month');
 
       var body = response.data;
       if (response.statusCode == 200) {
