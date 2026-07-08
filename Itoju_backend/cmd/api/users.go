@@ -38,7 +38,7 @@ func (app *Application) RegisterUserHandler(w http.ResponseWriter, r *http.Reque
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	err = app.Models.Users.Insert(user)
+	err = app.Models.Users.Insert(r.Context(), user)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrDuplicateEmail):
@@ -93,7 +93,7 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	user, err := app.Models.Users.GetForPasswordResetOTP(input.Email, input.Otp)
+	user, err := app.Models.Users.GetForPasswordResetOTP(r.Context(), input.Email, input.Otp)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -111,7 +111,7 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		return
 	}
 	// Save the updated user record in our database, checking for any edit conflicts as // normal.
-	err = app.Models.Users.Update(user)
+	err = app.Models.Users.Update(r.Context(), user)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):
@@ -122,7 +122,7 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		return
 	}
 	// If everything was successful, then delete all password reset tokens for the user.
-	err = app.Models.Tokens.DeleteAllForUser(models.ScopePasswordReset, user.ID)
+	err = app.Models.Tokens.DeleteAllForUser(r.Context(), models.ScopePasswordReset, user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -172,7 +172,7 @@ func (app *Application) ChangeUserPasswordHandler(w http.ResponseWriter, r *http
 		return
 	}
 	// Save the updated user record in our database, checking for any edit conflicts as normal
-	err = app.Models.Users.Update(user)
+	err = app.Models.Users.Update(r.Context(), user)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):

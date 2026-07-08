@@ -6,7 +6,7 @@ import (
 
 func (app *Application) GetConditions(w http.ResponseWriter, r *http.Request) {
 
-	conditions, err := app.Models.Conditions.GetConditions()
+	conditions, err := app.Models.Conditions.GetConditions(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -22,7 +22,7 @@ func (app *Application) GetConditions(w http.ResponseWriter, r *http.Request) {
 func (app *Application) GetUserConditions(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	conditions, err := app.Models.Conditions.GetUserConditions(user.ID)
+	conditions, err := app.Models.Conditions.GetUserConditions(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -45,7 +45,7 @@ func (app *Application) InsertUserConditions(w http.ResponseWriter, r *http.Requ
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Conditions.SetUserConditionsBatch(user.ID, input.Conditions); err != nil {
+	if err := app.Models.Conditions.SetUserConditionsBatch(r.Context(), user.ID, input.Conditions); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -62,7 +62,7 @@ func (app *Application) DeleteUserConditions(w http.ResponseWriter, r *http.Requ
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Conditions.DeleteUserConditionsBatch(user.ID, input.Conditions); err != nil {
+	if err := app.Models.Conditions.DeleteUserConditionsBatch(r.Context(), user.ID, input.Conditions); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}

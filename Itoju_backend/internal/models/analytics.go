@@ -13,7 +13,7 @@ type AnalyticsModel struct {
 }
 
 // getSymptomOccurrences retrieves the count of symptom occurrences for the specified period
-func (m AnalyticsModel) GetSymptom7DaysOccurrences(userID string, symptomID int, days int) (map[int]float64, error) {
+func (m AnalyticsModel) GetSymptom7DaysOccurrences(ctx context.Context, userID string, symptomID int, days int) (map[int]float64, error) {
 	query := `
 	SELECT
 		EXTRACT(DOW FROM date) AS day_of_week,
@@ -29,7 +29,7 @@ func (m AnalyticsModel) GetSymptom7DaysOccurrences(userID string, symptomID int,
 	ORDER BY
 		day_of_week;
 `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID, days)
@@ -66,7 +66,7 @@ type SymptomCount struct {
 	AvgSev      float64
 }
 
-func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(userID string, days int) (map[string][]KeyValue, error) {
+func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(ctx context.Context, userID string, days int) (map[string][]KeyValue, error) {
 	query := `
 		SELECT
 			EXTRACT(DOW FROM date) AS day_of_week,
@@ -82,7 +82,7 @@ func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(userID string, days int) (m
 		ORDER BY
 			day_of_week, type;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, days)
@@ -117,7 +117,7 @@ type KeyValue struct {
 	Value int         `json:"value"`
 }
 
-func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQuery string) (map[string][]KeyValue, error) {
+func (m AnalyticsModel) Get7DaysTagOccurrences(ctx context.Context, userID string, days int, tagToQuery string) (map[string][]KeyValue, error) {
 	var query string
 
 	if tagToQuery == "" {
@@ -229,7 +229,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	args := []any{userID, days}
 	if tagToQuery != "" {
@@ -265,7 +265,7 @@ func (m AnalyticsModel) Get7DaysTagOccurrences(userID string, days int, tagToQue
 	return tagOccurrences, nil
 }
 
-func (m AnalyticsModel) Get7DaysExerciseOccurrences(userID string, days int) (map[string]int, error) {
+func (m AnalyticsModel) Get7DaysExerciseOccurrences(ctx context.Context, userID string, days int) (map[string]int, error) {
 	query := `
 		SELECT
     EXTRACT(DOW FROM date) AS day_of_week,
@@ -281,10 +281,10 @@ ORDER BY
     day_of_week;
 
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, userID)
+	rows, err := m.DB.QueryContext(ctx, query, userID, days)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %v", err)
 	}

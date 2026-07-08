@@ -10,7 +10,7 @@ import (
 func (app *Application) GetMenses(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	menses, err := app.Models.Menses.GetMenses(user.ID)
+	menses, err := app.Models.Menses.GetMenses(r.Context(), user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -68,7 +68,7 @@ func (app *Application) UpdateMenses(w http.ResponseWriter, r *http.Request) {
 func (app *Application) GetBodyMeasure(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	bodyMeasure, err := app.Models.BodyMeasure.GetBodyMeasure(user.ID)
+	bodyMeasure, err := app.Models.BodyMeasure.GetBodyMeasure(r.Context(), user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

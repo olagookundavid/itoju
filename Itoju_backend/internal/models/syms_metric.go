@@ -25,13 +25,13 @@ type SymsMetricModel struct {
 	DB *sql.DB
 }
 
-func (m SymsMetricModel) CreateSymsMetric(userId string, symsMetric SymsMetric) error {
+func (m SymsMetricModel) CreateSymsMetric(ctx context.Context, userId string, symsMetric SymsMetric) error {
 	query := `
 	INSERT INTO user_symptoms_metric (user_id, symptoms_id, date)
 	VALUES ($1, $2, $3) `
 
 	args := []any{userId, symsMetric.Id, symsMetric.Date}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -45,14 +45,14 @@ func (m SymsMetricModel) CreateSymsMetric(userId string, symsMetric SymsMetric) 
 	return err
 }
 
-func (m SymsMetricModel) GetUserSymptomsMetric(userId string, date time.Time) ([]*SymsMetric, error) {
+func (m SymsMetricModel) GetUserSymptomsMetric(ctx context.Context, userId string, date time.Time) ([]*SymsMetric, error) {
 	query := `
 	SELECT usm.id, s.name, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
 	FROM user_symptoms_metric usm
 	JOIN symptoms s ON usm.symptoms_id = s.id
 	WHERE usm.user_id = $1 AND usm.date = $2
     `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userId, date)
 	if err != nil {
@@ -75,7 +75,7 @@ func (m SymsMetricModel) GetUserSymptomsMetric(userId string, date time.Time) ([
 	return symsMetrics, nil
 }
 
-func (m SymsMetricModel) GetUserTopNSyms(userId string, interval int) ([]*SymTopN, error) {
+func (m SymsMetricModel) GetUserTopNSyms(ctx context.Context, userId string, interval int) ([]*SymTopN, error) {
 
 	query := `
 	SELECT s.name, usm.symptoms_id, COUNT(*) AS count
@@ -88,7 +88,7 @@ func (m SymsMetricModel) GetUserTopNSyms(userId string, interval int) ([]*SymTop
 	LIMIT 4;
 	`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userId, interval)
 	if err != nil {
@@ -112,14 +112,14 @@ func (m SymsMetricModel) GetUserTopNSyms(userId string, interval int) ([]*SymTop
 	return outPuts, nil
 }
 
-func (m SymsMetricModel) Get(id int64, userID string) (*SymsMetric, error) {
+func (m SymsMetricModel) Get(ctx context.Context, id int64, userID string) (*SymsMetric, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
 	query := ` SELECT usm.id, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
 	FROM user_symptoms_metric usm WHERE id = $1 AND user_id = $2; `
 	var symsMetric SymsMetric
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(&symsMetric.Id, &symsMetric.Date, &symsMetric.MorningSeverity, &symsMetric.AfternoonSeverity, &symsMetric.NightSeverity)
 
@@ -134,12 +134,12 @@ func (m SymsMetricModel) Get(id int64, userID string) (*SymsMetric, error) {
 	return &symsMetric, nil
 }
 
-func (m SymsMetricModel) UpdateSymsMetric(symsMetric *SymsMetric, id int, userID string) error {
+func (m SymsMetricModel) UpdateSymsMetric(ctx context.Context, symsMetric *SymsMetric, id int, userID string) error {
 
 	query := ` UPDATE user_symptoms_metric SET morning_severity = $1, afternoon_severity= $2, night_severity = $3 WHERE id = $4 AND user_id = $5; `
 
 	args := []any{symsMetric.MorningSeverity, symsMetric.AfternoonSeverity, symsMetric.NightSeverity, symsMetric.Id, userID}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -155,12 +155,12 @@ func (m SymsMetricModel) UpdateSymsMetric(symsMetric *SymsMetric, id int, userID
 	return nil
 }
 
-func (m SymsMetricModel) DeleteSymsMetric(id int64, user_id string) error {
+func (m SymsMetricModel) DeleteSymsMetric(ctx context.Context, id int64, user_id string) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
 	query := ` DELETE FROM user_symptoms_metric WHERE id = $1 AND user_id = $2 `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id, user_id)
 	if err != nil {
@@ -177,7 +177,7 @@ func (m SymsMetricModel) DeleteSymsMetric(id int64, user_id string) error {
 	return nil
 }
 
-func (m SymsMetricModel) DaysTrackedInARow(userID string) (*int, error) {
+func (m SymsMetricModel) DaysTrackedInARow(ctx context.Context, userID string) (*int, error) {
 
 	query := `
         SELECT MAX(consecutive_days) AS max_consecutive_days
@@ -199,7 +199,7 @@ func (m SymsMetricModel) DaysTrackedInARow(userID string) (*int, error) {
         ) AS max_consecutive_days_query
     `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	var maxConsecutiveDays int
 	err := m.DB.QueryRowContext(ctx, query, userID).Scan(&maxConsecutiveDays)
@@ -209,7 +209,7 @@ func (m SymsMetricModel) DaysTrackedInARow(userID string) (*int, error) {
 	return &maxConsecutiveDays, err
 }
 
-func (m SymsMetricModel) DaysTrackedFree(userID string) (*int, error) {
+func (m SymsMetricModel) DaysTrackedFree(ctx context.Context, userID string) (*int, error) {
 
 	query := `
 	SELECT COUNT(*) AS max_consecutive_symptom_free_days
@@ -227,7 +227,7 @@ func (m SymsMetricModel) DaysTrackedFree(userID string) (*int, error) {
 	WHERE is_consecutive = 1
     `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	var maxConsecutiveDays int
 	err := m.DB.QueryRowContext(ctx, query, userID).Scan(&maxConsecutiveDays)

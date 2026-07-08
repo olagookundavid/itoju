@@ -14,7 +14,7 @@ func (app *Application) GetUserExerciseMetrics(w http.ResponseWriter, r *http.Re
 		return
 	}
 	user := app.contextGetUser(r)
-	exerciseMetric, err := app.Models.ExerciseMetric.GetUserExerciseMetric(user.ID, date)
+	exerciseMetric, err := app.Models.ExerciseMetric.GetUserExerciseMetric(r.Context(), user.ID, date)
 
 	if err != nil {
 		switch {
@@ -61,7 +61,7 @@ func (app *Application) CreateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		Date:   date,
 		Name:   input.Name,
 	}
-	err = app.Models.ExerciseMetric.InsertExerciseMetric(exerciseMetric)
+	err = app.Models.ExerciseMetric.InsertExerciseMetric(r.Context(), exerciseMetric)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -84,7 +84,7 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 	}
 	user := app.contextGetUser(r)
 
-	exerciseMetric, err := app.Models.ExerciseMetric.Get(id, user.ID)
+	exerciseMetric, err := app.Models.ExerciseMetric.Get(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -121,7 +121,7 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		exerciseMetric.Tags = *input.Tags
 	}
 
-	err = app.Models.ExerciseMetric.UpdateExerciseMetric(exerciseMetric, int(id), user.ID)
+	err = app.Models.ExerciseMetric.UpdateExerciseMetric(r.Context(), exerciseMetric, int(id), user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -148,7 +148,7 @@ func (app *Application) DeleteExerciseMetric(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	user := app.contextGetUser(r)
-	err = app.Models.ExerciseMetric.DeleteExerciseMetric(id, user.ID)
+	err = app.Models.ExerciseMetric.DeleteExerciseMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

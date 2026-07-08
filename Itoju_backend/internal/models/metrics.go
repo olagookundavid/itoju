@@ -20,14 +20,14 @@ type MetricsModel struct {
 
 // SetUserMetricsBatch inserts all selected tracked metrics for a user in a
 // single statement, ignoring any the user already tracks.
-func (m MetricsModel) SetUserMetricsBatch(userID string, metricIDs []int) error {
+func (m MetricsModel) SetUserMetricsBatch(ctx context.Context, userID string, metricIDs []int) error {
 	if len(metricIDs) == 0 {
 		return nil
 	}
 	query := `INSERT INTO user_trackedmetric (user_id, metric_id)
 	          SELECT $1, unnest($2::int[])
 	          ON CONFLICT DO NOTHING`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {
 		return fmt.Errorf("could not add user metrics: %w", err)
@@ -35,10 +35,10 @@ func (m MetricsModel) SetUserMetricsBatch(userID string, metricIDs []int) error 
 	return nil
 }
 
-func (m MetricsModel) GetMetrics() ([]*Metrics, error) {
+func (m MetricsModel) GetMetrics(ctx context.Context) ([]*Metrics, error) {
 	query := ` SELECT id, name FROM trackedmetrics `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -61,12 +61,12 @@ func (m MetricsModel) GetMetrics() ([]*Metrics, error) {
 	return metrics, nil
 }
 
-func (m MetricsModel) GetUserMetrics(userID string) ([]*Metrics, error) {
+func (m MetricsModel) GetUserMetrics(ctx context.Context, userID string) ([]*Metrics, error) {
 
 	query := ` SELECT trackedmetrics.id , trackedmetrics.name FROM trackedmetrics
 	JOIN user_trackedmetric ON trackedmetrics.id = user_trackedmetric.metric_id
 	WHERE user_trackedmetric.user_id = $1; `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -90,12 +90,12 @@ func (m MetricsModel) GetUserMetrics(userID string) ([]*Metrics, error) {
 
 // DeleteUserMetricsBatch removes all the given tracked metrics for a user in a
 // single statement (idempotent — deleting untracked metrics is a no-op).
-func (m MetricsModel) DeleteUserMetricsBatch(userID string, metricIDs []int) error {
+func (m MetricsModel) DeleteUserMetricsBatch(ctx context.Context, userID string, metricIDs []int) error {
 	if len(metricIDs) == 0 {
 		return nil
 	}
 	query := `DELETE FROM user_trackedmetric WHERE user_id = $1 AND metric_id = ANY($2)`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {
 		return fmt.Errorf("could not delete user metrics: %w", err)
@@ -106,7 +106,7 @@ func (m MetricsModel) DeleteUserMetricsBatch(userID string, metricIDs []int) err
 // GetMetricsStatus reports, in a single round-trip, whether the user has any
 // entry for the given date in each tracked-metric table. This replaces the old
 // 7-goroutine / 7-query fan-out with one query.
-func (m MetricsModel) GetMetricsStatus(userID string, date time.Time) (map[string]bool, error) {
+func (m MetricsModel) GetMetricsStatus(ctx context.Context, userID string, date time.Time) (map[string]bool, error) {
 	query := `
 	SELECT
 		EXISTS(SELECT 1 FROM user_symptoms_metric  WHERE user_id = $1 AND date = $2),
@@ -117,7 +117,7 @@ func (m MetricsModel) GetMetricsStatus(userID string, date time.Time) (map[strin
 		EXISTS(SELECT 1 FROM user_bowel_metric      WHERE user_id = $1 AND date = $2),
 		EXISTS(SELECT 1 FROM user_urine_metric      WHERE user_id = $1 AND date = $2)`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	var symptoms, sleep, food, exercise, medication, bowel, urine bool

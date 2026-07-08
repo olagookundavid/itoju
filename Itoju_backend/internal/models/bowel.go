@@ -21,7 +21,7 @@ type BowelMetricModel struct {
 	DB *sql.DB
 }
 
-func (m BowelMetricModel) GetUserBowelMetrics(userId string, date time.Time) ([]*BowelMetric, error) {
+func (m BowelMetricModel) GetUserBowelMetrics(ctx context.Context, userId string, date time.Time) ([]*BowelMetric, error) {
 
 	query := `
 	SELECT ubm.id, ubm.time, ubm.type, ubm.pain, ubm.tags, ubm.date
@@ -29,7 +29,7 @@ func (m BowelMetricModel) GetUserBowelMetrics(userId string, date time.Time) ([]
     WHERE ubm.user_id = $1 AND ubm.date = $2
 	ORDER BY ubm.id DESC;
     `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userId, date)
 	if err != nil {
@@ -52,14 +52,14 @@ func (m BowelMetricModel) GetUserBowelMetrics(userId string, date time.Time) ([]
 	return bowelMetrics, nil
 }
 
-func (m BowelMetricModel) InsertBowelMetric(userID string, bowelMetric *BowelMetric) error {
+func (m BowelMetricModel) InsertBowelMetric(ctx context.Context, userID string, bowelMetric *BowelMetric) error {
 
 	query := `
 	INSERT INTO user_bowel_metric (user_id, time, pain, type, date, tags)
 	VALUES ($1, $2, $3, $4, $5, $6) `
 
 	args := []any{userID, bowelMetric.Time, bowelMetric.Pain, bowelMetric.Type, bowelMetric.Date, pq.Array(bowelMetric.Tags)}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -98,12 +98,12 @@ func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id int64, userI
 	return nil
 }
 
-func (m BowelMetricModel) DeleteBowelMetric(id int64, user_id string) error {
+func (m BowelMetricModel) DeleteBowelMetric(ctx context.Context, id int64, user_id string) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
 	query := ` DELETE FROM user_bowel_metric WHERE id = $1 AND user_id = $2 `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id, user_id)
 	if err != nil {

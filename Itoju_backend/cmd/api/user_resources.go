@@ -10,7 +10,7 @@ import (
 
 func (app *Application) GetResources(w http.ResponseWriter, r *http.Request) {
 
-	resources, err := app.Models.Resources.GetResources()
+	resources, err := app.Models.Resources.GetResources(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -39,7 +39,7 @@ func (app *Application) InsertResources(w http.ResponseWriter, r *http.Request) 
 		Name: input.Name, Tags: input.Tags, ImageUrl: input.ImageUrl, Link: input.Link,
 	}
 
-	err = app.Models.Resources.InsertResources(*resource)
+	err = app.Models.Resources.InsertResources(r.Context(), *resource)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordAlreadyExist):
@@ -64,7 +64,7 @@ func (app *Application) UpdateResources(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resource, err := app.Models.Resources.Get(id)
+	resource, err := app.Models.Resources.Get(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -103,7 +103,7 @@ func (app *Application) UpdateResources(w http.ResponseWriter, r *http.Request) 
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	err = app.Models.Resources.UpdateResources(resource)
+	err = app.Models.Resources.UpdateResources(r.Context(), resource)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):
@@ -126,7 +126,7 @@ func (app *Application) DeleteResources(w http.ResponseWriter, r *http.Request) 
 		app.NotFoundResponse(w, r)
 		return
 	}
-	err = app.Models.Resources.DeleteResources(id)
+	err = app.Models.Resources.DeleteResources(r.Context(), id)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

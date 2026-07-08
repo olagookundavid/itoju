@@ -15,7 +15,7 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	user := app.contextGetUser(r)
-	sleepMetric, err := app.Models.SleepMetric.GetUserSleepMetrics(user.ID, date)
+	sleepMetric, err := app.Models.SleepMetric.GetUserSleepMetrics(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -84,7 +84,7 @@ func (app *Application) CreateSleepMetric(w http.ResponseWriter, r *http.Request
 	sleepMetric := &models.SleepMetric{
 		IsNight: input.IsNight, TimeSlept: input.TimeSlept, TimeWokeUp: input.TimeWokeUp, Tags: input.Tags, Date: date, Severity: input.Severity}
 
-	err = app.Models.SleepMetric.InsertSleepMetric(user.ID, sleepMetric)
+	err = app.Models.SleepMetric.InsertSleepMetric(r.Context(), user.ID, sleepMetric)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -108,7 +108,7 @@ func (app *Application) DeleteSleepMetric(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.Models.SleepMetric.DeleteSleepMetric(id, user.ID)
+	err = app.Models.SleepMetric.DeleteSleepMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

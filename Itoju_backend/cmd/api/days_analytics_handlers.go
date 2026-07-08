@@ -12,7 +12,7 @@ func (app *Application) GetBowelDaysAnalytics(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.Get7DaysBowelTypeOccurrences(user.ID, int(days))
+	analytics, err := app.Models.AnalyticsMetric.Get7DaysBowelTypeOccurrences(r.Context(), user.ID, int(days))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -34,7 +34,7 @@ func (app *Application) GetExerciseDaysAnalytics(w http.ResponseWriter, r *http.
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.Get7DaysExerciseOccurrences(user.ID, int(days))
+	analytics, err := app.Models.AnalyticsMetric.Get7DaysExerciseOccurrences(r.Context(), user.ID, int(days))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -61,7 +61,7 @@ func (app *Application) GetSymsDaysAnalytics(w http.ResponseWriter, r *http.Requ
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetSymptom7DaysOccurrences(user.ID, int(id), int(days))
+	analytics, err := app.Models.AnalyticsMetric.GetSymptom7DaysOccurrences(r.Context(), user.ID, int(id), int(days))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -92,7 +92,7 @@ func (app *Application) GetTagsDaysAnalytics(w http.ResponseWriter, r *http.Requ
 		tagToQuery = ""
 	}
 
-	analytics, err := app.Models.AnalyticsMetric.Get7DaysTagOccurrences(user.ID, int(days), tagToQuery)
+	analytics, err := app.Models.AnalyticsMetric.Get7DaysTagOccurrences(r.Context(), user.ID, int(days), tagToQuery)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

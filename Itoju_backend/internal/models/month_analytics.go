@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int, year int, month int) (map[int]float64, error) {
+func (m AnalyticsModel) GetMonthSymptomOccurrences(ctx context.Context, userID string, symptomID int, year int, month int) (map[int]float64, error) {
 	query := `
 	SELECT
 		(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -22,7 +22,7 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 	ORDER BY
 		week_of_month;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	// Execute the query with the provided parameters
@@ -50,7 +50,7 @@ func (m AnalyticsModel) GetMonthSymptomOccurrences(userID string, symptomID int,
 	return symptomOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, year int, month int) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetMonthBowelTypeOccurrences(ctx context.Context, userID string, year int, month int) (map[int][]KeyValue, error) {
 	query := `
 		SELECT
 			(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -66,7 +66,7 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, year int, mo
 		ORDER BY
 			week_of_month, type;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, year, month)
@@ -96,7 +96,7 @@ func (m AnalyticsModel) GetMonthBowelTypeOccurrences(userID string, year int, mo
 	return bowelTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, year int, month int) (map[int]int, error) {
+func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(ctx context.Context, userID string, year int, month int) (map[int]int, error) {
 	query := `
 		SELECT
 			(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1) AS week_of_month,
@@ -111,7 +111,7 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, year int,
 		ORDER BY
 			week_of_month;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, year, month)
@@ -141,7 +141,7 @@ func (m AnalyticsModel) GetMonthExerciseTypeOccurrences(userID string, year int,
 	return exerciseTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetMonthTagOccurrences(userID string, year int, month int, tagToQuery string) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetMonthTagOccurrences(ctx context.Context, userID string, year int, month int, tagToQuery string) (map[int][]KeyValue, error) {
 	var query string
 
 	if tagToQuery == "" {
@@ -252,7 +252,7 @@ func (m AnalyticsModel) GetMonthTagOccurrences(userID string, year int, month in
         `
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	args := []interface{}{userID, year, month}

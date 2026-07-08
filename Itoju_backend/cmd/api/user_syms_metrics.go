@@ -29,7 +29,7 @@ func (app *Application) CreateSymsMetric(w http.ResponseWriter, r *http.Request)
 		Id: input.Id, Date: date,
 	}
 
-	err = app.Models.SymsMetric.CreateSymsMetric(user.ID, *symsMetric)
+	err = app.Models.SymsMetric.CreateSymsMetric(r.Context(), user.ID, *symsMetric)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordAlreadyExist):
@@ -56,7 +56,7 @@ func (app *Application) GetUserSymsMetric(w http.ResponseWriter, r *http.Request
 		return
 	}
 	user := app.contextGetUser(r)
-	symsMetric, err := app.Models.SymsMetric.GetUserSymptomsMetric(user.ID, date)
+	symsMetric, err := app.Models.SymsMetric.GetUserSymptomsMetric(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -77,7 +77,7 @@ func (app *Application) GetUserTopNSyms(w http.ResponseWriter, r *http.Request) 
 	}
 	user := app.contextGetUser(r)
 
-	syms, err := app.Models.SymsMetric.GetUserTopNSyms(user.ID, int(num))
+	syms, err := app.Models.SymsMetric.GetUserTopNSyms(r.Context(), user.ID, int(num))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -98,7 +98,7 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 	}
 	user := app.contextGetUser(r)
 
-	symsMetric, err := app.Models.SymsMetric.Get(id, user.ID)
+	symsMetric, err := app.Models.SymsMetric.Get(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -129,7 +129,7 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 		symsMetric.NightSeverity = *input.NightSeverity
 	}
 
-	err = app.Models.SymsMetric.UpdateSymsMetric(symsMetric, int(id), user.ID)
+	err = app.Models.SymsMetric.UpdateSymsMetric(r.Context(), symsMetric, int(id), user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -156,7 +156,7 @@ func (app *Application) DeleteSymsMetric(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	user := app.contextGetUser(r)
-	err = app.Models.SymsMetric.DeleteSymsMetric(id, user.ID)
+	err = app.Models.SymsMetric.DeleteSymsMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -173,7 +173,7 @@ func (app *Application) GetDaysTrackedInARow(w http.ResponseWriter, r *http.Requ
 
 	user := app.contextGetUser(r)
 
-	daysTrackedInARow, err := app.Models.SymsMetric.DaysTrackedInARow(user.ID)
+	daysTrackedInARow, err := app.Models.SymsMetric.DaysTrackedInARow(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -191,7 +191,7 @@ func (app *Application) GetDaysTrackedFree(w http.ResponseWriter, r *http.Reques
 
 	user := app.contextGetUser(r)
 
-	daysTrackedFree, err := app.Models.SymsMetric.DaysTrackedFree(user.ID)
+	daysTrackedFree, err := app.Models.SymsMetric.DaysTrackedFree(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

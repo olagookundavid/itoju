@@ -15,7 +15,7 @@ func (app *Application) GetUserMedicationMetrics(w http.ResponseWriter, r *http.
 		return
 	}
 	user := app.contextGetUser(r)
-	medicationMetric, err := app.Models.MedicationMetric.GetUserMedicationMetrics(user.ID, date)
+	medicationMetric, err := app.Models.MedicationMetric.GetUserMedicationMetrics(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -85,7 +85,7 @@ func (app *Application) CreateMedicationMetric(w http.ResponseWriter, r *http.Re
 	medicationMetric := &models.MedicationMetric{
 		Time: input.Time, Dosage: input.Dosage, Quantity: input.Quantity, Metric: input.Metric, Date: date, Name: input.Name}
 
-	err = app.Models.MedicationMetric.InsertMedicationMetric(user.ID, medicationMetric)
+	err = app.Models.MedicationMetric.InsertMedicationMetric(r.Context(), user.ID, medicationMetric)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -108,7 +108,7 @@ func (app *Application) DeleteMedicationMetric(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = app.Models.MedicationMetric.DeleteMedicationMetric(id, user.ID)
+	err = app.Models.MedicationMetric.DeleteMedicationMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

@@ -92,12 +92,12 @@ func ValidateUser(v *validator.Validator, user *User) {
 	}
 }
 
-func (m UserModel) Insert(user *User) error {
-	query := ` INSERT INTO users (first_name, last_name, date_of_birth, email, password_hash, activated) 
-				VALUES ($1, $2, $3, $4, $5, $6) 
+func (m UserModel) Insert(ctx context.Context, user *User) error {
+	query := ` INSERT INTO users (first_name, last_name, date_of_birth, email, password_hash, activated)
+				VALUES ($1, $2, $3, $4, $5, $6)
 				RETURNING id, created_at, version`
 	args := []any{user.FirstName, user.LastName, user.Dob, user.Email, user.Password.hash, user.Activated}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
 	if err != nil {
@@ -111,11 +111,11 @@ func (m UserModel) Insert(user *User) error {
 	return nil
 }
 
-func (m UserModel) GetByEmail(email string) (*User, error) {
-	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, isAdmin FROM users 
+func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) {
+	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, isAdmin FROM users
 	WHERE email = $1`
 	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
@@ -141,12 +141,12 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
-func (m UserModel) Update(user *User) error {
+func (m UserModel) Update(ctx context.Context, user *User) error {
 	query := ` UPDATE users SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5, date_of_birth = $6, pic_no = $7
 	WHERE id = $8 AND version = $9
 	RETURNING version`
 	args := []any{user.FirstName, user.Email, user.Password.hash, user.Activated, user.LastName, user.Dob, user.PicNo, user.ID, user.Version}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.Version)
 	if err != nil {
@@ -162,7 +162,7 @@ func (m UserModel) Update(user *User) error {
 	return nil
 }
 
-func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error) {
+func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
 
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 	// Set up the SQL query.
@@ -175,7 +175,7 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 
 	args := []any{tokenHash[:], tokenScope, time.Now()}
 	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	// Execute the query, scanning the return values into a User struct. If no matching // record is found we return an ErrRecordNotFound error.
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
@@ -206,7 +206,7 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 // Binding the lookup to the email prevents one user's OTP from matching another
 // user's token (6-digit codes have a small space, so a hash-only lookup could
 // collide across users).
-func (m UserModel) GetForPasswordResetOTP(email, otp string) (*User, error) {
+func (m UserModel) GetForPasswordResetOTP(ctx context.Context, email, otp string) (*User, error) {
 	otpHash := sha256.Sum256([]byte(otp))
 	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.isAdmin
 	FROM users
@@ -218,7 +218,7 @@ func (m UserModel) GetForPasswordResetOTP(email, otp string) (*User, error) {
 
 	args := []any{email, otpHash[:], ScopePasswordReset, time.Now()}
 	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
 		&user.ID,

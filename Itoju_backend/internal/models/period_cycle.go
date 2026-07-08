@@ -102,11 +102,11 @@ func (m *UserPeriodModel) GetRecentCycleDays(ctx context.Context, userID string)
 	return days, nil
 }
 
-func (m *UserPeriodModel) InsertMenstrualCycleTx(tx *sql.Tx, cycle *MenstrualCycle) (string, error) {
+func (m *UserPeriodModel) InsertMenstrualCycleTx(ctx context.Context, tx *sql.Tx, cycle *MenstrualCycle) (string, error) {
 	query := `INSERT INTO menstrual_cycles (user_id, start_date, cycle_length, period_length, created_at)
               VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	var id string
 	err := tx.QueryRowContext(ctx, query, cycle.UserID, cycle.StartDate, cycle.CycleLength, cycle.PeriodLength, time.Now()).Scan(&id)
@@ -145,12 +145,12 @@ func (m *UserPeriodModel) BulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx,
 	return nil
 }
 
-func (m *UserPeriodModel) UpdateCycleDay(cycleDay *CycleDay) error {
+func (m *UserPeriodModel) UpdateCycleDay(ctx context.Context, cycleDay *CycleDay) error {
 
 	query := `UPDATE cycles_days SET flow = $1, pain = $2, is_ovulation = $3, is_period = $4, cmq = $5, tags = $6  WHERE id = $7 AND user_id = $8`
 
 	args := []any{cycleDay.Flow, cycleDay.Pain, cycleDay.IsOvulation, cycleDay.IsPeriod, cycleDay.CMQ, pq.Array(cycleDay.Tags), cycleDay.ID, cycleDay.UserID}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -166,14 +166,14 @@ func (m *UserPeriodModel) UpdateCycleDay(cycleDay *CycleDay) error {
 	return nil
 }
 
-func (m *UserPeriodModel) GetCycleDay(id, userID string) (*CycleDay, error) {
+func (m *UserPeriodModel) GetCycleDay(ctx context.Context, id, userID string) (*CycleDay, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
 	query := ` SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq FROM cycles_days WHERE id = $1 AND user_id = $2; `
 	var cycleDay CycleDay
 	cycleDay.UserID = userID
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(
 		&cycleDay.ID,
@@ -198,10 +198,10 @@ func (m *UserPeriodModel) GetCycleDay(id, userID string) (*CycleDay, error) {
 	return &cycleDay, nil
 }
 
-func (m *UserPeriodModel) DeleteMenstrualCycle(id, user_id string) error {
+func (m *UserPeriodModel) DeleteMenstrualCycle(ctx context.Context, id, user_id string) error {
 
 	query := ` DELETE FROM menstrual_cycles WHERE id = $1 AND user_id = $2 `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id, user_id)
 	if err != nil {

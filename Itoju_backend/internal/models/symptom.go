@@ -18,10 +18,10 @@ type SymptomsModel struct {
 	DB *sql.DB
 }
 
-func (m SymptomsModel) GetSymptoms() ([]*Symptoms, error) {
+func (m SymptomsModel) GetSymptoms(ctx context.Context) ([]*Symptoms, error) {
 	query := ` SELECT id, name FROM symptoms `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -44,12 +44,12 @@ func (m SymptomsModel) GetSymptoms() ([]*Symptoms, error) {
 	return symptoms, nil
 }
 
-func (m SymptomsModel) GetUserSymptoms(userID string) ([]*Symptoms, error) {
+func (m SymptomsModel) GetUserSymptoms(ctx context.Context, userID string) ([]*Symptoms, error) {
 
 	query := ` SELECT symptoms.id , symptoms.name FROM symptoms
 	JOIN user_symptoms ON symptoms.id = user_symptoms.symptoms_id
 	WHERE user_symptoms.user_id = $1; `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -71,14 +71,14 @@ func (m SymptomsModel) GetUserSymptoms(userID string) ([]*Symptoms, error) {
 	return symptoms, nil
 }
 
-func (m SymptomsModel) SetUserSymptomsBatch(userID string, symptomIDs []int) error {
+func (m SymptomsModel) SetUserSymptomsBatch(ctx context.Context, userID string, symptomIDs []int) error {
 	if len(symptomIDs) == 0 {
 		return nil
 	}
 	query := `INSERT INTO user_symptoms (user_id, symptoms_id)
 	          SELECT $1, unnest($2::int[])
 	          ON CONFLICT DO NOTHING`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(symptomIDs)); err != nil {
 		return fmt.Errorf("couldn't add symptoms: %w", err)
@@ -86,12 +86,12 @@ func (m SymptomsModel) SetUserSymptomsBatch(userID string, symptomIDs []int) err
 	return nil
 }
 
-func (m SymptomsModel) DeleteUserSymptomsBatch(userID string, symptomIDs []int) error {
+func (m SymptomsModel) DeleteUserSymptomsBatch(ctx context.Context, userID string, symptomIDs []int) error {
 	if len(symptomIDs) == 0 {
 		return nil
 	}
 	query := `DELETE FROM user_symptoms WHERE user_id = $1 AND symptoms_id = ANY($2)`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(symptomIDs)); err != nil {
 		return fmt.Errorf("couldn't delete symptoms: %w", err)

@@ -15,7 +15,7 @@ func (app *Application) GetUserBowelMetrics(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	user := app.contextGetUser(r)
-	bowelMetric, err := app.Models.BowelMetric.GetUserBowelMetrics(user.ID, date)
+	bowelMetric, err := app.Models.BowelMetric.GetUserBowelMetrics(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -83,7 +83,7 @@ func (app *Application) CreateBowelMetric(w http.ResponseWriter, r *http.Request
 	bowelMetric := &models.BowelMetric{
 		Time: input.Time, Type: input.Type, Pain: input.Pain, Tags: input.Tags, Date: date}
 
-	err = app.Models.BowelMetric.InsertBowelMetric(user.ID, bowelMetric)
+	err = app.Models.BowelMetric.InsertBowelMetric(r.Context(), user.ID, bowelMetric)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -106,7 +106,7 @@ func (app *Application) DeleteBowelMetric(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.Models.BowelMetric.DeleteBowelMetric(id, user.ID)
+	err = app.Models.BowelMetric.DeleteBowelMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

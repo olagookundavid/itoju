@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, year int) (map[int]float64, error) {
+func (m AnalyticsModel) GetYearSymptomOccurrences(ctx context.Context, userID string, symptomID int, year int) (map[int]float64, error) {
 	query := `
 	SELECT
 		EXTRACT(MONTH FROM date) AS month_of_year,
@@ -23,7 +23,7 @@ func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, 
 		month_of_year;
 	`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	// Execute the query with the provided parameters
@@ -51,7 +51,7 @@ func (m AnalyticsModel) GetYearSymptomOccurrences(userID string, symptomID int, 
 	return symptomOccurrences, nil
 }
 
-func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetYearBowelTypeOccurrences(ctx context.Context, userID string, year int) (map[int][]KeyValue, error) {
 	query := `
 	SELECT
 		EXTRACT(MONTH FROM date) AS month_of_year,
@@ -67,7 +67,7 @@ func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (ma
 	ORDER BY
 		month_of_year, type;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, year)
@@ -99,7 +99,7 @@ func (m AnalyticsModel) GetYearBowelTypeOccurrences(userID string, year int) (ma
 	return bowelTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) (map[int]int, error) {
+func (m AnalyticsModel) GetYearExerciseTypeOccurrences(ctx context.Context, userID string, year int) (map[int]int, error) {
 	query := `
 	SELECT
 		EXTRACT(MONTH FROM date) AS month_of_year,
@@ -114,7 +114,7 @@ func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) 
 	ORDER BY
 		month_of_year;
 	`
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := m.DB.QueryContext(ctx, query, userID, year)
@@ -146,7 +146,7 @@ func (m AnalyticsModel) GetYearExerciseTypeOccurrences(userID string, year int) 
 	return exerciseTypeOccurrences, nil
 }
 
-func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuery string) (map[int][]KeyValue, error) {
+func (m AnalyticsModel) GetYearTagOccurrences(ctx context.Context, userID string, year int, tagToQuery string) (map[int][]KeyValue, error) {
 	var query string
 
 	if tagToQuery == "" {
@@ -257,7 +257,7 @@ func (m AnalyticsModel) GetYearTagOccurrences(userID string, year int, tagToQuer
         `
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	args := []interface{}{userID, year}

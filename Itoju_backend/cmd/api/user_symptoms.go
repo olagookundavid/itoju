@@ -6,7 +6,7 @@ import (
 
 func (app *Application) GetSymptoms(w http.ResponseWriter, r *http.Request) {
 
-	symptoms, err := app.Models.Symptoms.GetSymptoms()
+	symptoms, err := app.Models.Symptoms.GetSymptoms(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -22,7 +22,7 @@ func (app *Application) GetSymptoms(w http.ResponseWriter, r *http.Request) {
 func (app *Application) GetUserSymptoms(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	symptoms, err := app.Models.Symptoms.GetUserSymptoms(user.ID)
+	symptoms, err := app.Models.Symptoms.GetUserSymptoms(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -45,7 +45,7 @@ func (app *Application) InsertUserSymptoms(w http.ResponseWriter, r *http.Reques
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Symptoms.SetUserSymptomsBatch(user.ID, input.Symptoms); err != nil {
+	if err := app.Models.Symptoms.SetUserSymptomsBatch(r.Context(), user.ID, input.Symptoms); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -62,7 +62,7 @@ func (app *Application) DeleteUserSymptoms(w http.ResponseWriter, r *http.Reques
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Symptoms.DeleteUserSymptomsBatch(user.ID, input.Symptoms); err != nil {
+	if err := app.Models.Symptoms.DeleteUserSymptomsBatch(r.Context(), user.ID, input.Symptoms); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}

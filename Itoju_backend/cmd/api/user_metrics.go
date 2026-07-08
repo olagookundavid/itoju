@@ -15,7 +15,7 @@ func (app *Application) SetUserMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Metrics.SetUserMetricsBatch(user.ID, input.Metrics); err != nil {
+	if err := app.Models.Metrics.SetUserMetricsBatch(r.Context(), user.ID, input.Metrics); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -24,7 +24,7 @@ func (app *Application) SetUserMetrics(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) GetTrackedMetrics(w http.ResponseWriter, r *http.Request) {
 
-	metrics, err := app.Models.Metrics.GetMetrics()
+	metrics, err := app.Models.Metrics.GetMetrics(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -40,7 +40,7 @@ func (app *Application) GetTrackedMetrics(w http.ResponseWriter, r *http.Request
 func (app *Application) GetUserTrackedMetrics(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	metrics, err := app.Models.Metrics.GetUserMetrics(user.ID)
+	metrics, err := app.Models.Metrics.GetUserMetrics(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -63,7 +63,7 @@ func (app *Application) DeleteUserTrackedMetrics(w http.ResponseWriter, r *http.
 	}
 	user := app.contextGetUser(r)
 
-	if err := app.Models.Metrics.DeleteUserMetricsBatch(user.ID, input.Metrics); err != nil {
+	if err := app.Models.Metrics.DeleteUserMetricsBatch(r.Context(), user.ID, input.Metrics); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -80,7 +80,7 @@ func (app *Application) GetTrackedMetricsStatus(w http.ResponseWriter, r *http.R
 
 	user := app.contextGetUser(r)
 
-	resultMap, err := app.Models.Metrics.GetMetricsStatus(user.ID, date)
+	resultMap, err := app.Models.Metrics.GetMetricsStatus(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

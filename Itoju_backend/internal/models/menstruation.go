@@ -24,14 +24,14 @@ func ValidateMenses(v *validator.Validator, menses *Menses) {
 	v.Check(menses.Cycle_len >= 0, "Cycle length", "cannot be negative")
 }
 
-func (m MensesModels) GetMenses(id string) (*Menses, error) {
+func (m MensesModels) GetMenses(ctx context.Context, id string) (*Menses, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
 	query := `SELECT user_id, period_len, cycle_len FROM menstruation WHERE user_id = $1`
 
 	var menses Menses
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&menses.Id,

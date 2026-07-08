@@ -34,12 +34,12 @@ type FoodMetricModel struct {
 	DB *sql.DB
 }
 
-func (m FoodMetricModel) GetUserFoodMetric(userId string, date time.Time) (*FoodMetric, error) {
+func (m FoodMetricModel) GetUserFoodMetric(ctx context.Context, userId string, date time.Time) (*FoodMetric, error) {
 	query := `
 	SELECT id, user_id, date, breakfast_meal, lunch_meal, dinner_meal, breakfast_extra, lunch_extra,dinner_extra, breakfast_fruit, lunch_fruit, dinner_fruit, breakfast_tags, lunch_tags, dinner_tags, snack_name, snack_tags, glass_no
 	FROM user_food_metric WHERE user_id = $1 AND date = $2;
     `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, query, userId, date)
 
@@ -72,7 +72,7 @@ func (m FoodMetricModel) GetUserFoodMetric(userId string, date time.Time) (*Food
 	return &foodMetric, nil
 }
 
-func (m FoodMetricModel) InsertFoodMetric(foodMetric *FoodMetric) error {
+func (m FoodMetricModel) InsertFoodMetric(ctx context.Context, foodMetric *FoodMetric) error {
 	query := `
         INSERT INTO user_food_metric (user_id, date, breakfast_meal, lunch_meal, dinner_meal, 
                                        breakfast_extra, lunch_extra, dinner_extra, 
@@ -101,7 +101,7 @@ func (m FoodMetricModel) InsertFoodMetric(foodMetric *FoodMetric) error {
 		foodMetric.GlassNo,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	_, err := m.DB.ExecContext(ctx, query, args...)
@@ -110,7 +110,7 @@ func (m FoodMetricModel) InsertFoodMetric(foodMetric *FoodMetric) error {
 	}
 	return nil
 }
-func (m FoodMetricModel) UpdateFoodMetric(foodMetric *FoodMetric) error {
+func (m FoodMetricModel) UpdateFoodMetric(ctx context.Context, foodMetric *FoodMetric) error {
 	query := `
         UPDATE user_food_metric
         SET 
@@ -153,7 +153,7 @@ func (m FoodMetricModel) UpdateFoodMetric(foodMetric *FoodMetric) error {
 		foodMetric.Date,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	_, err := m.DB.ExecContext(ctx, query, args...)

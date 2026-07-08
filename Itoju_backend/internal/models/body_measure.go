@@ -24,14 +24,14 @@ func ValidateBodyMeasure(v *validator.Validator, bodyMeasure *BodyMeasure) {
 	v.Check(bodyMeasure.Weight >= 0, "Weight", "cannot be negative")
 }
 
-func (m BodyMeasureModel) GetBodyMeasure(id string) (*BodyMeasure, error) {
+func (m BodyMeasureModel) GetBodyMeasure(ctx context.Context, id string) (*BodyMeasure, error) {
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
 	query := `SELECT user_id, height, weight FROM bodymeasure WHERE user_id = $1`
 
 	var bodyMeasure BodyMeasure
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&bodyMeasure.Id,

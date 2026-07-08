@@ -30,7 +30,7 @@ func (app *Application) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	user, err := app.Models.Users.GetByEmail(input.Email)
+	user, err := app.Models.Users.GetByEmail(r.Context(), input.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -50,7 +50,7 @@ func (app *Application) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		app.invalidCredentialsResponse(w, r)
 		return
 	}
-	token, err := app.Models.Tokens.New(user.ID, models.AuthTokenTTL, models.ScopeAuthentication)
+	token, err := app.Models.Tokens.New(r.Context(), user.ID, models.AuthTokenTTL, models.ScopeAuthentication)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -64,7 +64,7 @@ func (app *Application) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // token can be invalidated (e.g. on sign-out or a lost device).
 func (app *Application) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
-	if err := app.Models.Tokens.DeleteAllForUser(models.ScopeAuthentication, user.ID); err != nil {
+	if err := app.Models.Tokens.DeleteAllForUser(r.Context(), models.ScopeAuthentication, user.ID); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -115,7 +115,7 @@ func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := app.Models.Users.GetByEmail(identity.Email)
+	user, err := app.Models.Users.GetByEmail(r.Context(), identity.Email)
 	switch {
 	case err == nil:
 		// Existing account — log in.
@@ -173,11 +173,11 @@ func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Reques
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	if err = app.Models.Users.Insert(newUser); err != nil {
+	if err = app.Models.Users.Insert(r.Context(), newUser); err != nil {
 		switch {
 		case errors.Is(err, models.ErrDuplicateEmail):
 			// Raced with another sign-up; treat as login.
-			existing, gerr := app.Models.Users.GetByEmail(identity.Email)
+			existing, gerr := app.Models.Users.GetByEmail(r.Context(), identity.Email)
 			if gerr != nil {
 				app.serverErrorResponse(w, r, gerr)
 				return
@@ -195,7 +195,7 @@ func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Reques
 // issueSessionToken mints a session auth token for the user and writes it to
 // the response, awarding login points in the background.
 func (app *Application) issueSessionToken(w http.ResponseWriter, r *http.Request, userID string) {
-	token, err := app.Models.Tokens.New(userID, models.AuthTokenTTL, models.ScopeAuthentication)
+	token, err := app.Models.Tokens.New(r.Context(), userID, models.AuthTokenTTL, models.ScopeAuthentication)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -251,7 +251,7 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 	}
 	// Try to retrieve the corresponding user record for the email address. If it can't
 	// be found, return an error message to the client.
-	user, err := app.Models.Users.GetByEmail(input.Email)
+	user, err := app.Models.Users.GetByEmail(r.Context(), input.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -269,13 +269,13 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 		return
 	}
 	// Invalidate any previous reset codes so only the most recent one works.
-	err = app.Models.Tokens.DeleteAllForUser(models.ScopePasswordReset, user.ID)
+	err = app.Models.Tokens.DeleteAllForUser(r.Context(), models.ScopePasswordReset, user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 	// Create a new 6-digit OTP with a 15-minute expiry time.
-	token, err := app.Models.Tokens.NewOTP(user.ID, 15*time.Minute, models.ScopePasswordReset)
+	token, err := app.Models.Tokens.NewOTP(r.Context(), user.ID, 15*time.Minute, models.ScopePasswordReset)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -320,7 +320,7 @@ func (app *Application) VerifyPasswordResetOTPHandler(w http.ResponseWriter, r *
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	_, err = app.Models.Users.GetForPasswordResetOTP(input.Email, input.Otp)
+	_, err = app.Models.Users.GetForPasswordResetOTP(r.Context(), input.Email, input.Otp)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

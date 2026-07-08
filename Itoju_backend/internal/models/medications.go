@@ -20,7 +20,7 @@ type MedicationMetricModel struct {
 	DB *sql.DB
 }
 
-func (m MedicationMetricModel) GetUserMedicationMetrics(userId string, date time.Time) ([]*MedicationMetric, error) {
+func (m MedicationMetricModel) GetUserMedicationMetrics(ctx context.Context, userId string, date time.Time) ([]*MedicationMetric, error) {
 
 	query := `
 	SELECT umm.id, umm.time, umm.dosage, umm.quantity, umm.name, umm.date, umm.metric
@@ -28,7 +28,7 @@ func (m MedicationMetricModel) GetUserMedicationMetrics(userId string, date time
     WHERE umm.user_id = $1 AND umm.date = $2
 	ORDER BY umm.id DESC;
     `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userId, date)
 	if err != nil {
@@ -51,14 +51,14 @@ func (m MedicationMetricModel) GetUserMedicationMetrics(userId string, date time
 	return medicationMetrics, nil
 }
 
-func (m MedicationMetricModel) InsertMedicationMetric(userID string, medicationMetric *MedicationMetric) error {
+func (m MedicationMetricModel) InsertMedicationMetric(ctx context.Context, userID string, medicationMetric *MedicationMetric) error {
 
 	query := `
 	INSERT INTO user_medication_metric (user_id, time, dosage, quantity, date, name, metric)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) `
 
 	args := []any{userID, medicationMetric.Time, medicationMetric.Dosage, medicationMetric.Quantity, medicationMetric.Date, medicationMetric.Name, medicationMetric.Metric}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -94,12 +94,12 @@ func (m MedicationMetricModel) UpdateMedicationMetric(ctx context.Context, id in
 	return nil
 }
 
-func (m MedicationMetricModel) DeleteMedicationMetric(id int64, user_id string) error {
+func (m MedicationMetricModel) DeleteMedicationMetric(ctx context.Context, id int64, user_id string) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
 	query := ` DELETE FROM user_medication_metric WHERE id = $1 AND user_id = $2 `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id, user_id)
 	if err != nil {

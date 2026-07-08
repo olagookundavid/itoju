@@ -50,7 +50,7 @@ func (app *Application) AddUserTotalPoints(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	user := app.contextGetUser(r)
-	err = app.Models.UserPoint.InsertPoint(user.ID, "", input.Point)
+	err = app.Models.UserPoint.InsertPoint(r.Context(), user.ID, "", input.Point)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

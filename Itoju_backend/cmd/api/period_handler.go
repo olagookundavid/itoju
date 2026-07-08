@@ -30,7 +30,7 @@ func (app *Application) GetCycleDay(w http.ResponseWriter, r *http.Request) {
 		app.NotFoundResponse(w, r)
 		return
 	}
-	periodDay, err := app.Models.UserPeriod.GetCycleDay(id, user.ID)
+	periodDay, err := app.Models.UserPeriod.GetCycleDay(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -75,7 +75,7 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 	}
 
 	// Start a transaction
-	tx, err := app.Models.Transaction.BeginTx()
+	tx, err := app.Models.Transaction.BeginTx(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -98,7 +98,7 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		date,
 	)
 
-	cycleID, err := app.Models.UserPeriod.InsertMenstrualCycleTx(tx, &cycle)
+	cycleID, err := app.Models.UserPeriod.InsertMenstrualCycleTx(r.Context(), tx, &cycle)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordAlreadyExist):
@@ -148,7 +148,7 @@ func (app *Application) UpdateMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	cycleDay, err := app.Models.UserPeriod.GetCycleDay(id, user.ID)
+	cycleDay, err := app.Models.UserPeriod.GetCycleDay(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -190,7 +190,7 @@ func (app *Application) UpdateMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		cycleDay.Tags = *input.Tags
 	}
 
-	err = app.Models.UserPeriod.UpdateCycleDay(cycleDay)
+	err = app.Models.UserPeriod.UpdateCycleDay(r.Context(), cycleDay)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):
@@ -217,7 +217,7 @@ func (app *Application) DeleteMenstrualCycle(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = app.Models.UserPeriod.DeleteMenstrualCycle(id, user.ID)
+	err = app.Models.UserPeriod.DeleteMenstrualCycle(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

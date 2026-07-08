@@ -81,39 +81,39 @@ type TokenModel struct {
 	DB *sql.DB
 }
 
-func (m TokenModel) New(userID string, ttl time.Duration, scope string) (*Token, error) {
+func (m TokenModel) New(ctx context.Context, userID string, ttl time.Duration, scope string) (*Token, error) {
 	token, err := generateToken(userID, ttl, scope)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Insert(token)
+	err = m.Insert(ctx, token)
 	return token, err
 }
 
 // NewOTP creates and stores a 6-digit one-time code for the given user/scope.
-func (m TokenModel) NewOTP(userID string, ttl time.Duration, scope string) (*Token, error) {
+func (m TokenModel) NewOTP(ctx context.Context, userID string, ttl time.Duration, scope string) (*Token, error) {
 	token, err := generateOTP(userID, ttl, scope)
 	if err != nil {
 		return nil, err
 	}
-	err = m.Insert(token)
+	err = m.Insert(ctx, token)
 	return token, err
 }
 
 // Insert() adds the data for a specific token to the tokens table.
-func (m TokenModel) Insert(token *Token) error {
+func (m TokenModel) Insert(ctx context.Context, token *Token) error {
 	query := ` INSERT INTO tokens (hash, user_id, expiry, scope) VALUES ($1, $2, $3, $4)`
 	args := []any{token.Hash, token.UserID, token.Expiry, token.Scope}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	return err
 }
 
 // DeleteAllForUser() deletes all tokens for a specific user and scope.
-func (m TokenModel) DeleteAllForUser(scope string, userID string) error {
+func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID string) error {
 	query := ` DELETE FROM tokens WHERE scope = $1 AND user_id = $2`
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, scope, userID)
 	return err

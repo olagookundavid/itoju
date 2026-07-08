@@ -101,7 +101,7 @@ func (m UserPointModel) GetUserPointsSummary(ctx context.Context, userID string)
 	return total, today, week, err
 }
 
-func (m UserPointModel) InsertPoint(userId, scope string, point int64) error {
+func (m UserPointModel) InsertPoint(ctx context.Context, userId, scope string, point int64) error {
 
 	tx, err := m.DB.Begin()
 	if err != nil {
@@ -130,14 +130,14 @@ func (m UserPointModel) InsertPoint(userId, scope string, point int64) error {
 `
 
 	args := []any{userId, point}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err = tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
 	args = append(args, scope)
-	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err = tx.ExecContext(ctx, userRecordQuery, args...)
 	if err != nil {

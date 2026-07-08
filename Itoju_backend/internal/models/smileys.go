@@ -24,11 +24,11 @@ type SmileysModel struct {
 	DB *sql.DB
 }
 
-func (m SmileysModel) GetSmileys() ([]*Smileys, error) {
+func (m SmileysModel) GetSmileys(ctx context.Context) ([]*Smileys, error) {
 
 	query := ` SELECT id, name FROM smiley `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -51,13 +51,13 @@ func (m SmileysModel) GetSmileys() ([]*Smileys, error) {
 	return smileys, nil
 }
 
-func (m SmileysModel) GetUserSmileys(userID string) ([]*Smileys, error) {
+func (m SmileysModel) GetUserSmileys(ctx context.Context, userID string) ([]*Smileys, error) {
 
-	query := ` SELECT smiley.id , smiley.name, user_smiley.granted_at, user_smiley.tags 
+	query := ` SELECT smiley.id , smiley.name, user_smiley.granted_at, user_smiley.tags
 	FROM smiley
 	JOIN user_smiley ON smiley.id = user_smiley.smiley_id
 	WHERE user_smiley.user_id = $1; `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -79,13 +79,13 @@ func (m SmileysModel) GetUserSmileys(userID string) ([]*Smileys, error) {
 	return smileys, nil
 }
 
-func (m SmileysModel) InsertUserSmileys(userID string, smiley Smileys, date time.Time) error {
+func (m SmileysModel) InsertUserSmileys(ctx context.Context, userID string, smiley Smileys, date time.Time) error {
 	query := `
 	INSERT INTO user_smiley (user_id, smiley_id, granted_at, tags)
 	VALUES ($1, $2, $3, $4) `
 
 	args := []any{userID, smiley.Id, date, pq.Array(smiley.Tags)}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -100,7 +100,7 @@ func (m SmileysModel) InsertUserSmileys(userID string, smiley Smileys, date time
 	return err
 }
 
-func (m SmileysModel) GetUserSmileysCount(userID string, interval int) ([]*SmileysCount, *int, error) {
+func (m SmileysModel) GetUserSmileysCount(ctx context.Context, userID string, interval int) ([]*SmileysCount, *int, error) {
 
 	query := `
     SELECT s.name, s.id, COALESCE(COUNT(us.smiley_id), 0) AS count,
@@ -109,7 +109,7 @@ func (m SmileysModel) GetUserSmileysCount(userID string, interval int) ([]*Smile
     LEFT JOIN user_smiley us ON s.id = us.smiley_id AND us.user_id = $1 AND us.granted_at >= NOW() - make_interval(days => $2)
     GROUP BY s.name, s.id;`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID, interval)
 	if err != nil {
@@ -132,8 +132,8 @@ func (m SmileysModel) GetUserSmileysCount(userID string, interval int) ([]*Smile
 	return smileys, &totalCount, nil
 }
 
-func (m SmileysModel) GetLatestUserSmileyForToday(userID string, date time.Time) (*Smileys, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m SmileysModel) GetLatestUserSmileyForToday(ctx context.Context, userID string, date time.Time) (*Smileys, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	query := `
 	SELECT smiley_id, tags 

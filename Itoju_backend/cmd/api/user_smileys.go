@@ -11,7 +11,7 @@ import (
 
 func (app *Application) GetSmileys(w http.ResponseWriter, r *http.Request) {
 
-	smileys, err := app.Models.Smileys.GetSmileys()
+	smileys, err := app.Models.Smileys.GetSmileys(r.Context())
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -44,7 +44,7 @@ func (app *Application) InsertUserSmileys(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	err = app.Models.Smileys.InsertUserSmileys(user.ID, *smiley, date)
+	err = app.Models.Smileys.InsertUserSmileys(r.Context(), user.ID, *smiley, date)
 
 	if err != nil {
 		switch {
@@ -66,7 +66,7 @@ func (app *Application) InsertUserSmileys(w http.ResponseWriter, r *http.Request
 func (app *Application) GetUserSmileys(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	smileys, err := app.Models.Smileys.GetUserSmileys(user.ID)
+	smileys, err := app.Models.Smileys.GetUserSmileys(r.Context(), user.ID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -86,7 +86,7 @@ func (app *Application) GetLatestUserSmileyForToday(w http.ResponseWriter, r *ht
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	smiley, err := app.Models.Smileys.GetLatestUserSmileyForToday(user.ID, date)
+	smiley, err := app.Models.Smileys.GetLatestUserSmileyForToday(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -107,7 +107,7 @@ func (app *Application) GetUserSmileysCountInXDays(w http.ResponseWriter, r *htt
 		return
 	}
 
-	smileys, totalCount, err := app.Models.Smileys.GetUserSmileysCount(user.ID, int(id))
+	smileys, totalCount, err := app.Models.Smileys.GetUserSmileysCount(r.Context(), user.ID, int(id))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

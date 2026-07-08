@@ -34,7 +34,7 @@ func (app *Application) UpdateUserProfilePicHandler(w http.ResponseWriter, r *ht
 	user := app.contextGetUser(r)
 	user.PicNo = input.Pic_no
 
-	err = app.Models.Users.Update(user)
+	err = app.Models.Users.Update(r.Context(), user)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):

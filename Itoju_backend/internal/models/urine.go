@@ -22,7 +22,7 @@ type UrineMetricModel struct {
 	DB *sql.DB
 }
 
-func (m UrineMetricModel) GetUserUrineMetrics(userId string, date time.Time) ([]*UrineMetric, error) {
+func (m UrineMetricModel) GetUserUrineMetrics(ctx context.Context, userId string, date time.Time) ([]*UrineMetric, error) {
 
 	query := `
 	SELECT uum.id, uum.time, uum.type, uum.pain, uum.tags, uum.date, uum.quantity
@@ -30,7 +30,7 @@ func (m UrineMetricModel) GetUserUrineMetrics(userId string, date time.Time) ([]
     WHERE uum.user_id = $1 AND uum.date = $2
 	ORDER BY uum.id DESC;
     `
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userId, date)
 	if err != nil {
@@ -53,14 +53,14 @@ func (m UrineMetricModel) GetUserUrineMetrics(userId string, date time.Time) ([]
 	return urineMetrics, nil
 }
 
-func (m UrineMetricModel) InsertUrineMetric(userID string, urineMetric *UrineMetric) error {
+func (m UrineMetricModel) InsertUrineMetric(ctx context.Context, userID string, urineMetric *UrineMetric) error {
 
 	query := `
 	INSERT INTO user_urine_metric (user_id, time, pain, type, date, tags, quantity)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) `
 
 	args := []any{userID, urineMetric.Time, urineMetric.Pain, urineMetric.Type, urineMetric.Date, pq.Array(urineMetric.Tags), urineMetric.Quantity}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -101,12 +101,12 @@ func (m UrineMetricModel) UpdateUrineMetric(ctx context.Context, id int64, userI
 	return nil
 }
 
-func (m UrineMetricModel) DeleteUrineMetric(id int64, user_id string) error {
+func (m UrineMetricModel) DeleteUrineMetric(ctx context.Context, id int64, user_id string) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
 	query := ` DELETE FROM user_urine_metric WHERE id = $1 AND user_id = $2 `
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id, user_id)
 	if err != nil {

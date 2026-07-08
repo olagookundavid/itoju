@@ -15,7 +15,7 @@ func (app *Application) GetUserUrineMetrics(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	user := app.contextGetUser(r)
-	urineMetric, err := app.Models.UrineMetric.GetUserUrineMetrics(user.ID, date)
+	urineMetric, err := app.Models.UrineMetric.GetUserUrineMetrics(r.Context(), user.ID, date)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -85,7 +85,7 @@ func (app *Application) CreateUrineMetric(w http.ResponseWriter, r *http.Request
 	urineMetric := &models.UrineMetric{
 		Time: input.Time, Type: input.Type, Pain: input.Pain, Tags: input.Tags, Quantity: input.Quantity, Date: date}
 
-	err = app.Models.UrineMetric.InsertUrineMetric(user.ID, urineMetric)
+	err = app.Models.UrineMetric.InsertUrineMetric(r.Context(), user.ID, urineMetric)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -108,7 +108,7 @@ func (app *Application) DeleteUrineMetric(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.Models.UrineMetric.DeleteUrineMetric(id, user.ID)
+	err = app.Models.UrineMetric.DeleteUrineMetric(r.Context(), id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

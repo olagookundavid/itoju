@@ -12,7 +12,7 @@ func (app *Application) GetBowelYearAnalytics(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetYearBowelTypeOccurrences(user.ID, int(year))
+	analytics, err := app.Models.AnalyticsMetric.GetYearBowelTypeOccurrences(r.Context(), user.ID, int(year))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -34,7 +34,7 @@ func (app *Application) GetExerciseYearAnalytics(w http.ResponseWriter, r *http.
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetYearExerciseTypeOccurrences(user.ID, int(year))
+	analytics, err := app.Models.AnalyticsMetric.GetYearExerciseTypeOccurrences(r.Context(), user.ID, int(year))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -61,7 +61,7 @@ func (app *Application) GetSymsYearAnalytics(w http.ResponseWriter, r *http.Requ
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	analytics, err := app.Models.AnalyticsMetric.GetYearSymptomOccurrences(user.ID, int(id), int(year))
+	analytics, err := app.Models.AnalyticsMetric.GetYearSymptomOccurrences(r.Context(), user.ID, int(id), int(year))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -92,7 +92,7 @@ func (app *Application) GetTagsYearAnalytics(w http.ResponseWriter, r *http.Requ
 		tagToQuery = ""
 	}
 
-	analytics, err := app.Models.AnalyticsMetric.GetYearTagOccurrences(user.ID, int(year), tagToQuery)
+	analytics, err := app.Models.AnalyticsMetric.GetYearTagOccurrences(r.Context(), user.ID, int(year), tagToQuery)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

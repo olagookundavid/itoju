@@ -1,11 +1,14 @@
 package models
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type TransactionModel struct {
 	DB *sql.DB
 }
 
-func (m *TransactionModel) BeginTx() (*sql.Tx, error) {
-	return m.DB.Begin()
+func (m *TransactionModel) BeginTx(ctx context.Context) (*sql.Tx, error) {
+	return m.DB.BeginTx(ctx, nil)
 }

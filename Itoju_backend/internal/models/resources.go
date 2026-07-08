@@ -30,10 +30,10 @@ func ValidateResource(v *validator.Validator, resource *Resources) {
 
 }
 
-func (m ResourcesModel) GetResources() ([]*Resources, error) {
+func (m ResourcesModel) GetResources(ctx context.Context) ([]*Resources, error) {
 	query := ` SELECT id, name, imageUrl, link, tags, version FROM resources `
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -56,13 +56,13 @@ func (m ResourcesModel) GetResources() ([]*Resources, error) {
 	return resources, nil
 }
 
-func (m ResourcesModel) InsertResources(resources Resources) error {
+func (m ResourcesModel) InsertResources(ctx context.Context, resources Resources) error {
 	query := `
 	INSERT INTO resources (name, imageUrl, link, tags)
 	VALUES ($1, $2, $3, $4) `
 
 	args := []any{resources.Name, resources.ImageUrl, resources.Link, pq.Array(resources.Tags)}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -77,12 +77,12 @@ func (m ResourcesModel) InsertResources(resources Resources) error {
 	return err
 }
 
-func (m ResourcesModel) UpdateResources(resources *Resources) error {
+func (m ResourcesModel) UpdateResources(ctx context.Context, resources *Resources) error {
 
 	query := ` UPDATE resources SET name = $1, imageUrl = $2, link = $3, tags = $4, version = version + 1 WHERE id = $5 AND version = $6; `
 
 	args := []any{resources.Name, resources.ImageUrl, resources.Link, pq.Array(resources.Tags), resources.Id, resources.Version}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -100,13 +100,13 @@ func (m ResourcesModel) UpdateResources(resources *Resources) error {
 	return nil
 }
 
-func (m ResourcesModel) Get(id int64) (*Resources, error) {
+func (m ResourcesModel) Get(ctx context.Context, id int64) (*Resources, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
 	query := ` SELECT id, name, imageUrl, link, tags, version FROM resources WHERE id = $1; `
 	var resource Resources
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&resource.Id,
@@ -127,12 +127,12 @@ func (m ResourcesModel) Get(id int64) (*Resources, error) {
 	return &resource, nil
 }
 
-func (m ResourcesModel) DeleteResources(id int64) error {
+func (m ResourcesModel) DeleteResources(ctx context.Context, id int64) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
 	query := ` DELETE FROM resources WHERE id = $1`
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {

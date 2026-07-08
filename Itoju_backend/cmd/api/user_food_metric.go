@@ -14,7 +14,7 @@ func (app *Application) GetUserFoodMetrics(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	user := app.contextGetUser(r)
-	foodMetric, err := app.Models.FoodMetric.GetUserFoodMetric(user.ID, date)
+	foodMetric, err := app.Models.FoodMetric.GetUserFoodMetric(r.Context(), user.ID, date)
 
 	if err != nil {
 		switch {
@@ -47,7 +47,7 @@ func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	foodMetric, err := app.Models.FoodMetric.GetUserFoodMetric(user.ID, date)
+	foodMetric, err := app.Models.FoodMetric.GetUserFoodMetric(r.Context(), user.ID, date)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -169,7 +169,7 @@ func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Req
 				foodMetric.GlassNo = 0
 			}
 
-			err = app.Models.FoodMetric.InsertFoodMetric(foodMetric)
+			err = app.Models.FoodMetric.InsertFoodMetric(r.Context(), foodMetric)
 
 			if err != nil {
 				app.serverErrorResponse(w, r, err)
@@ -267,7 +267,7 @@ func (app *Application) UpdateUserFoodMetrics(w http.ResponseWriter, r *http.Req
 		foodMetric.GlassNo = *input.GlassNo
 	}
 
-	err = app.Models.FoodMetric.UpdateFoodMetric(foodMetric)
+	err = app.Models.FoodMetric.UpdateFoodMetric(r.Context(), foodMetric)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrEditConflict):
