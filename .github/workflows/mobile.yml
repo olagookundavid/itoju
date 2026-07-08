@@ -1,0 +1,39 @@
+name: Mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "itoju_mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "itoju_mobile/**"
+      - ".github/workflows/mobile.yml"
+
+defaults:
+  run:
+    working-directory: itoju_mobile
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.5"
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      # --no-fatal-infos: the codebase has known deprecation infos;
+      # fail only on errors and warnings.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      # `flutter test` is intentionally not run: test/widget_test.dart is
+      # the default counter-app scaffold and doesn't match this app yet.

@@ -1,0 +1,36 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Itoju_backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "Itoju_backend/**"
+      - ".github/workflows/backend.yml"
+
+defaults:
+  run:
+    working-directory: Itoju_backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: Itoju_backend/go.mod
+          cache-dependency-path: Itoju_backend/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
