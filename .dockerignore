@@ -1,0 +1,18 @@
+# VCS & tooling
+.git
+.gitignore
+.idea
+.vscode
+
+# Secrets & local config — must never enter the image
+.env
+*.env
+
+# Build artifacts / prebuilt binaries (the image builds its own)
+/main
+bin/
+*.exe
+
+# OS/editor junk & docs
+.DS_Store
+*.md
