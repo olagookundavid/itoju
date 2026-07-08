@@ -90,21 +90,32 @@ func (m BowelMetricModel) InsertBowelMetric(userID string, bowelMetric *BowelMet
 	return nil
 }
 
-func (m BowelMetricModel) UpdateBowelMetric(bowelMetric *BowelMetric) error {
+// UpdateBowelMetric partially updates a bowel metric in one statement, scoped
+// to the owning user; a 0-row update surfaces as ErrRecordNotFound.
+func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id int64, userID string, timeOfDay *string, typ, pain *float64, tags *[]string) error {
+	query := `UPDATE user_bowel_metric SET
+	    time = COALESCE($1, time),
+	    pain = COALESCE($2, pain),
+	    type = COALESCE($3, type),
+	    tags = COALESCE($4, tags)
+	    WHERE id = $5 AND user_id = $6`
 
-	query := ` UPDATE user_bowel_metric SET time = $1, pain = $2, type = $3, tags = $4 WHERE id = $5; `
-
-	args := []any{bowelMetric.Time, bowelMetric.Pain, bowelMetric.Type, pq.Array(bowelMetric.Tags), bowelMetric.ID}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	var tagsArg any
+	if tags != nil {
+		tagsArg = pq.Array(*tags)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, timeOfDay, pain, typ, tagsArg, id, userID)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }

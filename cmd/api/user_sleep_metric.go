@@ -87,7 +87,18 @@ func (app *Application) UpdateSleepMetric(w http.ResponseWriter, r *http.Request
 		app.NotFoundResponse(w, r)
 		return
 	}
-	sleepMetric, err := app.Models.SleepMetric.GetUserSleepMetric(user.ID, id)
+	var input struct {
+		TimeSlept  *string   `json:"time_slept"`
+		TimeWokeUp *string   `json:"time_woke_up"`
+		Severity   *float64  `json:"severity"`
+		Tags       *[]string `json:"tags"`
+	}
+	if err = app.readJSON(w, r, &input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.Models.SleepMetric.UpdateSleepMetric(r.Context(), id, user.ID, input.TimeSlept, input.TimeWokeUp, input.Severity, input.Tags)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -97,46 +108,7 @@ func (app *Application) UpdateSleepMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	var input struct {
-		TimeSlept  *string   `json:"time_slept"`
-		TimeWokeUp *string   `json:"time_woke_up"`
-		Severity   *float64  `json:"severity"`
-		Tags       *[]string `json:"tags"`
-	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if input.Severity != nil {
-		sleepMetric.Severity = *input.Severity
-	}
-	if input.TimeSlept != nil {
-		sleepMetric.TimeSlept = *input.TimeSlept
-	}
-	if input.TimeWokeUp != nil {
-		sleepMetric.TimeWokeUp = *input.TimeWokeUp
-	}
-	if input.Tags != nil {
-		sleepMetric.Tags = *input.Tags
-	}
-
-	err = app.Models.SleepMetric.UpdateSleepMetric(sleepMetric)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	env := envelope{
-		"message": "Successfully updated User Sleep Metrics",
-	}
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully updated User Sleep Metrics"})
 }
 
 func (app *Application) CreateSleepMetric(w http.ResponseWriter, r *http.Request) {

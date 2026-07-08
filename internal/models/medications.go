@@ -89,21 +89,29 @@ func (m MedicationMetricModel) InsertMedicationMetric(userID string, medicationM
 	return nil
 }
 
-func (m MedicationMetricModel) UpdateMedicationMetric(medicationMetric *MedicationMetric) error {
+// UpdateMedicationMetric partially updates a medication metric in one
+// statement, scoped to the owning user; a 0-row update is ErrRecordNotFound.
+func (m MedicationMetricModel) UpdateMedicationMetric(ctx context.Context, id int64, userID string, timeOfDay, name, metric *string, dosage, quantity *float64) error {
+	query := `UPDATE user_medication_metric SET
+	    time = COALESCE($1, time),
+	    dosage = COALESCE($2, dosage),
+	    quantity = COALESCE($3, quantity),
+	    metric = COALESCE($4, metric),
+	    name = COALESCE($5, name)
+	    WHERE id = $6 AND user_id = $7`
 
-	query := ` UPDATE user_medication_metric SET time = $1, dosage = $2, quantity = $3, metric = $4, name = $5 WHERE id = $6; `
-
-	args := []any{medicationMetric.Time, medicationMetric.Dosage, medicationMetric.Quantity, medicationMetric.Metric, medicationMetric.Name, medicationMetric.ID}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, timeOfDay, dosage, quantity, metric, name, id, userID)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }

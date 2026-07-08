@@ -36,7 +36,19 @@ func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Re
 		app.NotFoundResponse(w, r)
 		return
 	}
-	medicationMetric, err := app.Models.MedicationMetric.GetUserMedicationMetric(user.ID, id)
+	var input struct {
+		Time     *string  `json:"time"`
+		Name     *string  `json:"name"`
+		Metric   *string  `json:"metric"`
+		Dosage   *float64 `json:"dosage"`
+		Quantity *float64 `json:"quantity"`
+	}
+	if err = app.readJSON(w, r, &input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.Models.MedicationMetric.UpdateMedicationMetric(r.Context(), id, user.ID, input.Time, input.Name, input.Metric, input.Dosage, input.Quantity)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -46,50 +58,7 @@ func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Re
 		}
 		return
 	}
-
-	var input struct {
-		Time     *string  `json:"time"`
-		Name     *string  `json:"name"`
-		Metric   *string  `json:"metric"`
-		Dosage   *float64 `json:"dosage"`
-		Quantity *float64 `json:"quantity"`
-	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if input.Time != nil {
-		medicationMetric.Time = *input.Time
-	}
-	if input.Dosage != nil {
-		medicationMetric.Dosage = *input.Dosage
-	}
-	if input.Quantity != nil {
-		medicationMetric.Quantity = *input.Quantity
-	}
-	if input.Name != nil {
-		medicationMetric.Name = *input.Name
-	}
-	if input.Metric != nil {
-		medicationMetric.Metric = *input.Metric
-	}
-
-	err = app.Models.MedicationMetric.UpdateMedicationMetric(medicationMetric)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	env := envelope{
-		"message": "Successfully updated User Medication Metrics",
-	}
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully updated User Medication Metrics"})
 }
 
 func (app *Application) CreateMedicationMetric(w http.ResponseWriter, r *http.Request) {

@@ -36,7 +36,19 @@ func (app *Application) UpdateUrineMetric(w http.ResponseWriter, r *http.Request
 		app.NotFoundResponse(w, r)
 		return
 	}
-	urineMetric, err := app.Models.UrineMetric.GetUserUrineMetric(user.ID, id)
+	var input struct {
+		Time     *string   `json:"time"`
+		Type     *float64  `json:"type"`
+		Pain     *float64  `json:"pain"`
+		Quantity *float64  `json:"quantity"`
+		Tags     *[]string `json:"tags"`
+	}
+	if err = app.readJSON(w, r, &input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.Models.UrineMetric.UpdateUrineMetric(r.Context(), id, user.ID, input.Time, input.Type, input.Pain, input.Quantity, input.Tags)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -46,50 +58,7 @@ func (app *Application) UpdateUrineMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	var input struct {
-		Time     *string   `json:"time"`
-		Type     *float64  `json:"type"`
-		Pain     *float64  `json:"pain"`
-		Quantity *float64  `json:"quantity"`
-		Tags     *[]string `json:"tags"`
-	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if input.Time != nil {
-		urineMetric.Time = *input.Time
-	}
-	if input.Type != nil {
-		urineMetric.Type = *input.Type
-	}
-	if input.Pain != nil {
-		urineMetric.Pain = *input.Pain
-	}
-	if input.Tags != nil {
-		urineMetric.Tags = *input.Tags
-	}
-	if input.Quantity != nil {
-		urineMetric.Quantity = *input.Quantity
-	}
-
-	err = app.Models.UrineMetric.UpdateUrineMetric(urineMetric)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	env := envelope{
-		"message": "Successfully updated User Urine Metrics",
-	}
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully updated User Urine Metrics"})
 }
 
 func (app *Application) CreateUrineMetric(w http.ResponseWriter, r *http.Request) {

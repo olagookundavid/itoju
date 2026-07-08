@@ -36,7 +36,18 @@ func (app *Application) UpdateBowelMetric(w http.ResponseWriter, r *http.Request
 		app.NotFoundResponse(w, r)
 		return
 	}
-	bowelMetric, err := app.Models.BowelMetric.GetUserBowelMetric(user.ID, id)
+	var input struct {
+		Time *string   `json:"time"`
+		Type *float64  `json:"type"`
+		Pain *float64  `json:"pain"`
+		Tags *[]string `json:"tags"`
+	}
+	if err = app.readJSON(w, r, &input); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.Models.BowelMetric.UpdateBowelMetric(r.Context(), id, user.ID, input.Time, input.Type, input.Pain, input.Tags)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -46,46 +57,7 @@ func (app *Application) UpdateBowelMetric(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	var input struct {
-		Time *string   `json:"time"`
-		Type *float64  `json:"type"`
-		Pain *float64  `json:"pain"`
-		Tags *[]string `json:"tags"`
-	}
-	err = app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if input.Time != nil {
-		bowelMetric.Time = *input.Time
-	}
-	if input.Type != nil {
-		bowelMetric.Type = *input.Type
-	}
-	if input.Pain != nil {
-		bowelMetric.Pain = *input.Pain
-	}
-	if input.Tags != nil {
-		bowelMetric.Tags = *input.Tags
-	}
-
-	err = app.Models.BowelMetric.UpdateBowelMetric(bowelMetric)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	env := envelope{
-		"message": "Successfully updated User Bowel Metrics",
-	}
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully updated User Bowel Metrics"})
 }
 
 func (app *Application) CreateBowelMetric(w http.ResponseWriter, r *http.Request) {

@@ -91,21 +91,32 @@ func (m SleepMetricModel) InsertSleepMetric(userID string, sleepMetric *SleepMet
 	return nil
 }
 
-func (m SleepMetricModel) UpdateSleepMetric(sleepMetric *SleepMetric) error {
+// UpdateSleepMetric partially updates a sleep metric in one statement, scoped
+// to the owning user; a 0-row update surfaces as ErrRecordNotFound.
+func (m SleepMetricModel) UpdateSleepMetric(ctx context.Context, id int64, userID string, timeSlept, timeWokeUp *string, severity *float64, tags *[]string) error {
+	query := `UPDATE user_sleep_metric SET
+	    time_slept = COALESCE($1, time_slept),
+	    time_woke_up = COALESCE($2, time_woke_up),
+	    tags = COALESCE($3, tags),
+	    severity = COALESCE($4, severity)
+	    WHERE id = $5 AND user_id = $6`
 
-	query := ` UPDATE user_sleep_metric SET time_slept = $1, time_woke_up = $2, tags = $3, severity = $4 WHERE id = $5 AND is_night = $6; `
-
-	args := []any{sleepMetric.TimeSlept, sleepMetric.TimeWokeUp, pq.Array(sleepMetric.Tags), sleepMetric.Severity, sleepMetric.ID, sleepMetric.IsNight}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	var tagsArg any
+	if tags != nil {
+		tagsArg = pq.Array(*tags)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	result, err := m.DB.ExecContext(ctx, query, timeSlept, timeWokeUp, tagsArg, severity, id, userID)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }
