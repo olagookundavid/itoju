@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Symptoms struct {
@@ -69,33 +71,30 @@ func (m SymptomsModel) GetUserSymptoms(userID string) ([]*Symptoms, error) {
 	return symptoms, nil
 }
 
-func (m SymptomsModel) SetUserSymptoms(tx *sql.Tx, symID int, userID string) error {
-
-	query := ` INSERT INTO user_symptoms (user_id, symptoms_id) VALUES ($1, $2)`
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m SymptomsModel) SetUserSymptomsBatch(userID string, symptomIDs []int) error {
+	if len(symptomIDs) == 0 {
+		return nil
+	}
+	query := `INSERT INTO user_symptoms (user_id, symptoms_id)
+	          SELECT $1, unnest($2::int[])
+	          ON CONFLICT DO NOTHING`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := tx.ExecContext(ctx, query, userID, symID)
-	if err != nil {
-		return fmt.Errorf("couldn't add new symptoms: %w", err)
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(symptomIDs)); err != nil {
+		return fmt.Errorf("couldn't add symptoms: %w", err)
 	}
 	return nil
-
 }
 
-func (m SymptomsModel) DeleteUserSymptoms(tx *sql.Tx, userId string, symptomsID int) error {
-
-	query := ` DELETE FROM user_symptoms
-	WHERE user_id = $1
-	AND symptoms_id = $2; `
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m SymptomsModel) DeleteUserSymptomsBatch(userID string, symptomIDs []int) error {
+	if len(symptomIDs) == 0 {
+		return nil
+	}
+	query := `DELETE FROM user_symptoms WHERE user_id = $1 AND symptoms_id = ANY($2)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, userId, symptomsID)
-	if err != nil {
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(symptomIDs)); err != nil {
 		return fmt.Errorf("couldn't delete symptoms: %w", err)
 	}
-
 	return nil
 }

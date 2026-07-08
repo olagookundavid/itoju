@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -117,15 +119,25 @@ func (m *UserPeriodModel) InsertMenstrualCycleTx(tx *sql.Tx, cycle *MenstrualCyc
 	return id, nil
 }
 
-func (m *UserPeriodModel) InsertCycleDayTx(tx *sql.Tx, day *CycleDay) error {
-	query := `INSERT INTO cycles_days (cycle_id, user_id, date, is_period, is_ovulation, flow, pain, tags, cmq, created_at)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, day.CycleID, day.UserID, day.Date, day.IsPeriod, day.IsOvulation, day.Flow, day.Pain, pq.Array(day.Tags), day.CMQ, time.Now())
-	if err != nil {
+// BulkInsertCycleDaysTx inserts all cycle days for a cycle in a single
+// multi-row statement, instead of one round-trip per day.
+func (m *UserPeriodModel) BulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx, days []CycleDay) error {
+	if len(days) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString(`INSERT INTO cycles_days (cycle_id, user_id, date, is_period, is_ovulation, flow, pain, tags, cmq, created_at) VALUES `)
+	args := make([]any, 0, len(days)*9)
+	for i, d := range days {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		n := i * 9
+		fmt.Fprintf(&b, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,now())",
+			n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9)
+		args = append(args, d.CycleID, d.UserID, d.Date, d.IsPeriod, d.IsOvulation, d.Flow, d.Pain, pq.Array(d.Tags), d.CMQ)
+	}
+	if _, err := tx.ExecContext(ctx, b.String(), args...); err != nil {
 		return err
 	}
 	return nil

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Metrics struct {
@@ -16,41 +18,21 @@ type MetricsModel struct {
 	DB *sql.DB
 }
 
-// unique issue on user_metrics table, also how to do this well
-
-func (m MetricsModel) SetUserMetrics(tx *sql.Tx, metricID int, userID string) error {
-
-	query := ` INSERT INTO user_trackedmetric (user_id, metric_id) VALUES ($1, $2)`
-	//TODO: change to TX
-
-	// for _, metricID := range selectedMetrics {
-	// 	wg.Add(1)
-	// 	go func(metricID int) {
-	// 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	// 		defer cancel()
-	// 		defer wg.Done()
-	// 		defer func() {
-	// 			if err := recover(); err != nil {
-	// 				logger.PrintError(fmt.Errorf("%s", err), nil)
-	// 			}
-	// 		}()
-	// 		_, err := m.DB.ExecContext(ctx, query, userID, metricID)
-	// 		if err != nil {
-	// 			logger.PrintError(fmt.Errorf("metric error  %s", err), nil)
-	// 			return
-	// 		}
-	// 	}(metricID)
-	// }
-	// wg.Wait()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// SetUserMetricsBatch inserts all selected tracked metrics for a user in a
+// single statement, ignoring any the user already tracks.
+func (m MetricsModel) SetUserMetricsBatch(userID string, metricIDs []int) error {
+	if len(metricIDs) == 0 {
+		return nil
+	}
+	query := `INSERT INTO user_trackedmetric (user_id, metric_id)
+	          SELECT $1, unnest($2::int[])
+	          ON CONFLICT DO NOTHING`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := tx.ExecContext(ctx, query, userID, metricID)
-	if err != nil {
-		return fmt.Errorf("could add user metric: %w", err)
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {
+		return fmt.Errorf("could not add user metrics: %w", err)
 	}
 	return nil
-
 }
 
 func (m MetricsModel) GetMetrics() ([]*Metrics, error) {
@@ -106,19 +88,17 @@ func (m MetricsModel) GetUserMetrics(userID string) ([]*Metrics, error) {
 	return metrics, nil
 }
 
-func (m MetricsModel) DeleteUserMetrics(tx *sql.Tx, userId string, metricID int) error {
-
-	query := ` DELETE FROM user_trackedmetric
-	WHERE user_id = $1
-	AND metric_id = $2; `
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// DeleteUserMetricsBatch removes all the given tracked metrics for a user in a
+// single statement (idempotent — deleting untracked metrics is a no-op).
+func (m MetricsModel) DeleteUserMetricsBatch(userID string, metricIDs []int) error {
+	if len(metricIDs) == 0 {
+		return nil
+	}
+	query := `DELETE FROM user_trackedmetric WHERE user_id = $1 AND metric_id = ANY($2)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, userId, metricID)
-	if err != nil {
-
-		return fmt.Errorf("could delete user metric: %w", err)
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {
+		return fmt.Errorf("could not delete user metrics: %w", err)
 	}
 	return nil
 }

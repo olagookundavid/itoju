@@ -52,8 +52,8 @@ func (app *Application) InsertUserSmileys(w http.ResponseWriter, r *http.Request
 			app.recordAlreadyExistsResponse(w, r)
 		default:
 			app.serverErrorResponse(w, r, err)
-			return
 		}
+		return
 	}
 	env := envelope{
 		"message": "Successfully added User smiley",

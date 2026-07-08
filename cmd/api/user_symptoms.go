@@ -39,80 +39,32 @@ func (app *Application) InsertUserSymptoms(w http.ResponseWriter, r *http.Reques
 	var input struct {
 		Symptoms []int `json:"symptoms"`
 	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 	user := app.contextGetUser(r)
-	tx, err := app.Models.Transaction.BeginTx()
-	if err != nil {
+
+	if err := app.Models.Symptoms.SetUserSymptomsBatch(user.ID, input.Symptoms); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			app.serverErrorResponse(w, r, err)
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-		}
-	}()
-
-	for i := 0; i < len(input.Symptoms); i++ {
-		if err = app.Models.Symptoms.SetUserSymptoms(tx, input.Symptoms[i], user.ID); err != nil {
-			return
-		}
-	}
-
-	env := envelope{
-		"message": "Successfully added User Symptoms",
-	}
-
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully added User Symptoms"})
 }
 
 func (app *Application) DeleteUserSymptoms(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Symptoms []int `json:"symptoms"`
 	}
-
-	err := app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
 	user := app.contextGetUser(r)
-	tx, err := app.Models.Transaction.BeginTx()
-	if err != nil {
+
+	if err := app.Models.Symptoms.DeleteUserSymptomsBatch(user.ID, input.Symptoms); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			app.serverErrorResponse(w, r, err)
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-		}
-	}()
-
-	for i := 0; i < len(input.Symptoms); i++ {
-		if err = app.Models.Symptoms.DeleteUserSymptoms(tx, user.ID, input.Symptoms[i]); err != nil {
-			return
-		}
-	}
-	env := envelope{
-		"message": "Deleted Symptoms for User"}
-
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Deleted Symptoms for User"})
 }

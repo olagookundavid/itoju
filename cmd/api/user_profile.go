@@ -28,7 +28,7 @@ func (app *Application) UpdateUserProfilePicHandler(w http.ResponseWriter, r *ht
 		return
 	}
 	if input.Pic_no <= 0 {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, r, errors.New("pic_no must be greater than 0"))
 		return
 	}
 	user := app.contextGetUser(r)

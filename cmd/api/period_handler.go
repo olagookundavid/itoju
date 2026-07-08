@@ -108,6 +108,12 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
+	// Bound the lengths so a single request can't be asked to generate an
+	// unreasonable number of day rows.
+	if input.PeriodLength < 1 || input.CycleLength < input.PeriodLength+9 || input.CycleLength > 60 {
+		app.badRequestResponse(w, r, errors.New("invalid period_length/cycle_length"))
+		return
+	}
 
 	// Start a transaction
 	tx, err := app.Models.Transaction.BeginTx()
@@ -144,27 +150,23 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Insert cycle days
+	// Build every cycle day, then insert them all in one statement:
+	//   [0, PeriodLength)                 -> period days
+	//   [PeriodLength, PeriodLength+9)     -> regular days
+	//   [PeriodLength+9, CycleLength)      -> ovulation days
+	days := make([]models.CycleDay, 0, input.CycleLength)
 	for i := 0; i < input.PeriodLength; i++ {
-		day := app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, true, false, cycle.StartDate.AddDate(0, 0, i))
-		if err := app.Models.UserPeriod.InsertCycleDayTx(tx, &day); err != nil {
-			return
-		}
+		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, true, false, cycle.StartDate.AddDate(0, 0, i)))
 	}
-	// Insert regular days
 	for i := input.PeriodLength; i < (input.PeriodLength + 9); i++ {
-		day := app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, false, cycle.StartDate.AddDate(0, 0, i))
-		if err := app.Models.UserPeriod.InsertCycleDayTx(tx, &day); err != nil {
-			return
-		}
+		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, false, cycle.StartDate.AddDate(0, 0, i)))
 	}
-
-	// Insert ovulation days
-	for i := (input.PeriodLength + 9); i < (input.CycleLength); i++ {
-		day := app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, true, cycle.StartDate.AddDate(0, 0, i))
-		if err := app.Models.UserPeriod.InsertCycleDayTx(tx, &day); err != nil {
-			return
-		}
+	for i := (input.PeriodLength + 9); i < input.CycleLength; i++ {
+		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, true, cycle.StartDate.AddDate(0, 0, i)))
+	}
+	if err = app.Models.UserPeriod.BulkInsertCycleDaysTx(r.Context(), tx, days); err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
 	}
 
 	if err = tx.Commit(); err != nil {

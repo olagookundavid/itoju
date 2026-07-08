@@ -1,10 +1,7 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-
-	"github.com/olagookundavid/itoju/internal/models"
 )
 
 func (app *Application) SetUserMetrics(w http.ResponseWriter, r *http.Request) {
@@ -12,43 +9,17 @@ func (app *Application) SetUserMetrics(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Metrics []int `json:"metrics"`
 	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 	user := app.contextGetUser(r)
 
-	tx, err := app.Models.Transaction.BeginTx()
-	if err != nil {
+	if err := app.Models.Metrics.SetUserMetricsBatch(user.ID, input.Metrics); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			app.serverErrorResponse(w, r, err)
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-		}
-	}()
-
-	for i := 0; i < len(input.Metrics); i++ {
-		if err = app.Models.Metrics.SetUserMetrics(tx, input.Metrics[i], user.ID); err != nil {
-			// deferred func rolls back and writes the error response
-			return
-		}
-	}
-
-	env := envelope{
-		"message": "Successfully added track metrics",
-	}
-
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully added track metrics"})
 }
 
 func (app *Application) GetTrackedMetrics(w http.ResponseWriter, r *http.Request) {
@@ -86,49 +57,17 @@ func (app *Application) DeleteUserTrackedMetrics(w http.ResponseWriter, r *http.
 	var input struct {
 		Metrics []int `json:"metrics"`
 	}
-
-	err := app.readJSON(w, r, &input)
-	if err != nil {
+	if err := app.readJSON(w, r, &input); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
 	user := app.contextGetUser(r)
 
-	tx, err := app.Models.Transaction.BeginTx()
-	if err != nil {
+	if err := app.Models.Metrics.DeleteUserMetricsBatch(user.ID, input.Metrics); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			switch {
-			case errors.Is(err, models.ErrRecordNotFound):
-				app.NotFoundResponse(w, r)
-			default:
-				app.serverErrorResponse(w, r, err)
-			}
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-		}
-	}()
-
-	for i := 0; i < len(input.Metrics); i++ {
-		if err = app.Models.Metrics.DeleteUserMetrics(tx, user.ID, input.Metrics[i]); err != nil {
-			// deferred func rolls back and writes the mapped error response
-			return
-		}
-	}
-
-	env := envelope{
-		"message": "Deleted Tracked Metric for User"}
-
-	app.respond(w, r, http.StatusOK, env)
+	app.respond(w, r, http.StatusOK, envelope{"message": "Deleted Tracked Metric for User"})
 }
 
 func (app *Application) GetTrackedMetricsStatus(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Conditions struct {
@@ -69,36 +71,30 @@ func (m ConditionsModel) GetUserConditions(userID string) ([]*Conditions, error)
 	return conditions, nil
 }
 
-func (m ConditionsModel) SetUserConditions(tx *sql.Tx, conditionID int, userID string) error {
-
-	query := ` INSERT INTO user_conditions (user_id, conditions_id) VALUES ($1, $2)`
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m ConditionsModel) SetUserConditionsBatch(userID string, conditionIDs []int) error {
+	if len(conditionIDs) == 0 {
+		return nil
+	}
+	query := `INSERT INTO user_conditions (user_id, conditions_id)
+	          SELECT $1, unnest($2::int[])
+	          ON CONFLICT DO NOTHING`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, userID, conditionID)
-
-	if err != nil {
-
-		return fmt.Errorf("could add user condition: %w", err)
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(conditionIDs)); err != nil {
+		return fmt.Errorf("couldn't add conditions: %w", err)
 	}
 	return nil
-
 }
 
-func (m ConditionsModel) DeleteUserConditions(tx *sql.Tx, userId string, conditionID int) error {
-
-	query := ` DELETE FROM user_conditions
-	WHERE user_id = $1
-	AND conditions_id = $2; `
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	_, err := tx.ExecContext(ctx, query, userId, conditionID)
-	if err != nil {
-		return fmt.Errorf("could delete user condition: %w", err)
+func (m ConditionsModel) DeleteUserConditionsBatch(userID string, conditionIDs []int) error {
+	if len(conditionIDs) == 0 {
+		return nil
 	}
-
+	query := `DELETE FROM user_conditions WHERE user_id = $1 AND conditions_id = ANY($2)`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(conditionIDs)); err != nil {
+		return fmt.Errorf("couldn't delete conditions: %w", err)
+	}
 	return nil
 }
