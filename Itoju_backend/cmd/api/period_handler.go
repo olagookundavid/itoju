@@ -74,32 +74,8 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Start a transaction
-	tx, err := app.Models.Transaction.BeginTx(r.Context())
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	// Roll back on any error path; the success path commits explicitly below
-	// (before the response is written) so a failed commit is still reported.
-	committed := false
-	defer func() {
-		if !committed {
-			tx.Rollback()
-		}
-	}()
-
-	// Insert the menstrual cycle within the transaction
-	cycle := app.Models.UserPeriod.ReturnMenstrualCycle(
-		user.ID,
-		input.CycleLength,
-		input.PeriodLength,
-		date,
-	)
-
-	cycleID, err := app.Models.UserPeriod.InsertMenstrualCycleTx(r.Context(), tx, &cycle)
-	if err != nil {
+	// Persist the cycle and its generated day rows atomically.
+	if _, err := app.Models.UserPeriod.CreateCycle(r.Context(), user.ID, date, input.CycleLength, input.PeriodLength); err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordAlreadyExist):
 			app.recordAlreadyExistsResponse(w, r)
@@ -108,31 +84,6 @@ func (app *Application) AddMenstrualCycle(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	// Build every cycle day, then insert them all in one statement:
-	//   [0, PeriodLength)                 -> period days
-	//   [PeriodLength, PeriodLength+9)     -> regular days
-	//   [PeriodLength+9, CycleLength)      -> ovulation days
-	days := make([]models.CycleDay, 0, input.CycleLength)
-	for i := 0; i < input.PeriodLength; i++ {
-		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, true, false, cycle.StartDate.AddDate(0, 0, i)))
-	}
-	for i := input.PeriodLength; i < (input.PeriodLength + 9); i++ {
-		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, false, cycle.StartDate.AddDate(0, 0, i)))
-	}
-	for i := (input.PeriodLength + 9); i < input.CycleLength; i++ {
-		days = append(days, app.Models.UserPeriod.ReturnCycleDay(cycleID, user.ID, false, true, cycle.StartDate.AddDate(0, 0, i)))
-	}
-	if err = app.Models.UserPeriod.BulkInsertCycleDaysTx(r.Context(), tx, days); err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	if err = tx.Commit(); err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-	committed = true
 
 	env := envelope{
 		"message": "Successful Created User Cycle",

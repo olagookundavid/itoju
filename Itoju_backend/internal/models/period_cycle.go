@@ -36,16 +36,53 @@ type UserPeriodModel struct {
 	DB *sql.DB
 }
 
-func (m *UserPeriodModel) ReturnMenstrualCycle(userID string, cycleLength, periodLength int, startDate time.Time) MenstrualCycle {
-	return MenstrualCycle{
-		UserID: userID, StartDate: startDate, CycleLength: cycleLength, PeriodLength: periodLength,
+// CreateCycle inserts a menstrual cycle and all of its generated day rows in a
+// single transaction, so a partially-created cycle can never be left behind.
+// The day layout is derived from the lengths:
+//
+//	[0, periodLen)              -> period days
+//	[periodLen, periodLen+9)    -> regular days
+//	[periodLen+9, cycleLen)     -> ovulation days
+//
+// It returns the new cycle id, or ErrRecordAlreadyExist if a cycle already
+// exists for that start date. (Callers are expected to bound the lengths.)
+func (m *UserPeriodModel) CreateCycle(ctx context.Context, userID string, startDate time.Time, cycleLen, periodLen int) (string, error) {
+	cycle := MenstrualCycle{UserID: userID, StartDate: startDate, CycleLength: cycleLen, PeriodLength: periodLen}
+	var cycleID string
+	err := withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		var err error
+		cycleID, err = m.insertMenstrualCycleTx(ctx, tx, &cycle)
+		if err != nil {
+			return err
+		}
+		return m.bulkInsertCycleDaysTx(ctx, tx, buildCycleDays(cycleID, userID, startDate, cycleLen, periodLen))
+	})
+	if err != nil {
+		return "", err
 	}
+	return cycleID, nil
 }
 
-func (m *UserPeriodModel) ReturnCycleDay(cycleID, userID string, isPeriod, isOvulation bool, date time.Time) CycleDay {
-	return CycleDay{
-		CycleID: cycleID, UserID: userID, IsPeriod: isPeriod, IsOvulation: isOvulation, Date: date, CMQ: "", Tags: []string{},
+// buildCycleDays materialises the per-day rows for a cycle. Each day defaults to
+// empty tags and CMQ, matching the previous per-row construction.
+func buildCycleDays(cycleID, userID string, startDate time.Time, cycleLen, periodLen int) []CycleDay {
+	days := make([]CycleDay, 0, cycleLen)
+	add := func(i int, isPeriod, isOvulation bool) {
+		days = append(days, CycleDay{
+			CycleID: cycleID, UserID: userID, IsPeriod: isPeriod, IsOvulation: isOvulation,
+			Date: startDate.AddDate(0, 0, i), CMQ: "", Tags: []string{},
+		})
 	}
+	for i := 0; i < periodLen; i++ {
+		add(i, true, false)
+	}
+	for i := periodLen; i < periodLen+9; i++ {
+		add(i, false, false)
+	}
+	for i := periodLen + 9; i < cycleLen; i++ {
+		add(i, false, true)
+	}
+	return days
 }
 
 func (m *UserPeriodModel) GetMenstrualCycles(userID string) ([]MenstrualCycle, error) {
@@ -102,7 +139,7 @@ func (m *UserPeriodModel) GetRecentCycleDays(ctx context.Context, userID string)
 	return days, nil
 }
 
-func (m *UserPeriodModel) InsertMenstrualCycleTx(ctx context.Context, tx *sql.Tx, cycle *MenstrualCycle) (string, error) {
+func (m *UserPeriodModel) insertMenstrualCycleTx(ctx context.Context, tx *sql.Tx, cycle *MenstrualCycle) (string, error) {
 	query := `INSERT INTO menstrual_cycles (user_id, start_date, cycle_length, period_length, created_at)
               VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
@@ -123,7 +160,7 @@ func (m *UserPeriodModel) InsertMenstrualCycleTx(ctx context.Context, tx *sql.Tx
 
 // BulkInsertCycleDaysTx inserts all cycle days for a cycle in a single
 // multi-row statement, instead of one round-trip per day.
-func (m *UserPeriodModel) BulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx, days []CycleDay) error {
+func (m *UserPeriodModel) bulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx, days []CycleDay) error {
 	if len(days) == 0 {
 		return nil
 	}
