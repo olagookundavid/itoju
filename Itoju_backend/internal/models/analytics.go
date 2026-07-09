@@ -5,308 +5,54 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
-	"time"
 )
 
 type AnalyticsModel struct {
 	DB *sql.DB
 }
 
-// getSymptomOccurrences retrieves the count of symptom occurrences for the specified period
-func (m AnalyticsModel) GetSymptom7DaysOccurrences(ctx context.Context, userID string, symptomID int, days int) (map[int]float64, error) {
-	query := `
-	SELECT
-		EXTRACT(DOW FROM date) AS day_of_week,
-		AVG((morning_severity + afternoon_severity + night_severity) / 3) AS average_severity
-	FROM
-		user_symptoms_metric
-	WHERE
-		user_id = $1
-		AND symptoms_id = $2
-		AND date >= CURRENT_DATE - make_interval(days => $3)
-	GROUP BY
-		day_of_week
-	ORDER BY
-		day_of_week;
-`
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	rows, err := m.DB.QueryContext(ctx, query, userID, symptomID, days)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %v", err)
-	}
-	defer rows.Close()
-
-	symptomOccurrences := make(map[int]float64)
-	for rows.Next() {
-		var sc SymptomCount
-		err := rows.Scan(&sc.DayOfWeek, &sc.AvgSev)
-		if err != nil {
-			return nil, fmt.Errorf("scan error: %v", err)
-		}
-		symptomOccurrences[sc.DayOfWeek] = Round(sc.AvgSev)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return symptomOccurrences, nil
+// KeyValue is a single (key, count) pair in a bucket's breakdown. Key is an int
+// for bowel types and a string for food tags, so it is typed as any.
+type KeyValue struct {
+	Key   interface{} `json:"key"`
+	Value int         `json:"value"`
 }
+
+// Round returns val rounded to two decimal places.
 func Round(val float64) float64 {
 	str := fmt.Sprintf("%.2f", val)
 	roundedVal, _ := strconv.ParseFloat(str, 64)
 	return roundedVal
 }
 
-type SymptomCount struct {
-	DayOfWeek   int
-	WeekOfMonth int
-	MonthOfYear int
-	AvgSev      float64
+// --- 7-day (trailing `days`) analytics: bucketed by day-of-week. ---
+// These delegate to the shared per-period executors in analytics_query.go and
+// re-key by string ("0".."6") to preserve the JSON shape the app expects.
+
+func (m AnalyticsModel) GetSymptom7DaysOccurrences(ctx context.Context, userID string, symptomID int, days int) (map[int]float64, error) {
+	return m.symptomOccurrences(ctx, userID, symptomID, day7Period(days))
 }
 
 func (m AnalyticsModel) Get7DaysBowelTypeOccurrences(ctx context.Context, userID string, days int) (map[string][]KeyValue, error) {
-	query := `
-		SELECT
-			EXTRACT(DOW FROM date) AS day_of_week,
-			type,
-			COUNT(*) AS occurrences
-		FROM
-			user_bowel_metric
-		WHERE
-			user_id = $1
-			AND date >= CURRENT_DATE - make_interval(days => $2)
-		GROUP BY
-			day_of_week, type
-		ORDER BY
-			day_of_week, type;
-	`
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	rows, err := m.DB.QueryContext(ctx, query, userID, days)
+	res, err := m.bowelTypeOccurrences(ctx, userID, day7Period(days))
 	if err != nil {
-		return nil, fmt.Errorf("query error: %v", err)
-	}
-	defer rows.Close()
-
-	bowelTypeOccurrences := make(map[string][]KeyValue)
-	for rows.Next() {
-		var dayOfWeek, typeID, occurrences int
-		err := rows.Scan(&dayOfWeek, &typeID, &occurrences)
-		if err != nil {
-			return nil, fmt.Errorf("scan error: %v", err)
-		}
-		bowelTypeOccurrences[strconv.Itoa(dayOfWeek)] = append(bowelTypeOccurrences[strconv.Itoa(dayOfWeek)], KeyValue{Key: typeID, Value: occurrences})
-	}
-	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	for i := 0; i <= 6; i++ {
-		if _, exists := bowelTypeOccurrences[strconv.Itoa(i)]; !exists {
-			bowelTypeOccurrences[strconv.Itoa(i)] = []KeyValue{}
-		}
-	}
-
-	return bowelTypeOccurrences, nil
-}
-
-type KeyValue struct {
-	Key   interface{} `json:"key"`
-	Value int         `json:"value"`
-}
-
-func (m AnalyticsModel) Get7DaysTagOccurrences(ctx context.Context, userID string, days int, tagToQuery string) (map[string][]KeyValue, error) {
-	var query string
-
-	if tagToQuery == "" {
-		query = `
-        WITH tag_occurrences AS (
-            SELECT
-                EXTRACT(DOW FROM date) AS day_of_week,
-                UNNEST(breakfast_tags) AS tag
-            FROM
-                user_food_metric
-            WHERE
-                user_id = $1
-                AND date >= CURRENT_DATE - make_interval(days => $2)
-            UNION ALL
-            SELECT
-                EXTRACT(DOW FROM date) AS day_of_week,
-                UNNEST(lunch_tags) AS tag
-            FROM
-                user_food_metric
-            WHERE
-                user_id = $1
-                AND date >= CURRENT_DATE - make_interval(days => $2)
-            UNION ALL
-            SELECT
-                EXTRACT(DOW FROM date) AS day_of_week,
-                UNNEST(dinner_tags) AS tag
-            FROM
-                user_food_metric
-            WHERE
-                user_id = $1
-                AND date >= CURRENT_DATE - make_interval(days => $2)
-            UNION ALL
-            SELECT
-                EXTRACT(DOW FROM date) AS day_of_week,
-                UNNEST(snack_tags) AS tag
-            FROM
-                user_food_metric
-            WHERE
-                user_id = $1
-                AND date >= CURRENT_DATE - make_interval(days => $2)
-        )
-        SELECT
-            day_of_week,
-            tag,
-            COUNT(*) AS occurrences
-        FROM
-            tag_occurrences
-        GROUP BY
-            day_of_week,
-            tag
-        ORDER BY
-            day_of_week,
-            tag;
-    `
-	} else {
-
-		query = `
-	WITH tag_occurrences AS (
-		SELECT
-			EXTRACT(DOW FROM date) AS day_of_week,
-			UNNEST(breakfast_tags) AS tag
-		FROM
-			user_food_metric
-		WHERE
-			user_id = $1
-			AND date >= CURRENT_DATE - make_interval(days => $2)
-		UNION ALL
-		SELECT
-			EXTRACT(DOW FROM date) AS day_of_week,
-			UNNEST(lunch_tags) AS tag
-		FROM
-			user_food_metric
-		WHERE
-			user_id = $1
-			AND date >= CURRENT_DATE - make_interval(days => $2)
-		UNION ALL
-		SELECT
-			EXTRACT(DOW FROM date) AS day_of_week,
-			UNNEST(dinner_tags) AS tag
-		FROM
-			user_food_metric
-		WHERE
-			user_id = $1
-			AND date >= CURRENT_DATE - make_interval(days => $2)
-		UNION ALL
-		SELECT
-			EXTRACT(DOW FROM date) AS day_of_week,
-			UNNEST(snack_tags) AS tag
-		FROM
-			user_food_metric
-		WHERE
-			user_id = $1
-			AND date >= CURRENT_DATE - make_interval(days => $2)
-	)
-	SELECT
-		day_of_week,
-		tag,
-		COUNT(*) AS occurrences
-	FROM
-		tag_occurrences
-	WHERE
-		tag = $3
-	GROUP BY
-		day_of_week,
-		tag
-	ORDER BY
-		day_of_week;
-		`
-
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	args := []any{userID, days}
-	if tagToQuery != "" {
-		args = append(args, tagToQuery)
-	}
-	rows, err := m.DB.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %v", err)
-	}
-	defer rows.Close()
-
-	tagOccurrences := make(map[string][]KeyValue)
-
-	for rows.Next() {
-		var dayOfWeek, occurrences int
-		var tag string
-		err := rows.Scan(&dayOfWeek, &tag, &occurrences)
-		if err != nil {
-			return nil, fmt.Errorf("scan error: %v", err)
-		}
-		tagOccurrences[strconv.Itoa(dayOfWeek)] = append(tagOccurrences[strconv.Itoa(dayOfWeek)], KeyValue{Key: tag, Value: occurrences})
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	for i := 0; i <= 6; i++ {
-		if _, exists := tagOccurrences[strconv.Itoa(i)]; !exists {
-			tagOccurrences[strconv.Itoa(i)] = []KeyValue{}
-		}
-	}
-
-	return tagOccurrences, nil
+	return stringKeyed(res), nil
 }
 
 func (m AnalyticsModel) Get7DaysExerciseOccurrences(ctx context.Context, userID string, days int) (map[string]int, error) {
-	query := `
-		SELECT
-    EXTRACT(DOW FROM date) AS day_of_week,
-    SUM(no_of_times) AS total_exercises
-FROM
-    user_exercise_metric
-WHERE
-    user_id = $1
-    AND date >= CURRENT_DATE - make_interval(days => $2)
-GROUP BY
-    day_of_week
-ORDER BY
-    day_of_week;
-
-	`
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	rows, err := m.DB.QueryContext(ctx, query, userID, days)
+	res, err := m.exerciseOccurrences(ctx, userID, day7Period(days))
 	if err != nil {
-		return nil, fmt.Errorf("query error: %v", err)
-	}
-	defer rows.Close()
-
-	exerciseTypeOccurrences := make(map[string]int)
-	for rows.Next() {
-		var dayOfWeek, occurrences int
-		err := rows.Scan(&dayOfWeek, &occurrences)
-		if err != nil {
-			return nil, fmt.Errorf("scan error: %v", err)
-		}
-		exerciseTypeOccurrences[strconv.Itoa(dayOfWeek)] = occurrences
-	}
-	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	for i := 0; i <= 6; i++ {
-		if _, exists := exerciseTypeOccurrences[strconv.Itoa(i)]; !exists {
-			exerciseTypeOccurrences[strconv.Itoa(i)] = 0
-		}
-	}
+	return stringKeyed(res), nil
+}
 
-	return exerciseTypeOccurrences, nil
+func (m AnalyticsModel) Get7DaysTagOccurrences(ctx context.Context, userID string, days int, tagToQuery string) (map[string][]KeyValue, error) {
+	res, err := m.tagOccurrences(ctx, userID, day7Period(days), tagToQuery)
+	if err != nil {
+		return nil, err
+	}
+	return stringKeyed(res), nil
 }
