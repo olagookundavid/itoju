@@ -93,7 +93,15 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	user, err := app.Models.Users.GetForPasswordResetOTP(r.Context(), input.Email, input.Otp)
+	// Hash the new password up front, then let the model verify the OTP, apply the
+	// new hash, and consume the reset tokens in a single transaction — so a valid
+	// code can't survive (and be replayed) if any step fails.
+	newHash, err := models.HashPassword(input.Password)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.Models.Users.ResetPasswordWithOTP(r.Context(), input.Email, input.Otp, newHash)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -102,29 +110,6 @@ func (app *Application) UpdateUserPasswordHandler(w http.ResponseWriter, r *http
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
-		return
-	}
-	// Set the new password for the user.
-	err = user.Password.Set(input.Password)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-	// Save the updated user record in our database, checking for any edit conflicts as // normal.
-	err = app.Models.Users.Update(r.Context(), user)
-	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrEditConflict):
-			app.editConflictResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-	// If everything was successful, then delete all password reset tokens for the user.
-	err = app.Models.Tokens.DeleteAllForUser(r.Context(), models.ScopePasswordReset, user.ID)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
 		return
 	}
 	// Send the user a confirmation message.

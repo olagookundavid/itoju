@@ -90,14 +90,35 @@ func (m TokenModel) New(ctx context.Context, userID string, ttl time.Duration, s
 	return token, err
 }
 
-// NewOTP creates and stores a 6-digit one-time code for the given user/scope.
-func (m TokenModel) NewOTP(ctx context.Context, userID string, ttl time.Duration, scope string) (*Token, error) {
-	token, err := generateOTP(userID, ttl, scope)
+// ReplacePasswordResetOTP atomically invalidates any existing password-reset
+// codes for the user and issues a fresh one, returning the new plaintext OTP to
+// email out. Doing the delete+insert in a single transaction avoids both the
+// window where a user has no valid code (delete succeeded, insert failed) and
+// the race where two concurrent requests leave two live codes.
+func (m TokenModel) ReplacePasswordResetOTP(ctx context.Context, userID string, ttl time.Duration) (string, error) {
+	token, err := generateOTP(userID, ttl, ScopePasswordReset)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	err = m.Insert(ctx, token)
-	return token, err
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	err = withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM tokens WHERE scope = $1 AND user_id = $2`,
+			ScopePasswordReset, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO tokens (hash, user_id, expiry, scope) VALUES ($1, $2, $3, $4)`,
+			token.Hash, token.UserID, token.Expiry, token.Scope); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return token.Plaintext, nil
 }
 
 // Insert() adds the data for a specific token to the tokens table.

@@ -268,21 +268,16 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	// Invalidate any previous reset codes so only the most recent one works.
-	err = app.Models.Tokens.DeleteAllForUser(r.Context(), models.ScopePasswordReset, user.ID)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-	// Create a new 6-digit OTP with a 15-minute expiry time.
-	token, err := app.Models.Tokens.NewOTP(r.Context(), user.ID, 15*time.Minute, models.ScopePasswordReset)
+	// Atomically invalidate any previous reset codes and issue a new 6-digit OTP
+	// with a 15-minute expiry, so the user is never left without a valid code and
+	// concurrent requests can't leave two live codes.
+	otp, err := app.Models.Tokens.ReplacePasswordResetOTP(r.Context(), user.ID, 15*time.Minute)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 	// Email the user their one-time code. The code is NEVER returned in the
 	// response body — that would defeat the purpose of email verification.
-	otp := token.Plaintext
 	firstName := user.FirstName
 	email := user.Email
 	app.Background(func() {

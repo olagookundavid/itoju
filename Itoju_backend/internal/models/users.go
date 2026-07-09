@@ -54,6 +54,13 @@ func (p *password) Set(plaintextPassword string) error {
 	return nil
 }
 
+// HashPassword returns a bcrypt hash of the plaintext at the same cost used by
+// (*password).Set. Exposed so callers that only need a hash (e.g. the atomic
+// password-reset flow) can compute one without constructing a User.
+func HashPassword(plaintextPassword string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(plaintextPassword), 12)
+}
+
 func (p *password) Matches(plaintextPassword string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword(p.hash, []byte(plaintextPassword))
 	if err != nil {
@@ -241,4 +248,49 @@ func (m UserModel) GetForPasswordResetOTP(ctx context.Context, email, otp string
 		}
 	}
 	return &user, nil
+}
+
+// ResetPasswordWithOTP atomically completes a password reset: within one
+// transaction it verifies the OTP is still valid for the given email, sets the
+// new password hash (bumping the optimistic-lock version), and consumes every
+// password-reset token for that user. Doing all three in a single tx closes the
+// reuse window the previous three-separate-statements flow had — if any step
+// failed after the password update, the OTP used to stay valid and replayable.
+// A locking read (FOR UPDATE OF users) also serialises concurrent reset attempts
+// so the same code can't be redeemed twice. Returns ErrRecordNotFound when the
+// email/OTP pair doesn't match an unexpired reset token.
+func (m UserModel) ResetPasswordWithOTP(ctx context.Context, email, otp string, newHash []byte) error {
+	otpHash := sha256.Sum256([]byte(otp))
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	return withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		var userID string
+		err := tx.QueryRowContext(ctx, `
+			SELECT users.id
+			FROM users
+			INNER JOIN tokens ON users.id = tokens.user_id
+			WHERE users.email = $1
+			AND tokens.hash = $2
+			AND tokens.scope = $3
+			AND tokens.expiry > $4
+			FOR UPDATE OF users`,
+			email, otpHash[:], ScopePasswordReset, time.Now()).Scan(&userID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrRecordNotFound
+			}
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE users SET password_hash = $1, version = version + 1 WHERE id = $2`,
+			newHash, userID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM tokens WHERE user_id = $1 AND scope = $2`,
+			userID, ScopePasswordReset); err != nil {
+			return err
+		}
+		return nil
+	})
 }
