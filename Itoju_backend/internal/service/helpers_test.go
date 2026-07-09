@@ -1,4 +1,4 @@
-package api
+package service
 
 import "testing"
 
@@ -18,9 +18,9 @@ func TestSplitName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			first, last := splitName(tt.fullName, tt.email)
+			first, last := SplitName(tt.fullName, tt.email)
 			if first != tt.wantFirst || last != tt.wantLast {
-				t.Errorf("splitName(%q, %q) = (%q, %q), want (%q, %q)",
+				t.Errorf("SplitName(%q, %q) = (%q, %q), want (%q, %q)",
 					tt.fullName, tt.email, first, last, tt.wantFirst, tt.wantLast)
 			}
 		})
