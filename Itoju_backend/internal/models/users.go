@@ -148,6 +148,56 @@ func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) 
 	return &user, nil
 }
 
+// GetByFirebaseUID looks up the account a verified Firebase identity is bound
+// to. Returns ErrRecordNotFound if no account is linked to that uid yet.
+func (m UserModel) GetByFirebaseUID(ctx context.Context, uid string) (*User, error) {
+	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, isAdmin FROM users
+	WHERE firebase_uid = $1`
+	var user User
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	err := m.DB.QueryRowContext(ctx, query, uid).Scan(
+		&user.ID, &user.CreatedAt, &user.FirstName, &user.LastName, &user.Dob,
+		&user.Email, &user.Password.hash, &user.Activated, &user.Version,
+		&user.PicNo, &user.IsAdmin)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &user, nil
+}
+
+// LinkFirebaseUID binds a Firebase uid to an account, but only if the account
+// has none yet — the WHERE firebase_uid IS NULL guard makes concurrent/repeat
+// links a no-op rather than silently rebinding. A duplicate-uid unique
+// violation surfaces as ErrRecordAlreadyExist (uid already on another account).
+func (m UserModel) LinkFirebaseUID(ctx context.Context, userID, uid string) error {
+	query := `UPDATE users SET firebase_uid = $1 WHERE id = $2 AND firebase_uid IS NULL`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	res, err := m.DB.ExecContext(ctx, query, uid, userID)
+	if err != nil {
+		if isUniqueViolation(err, "ux_users_firebase_uid") {
+			return ErrRecordAlreadyExist
+		}
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	// 0 rows means the account already has a (different) uid — the incoming
+	// identity is not the one this account is bound to.
+	if n == 0 {
+		return ErrRecordAlreadyExist
+	}
+	return nil
+}
+
 func (m UserModel) Update(ctx context.Context, user *User) error {
 	query := ` UPDATE users SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5, date_of_birth = $6, pic_no = $7
 	WHERE id = $8 AND version = $9

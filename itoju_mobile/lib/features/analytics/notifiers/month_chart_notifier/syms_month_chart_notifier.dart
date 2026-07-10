@@ -1,37 +1,25 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final symsMonthChartProvider =
     StateNotifierProvider<SymsMonthChartProvider, SymsMonthChartState>((ref) {
-  return SymsMonthChartProvider(ref, ref.read(dioProvider));
+  return SymsMonthChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class SymsMonthChartProvider extends StateNotifier<SymsMonthChartState> {
-  SymsMonthChartProvider(this.ref, this.dio)
+  SymsMonthChartProvider(this.ref, this.service)
       : super(SymsMonthChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getSymsMonthDaysChart(int symsId, String year) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
-
     try {
-      response = await dio.get('user/syms_year_analytics/$symsId/$year');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final symsMonthChartModel =
-            SymsMonthChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, symsMonthChartModel: symsMonthChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.symsMonth(symsId, int.parse(year));
+      final symsMonthChartModel = SymsMonthChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, symsMonthChartModel: symsMonthChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

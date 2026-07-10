@@ -1,11 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/helpers/logger.dart';
 import 'package:itoju_mobile/core/Storage/secure_store.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
-import 'package:itoju_mobile/features/auth/pages/login.dart';
-import 'package:itoju_mobile/main.dart';
 
 ///
 final dioProvider = Provider((ref) {
@@ -62,8 +59,10 @@ class AppInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     debugLog(err);
     // A 401 on a request that carried an auth token means the session token is
-    // expired/revoked → clear it and bounce to login. We check for the header
-    // so a failed *login* attempt (also 401) doesn't trigger this.
+    // expired/revoked. Offline-first: we DON'T bounce to login — the app keeps
+    // working on local data. We just clear the token so cloud sync pauses until
+    // the user re-authenticates. We check for the header so a failed *login*
+    // attempt (also 401) doesn't trigger this.
     if (err.response?.statusCode == 401 &&
         err.requestOptions.headers.containsKey('Authorization')) {
       _handleUnauthorized();
@@ -71,15 +70,12 @@ class AppInterceptor extends Interceptor {
     super.onError(err, handler);
   }
 
-  static bool _bouncing = false;
+  static bool _clearing = false;
   Future<void> _handleUnauthorized() async {
-    if (_bouncing) return;
-    _bouncing = true;
+    if (_clearing) return;
+    _clearing = true;
+    // Clears the session token only; local health data is untouched.
     await Session.clearLocal();
-    navigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SignInPage()),
-      (route) => false,
-    );
-    _bouncing = false;
+    _clearing = false;
   }
 }

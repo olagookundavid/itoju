@@ -49,7 +49,9 @@ func (app *Application) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully logged in User", "data": token})
+	// user_id lets an offline-first client bind its local account to the server
+	// user (re-keying deterministic ids) before its first cloud sync.
+	app.respond(w, r, http.StatusOK, envelope{"message": "Successfully logged in User", "data": token, "user_id": token.UserID})
 }
 
 // LogoutHandler revokes the caller's session tokens server-side so a long-lived
@@ -101,6 +103,8 @@ func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Reques
 			app.invalidAuthenticationTokenResponse(w, r)
 		case errors.Is(err, service.ErrEmailUnverified):
 			app.errorResponse(w, r, http.StatusForbidden, "google account email is missing or unverified")
+		case errors.Is(err, service.ErrAccountConflict):
+			app.errorResponse(w, r, http.StatusConflict, "this email is already linked to a different sign-in method")
 		case errors.Is(err, service.ErrInvalidDOB):
 			app.badRequestResponse(w, r, errors.New("invalid dob, expected format YYYY-MM-DD"))
 		case errors.As(err, &ve):
@@ -125,7 +129,7 @@ func (app *Application) SocialLoginHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := app.writeJSON(w, http.StatusOK, envelope{"message": "Successfully logged in User", "data": res.Token}, nil); err != nil {
+	if err := app.writeJSON(w, http.StatusOK, envelope{"message": "Successfully logged in User", "data": res.Token, "user_id": res.Token.UserID}, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 }

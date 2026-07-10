@@ -1,35 +1,25 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final syms7ChartProvider =
     StateNotifierProvider<Syms7ChartProvider, Syms7ChartState>((ref) {
-  return Syms7ChartProvider(ref, ref.read(dioProvider));
+  return Syms7ChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class Syms7ChartProvider extends StateNotifier<Syms7ChartState> {
-  Syms7ChartProvider(this.ref, this.dio) : super(Syms7ChartState.initial());
+  Syms7ChartProvider(this.ref, this.service)
+      : super(Syms7ChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getSyms7DaysChart(int symsId) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/syms_days_analytics/$symsId/7');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final syms7ChartModel =
-            Syms7ChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, syms7ChartModel: syms7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.syms7Days(symsId);
+      final syms7ChartModel = Syms7ChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, syms7ChartModel: syms7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

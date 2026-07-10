@@ -146,6 +146,14 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodPut, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.UpdateMenstrualCycle)))
 	router.Handler(http.MethodDelete, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.DeleteMenstrualCycle)))
 
+	//Cloud sync (paywalled: both routes require an active "sync" entitlement)
+	router.Handler(http.MethodPost, "/v1/sync/push", app.RequireSyncEntitlement(app.PushSyncHandler))
+	router.Handler(http.MethodPost, "/v1/sync/pull", app.RequireSyncEntitlement(app.PullSyncHandler))
+	router.Handler(http.MethodGet, "/v1/user/entitlements", app.RequireActivatedAndAuthedUser(app.GetUserEntitlements))
+
+	//RevenueCat webhook (self-authenticates via a shared Authorization token)
+	router.HandlerFunc(http.MethodPost, "/v1/webhooks/revenuecat", app.HandleRevenueCatWebhook)
+
 	//Metrics (admin-only: exposes internal runtime + DB stats)
 	router.Handler(http.MethodGet, "/v1/debug/vars", app.RequireAdminUser(expvar.Handler().ServeHTTP))
 

@@ -3,11 +3,12 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 )
 
 type MedicationMetric struct {
-	ID       int       `json:"id"`
+	ID       string    `json:"id"`
 	Time     string    `json:"time"`
 	Name     string    `json:"name"`
 	Metric   string    `json:"metric"`
@@ -25,8 +26,8 @@ func (m MedicationMetricModel) GetUserMedicationMetrics(ctx context.Context, use
 	query := `
 	SELECT umm.id, umm.time, umm.dosage, umm.quantity, umm.name, umm.date, umm.metric
     FROM user_medication_metric umm
-    WHERE umm.user_id = $1 AND umm.date = $2
-	ORDER BY umm.id DESC;
+    WHERE umm.user_id = $1 AND umm.date = $2 AND umm.deleted_at IS NULL
+	ORDER BY umm.date DESC, umm.id;
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -69,18 +70,19 @@ func (m MedicationMetricModel) InsertMedicationMetric(ctx context.Context, userI
 
 // UpdateMedicationMetric partially updates a medication metric in one
 // statement, scoped to the owning user; a 0-row update is ErrRecordNotFound.
-func (m MedicationMetricModel) UpdateMedicationMetric(ctx context.Context, id int64, userID string, timeOfDay, name, metric *string, dosage, quantity *float64) error {
-	query := `UPDATE user_medication_metric SET
+func (m MedicationMetricModel) UpdateMedicationMetric(ctx context.Context, id string, userID string, timeOfDay, name, metric *string, dosage, quantity *float64) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(`UPDATE user_medication_metric SET
 	    time = COALESCE($1, time),
 	    dosage = COALESCE($2, dosage),
 	    quantity = COALESCE($3, quantity),
 	    metric = COALESCE($4, metric),
 	    name = COALESCE($5, name)
-	    WHERE id = $6 AND user_id = $7`
+	    WHERE %s = $6 AND user_id = $7 AND deleted_at IS NULL`, col)
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, timeOfDay, dosage, quantity, metric, name, id, userID)
+	result, err := m.DB.ExecContext(ctx, query, timeOfDay, dosage, quantity, metric, name, val, userID)
 	if err != nil {
 		return err
 	}
@@ -94,14 +96,12 @@ func (m MedicationMetricModel) UpdateMedicationMetric(ctx context.Context, id in
 	return nil
 }
 
-func (m MedicationMetricModel) DeleteMedicationMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_medication_metric WHERE id = $1 AND user_id = $2 `
+func (m MedicationMetricModel) DeleteMedicationMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_medication_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}

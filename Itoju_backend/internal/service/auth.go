@@ -18,6 +18,8 @@ import (
 // UserStore is the subset of the user repository the auth flows need.
 type UserStore interface {
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByFirebaseUID(ctx context.Context, uid string) (*models.User, error)
+	LinkFirebaseUID(ctx context.Context, userID, uid string) error
 	Insert(ctx context.Context, user *models.User) error
 }
 
@@ -53,6 +55,9 @@ var (
 	ErrInvalidIDToken      = errors.New("invalid id token")
 	ErrEmailUnverified     = errors.New("email missing or unverified")
 	ErrInvalidDOB          = errors.New("invalid dob")
+	// ErrAccountConflict means the verified email belongs to an account already
+	// bound to a different Firebase identity — a foreign identity cannot claim it.
+	ErrAccountConflict = errors.New("account linked to a different identity")
 )
 
 // ValidationError carries field-level validation failures so the handler can
@@ -112,9 +117,34 @@ func (s *AuthService) SocialLogin(ctx context.Context, idToken, dob string) (*So
 		return nil, ErrEmailUnverified
 	}
 
+	// 1. Already bound to this Firebase identity -> straight login. Matching on
+	// the verified UID (not email) is what prevents a second identity claiming
+	// an existing account.
+	if u, uerr := s.Users.GetByFirebaseUID(ctx, identity.UID); uerr == nil {
+		token, terr := s.issueSession(ctx, u.ID)
+		if terr != nil {
+			return nil, terr
+		}
+		return &SocialLoginResult{Token: token}, nil
+	} else if !errors.Is(uerr, models.ErrRecordNotFound) {
+		return nil, uerr
+	}
+
+	// 2. An account with this verified email exists but isn't yet bound to this
+	// UID. Bind it — LinkFirebaseUID succeeds only if the account has no uid;
+	// if it is already bound to a DIFFERENT identity, that's a takeover attempt
+	// and is rejected. (Note: a still-unbound password account IS auto-linked
+	// here on first social sign-in; requiring an explicit password-first link is
+	// the stricter policy and a product decision.)
 	user, err := s.Users.GetByEmail(ctx, identity.Email)
 	switch {
 	case err == nil:
+		if lerr := s.Users.LinkFirebaseUID(ctx, user.ID, identity.UID); lerr != nil {
+			if errors.Is(lerr, models.ErrRecordAlreadyExist) {
+				return nil, ErrAccountConflict
+			}
+			return nil, lerr
+		}
 		token, terr := s.issueSession(ctx, user.ID)
 		if terr != nil {
 			return nil, terr
@@ -153,10 +183,17 @@ func (s *AuthService) SocialLogin(ctx context.Context, idToken, dob string) (*So
 	}
 	if err := s.Users.Insert(ctx, newUser); err != nil {
 		if errors.Is(err, models.ErrDuplicateEmail) {
-			// Raced with a concurrent sign-up; treat as login.
+			// Raced with a concurrent sign-up; bind + treat as login (rejecting a
+			// foreign-identity claim, same as the email-match path above).
 			existing, gerr := s.Users.GetByEmail(ctx, identity.Email)
 			if gerr != nil {
 				return nil, gerr
+			}
+			if lerr := s.Users.LinkFirebaseUID(ctx, existing.ID, identity.UID); lerr != nil {
+				if errors.Is(lerr, models.ErrRecordAlreadyExist) {
+					return nil, ErrAccountConflict
+				}
+				return nil, lerr
 			}
 			token, terr := s.issueSession(ctx, existing.ID)
 			if terr != nil {
@@ -165,6 +202,10 @@ func (s *AuthService) SocialLogin(ctx context.Context, idToken, dob string) (*So
 			return &SocialLoginResult{Token: token}, nil
 		}
 		return nil, err
+	}
+	// Bind the new account to the verified Firebase identity.
+	if lerr := s.Users.LinkFirebaseUID(ctx, newUser.ID, identity.UID); lerr != nil {
+		return nil, lerr
 	}
 	s.Points.AwardPoints(newUser.ID, "Register", 10)
 	token, err := s.issueSession(ctx, newUser.ID)

@@ -12,6 +12,9 @@ import 'package:itoju_mobile/features/auth/pages/app_lock.dart';
 import 'package:itoju_mobile/features/auth/pages/auth_gate.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/firebase_options.dart';
+import 'package:itoju_mobile/sync/purchase_service.dart';
+import 'package:itoju_mobile/sync/sync_controller.dart';
+import 'package:itoju_mobile/sync/sync_scheduler.dart';
 import 'package:toastification/toastification.dart';
 
 Future<void> main() async {
@@ -36,24 +39,36 @@ final NavigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((ref) {
   return navigatorKey;
 });
 
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   DateTime? _backgroundedAt;
   bool _lockShowing = false;
 
-  // Re-lock the app if it was backgrounded longer than this.
-  static const _lockAfter = Duration(minutes: 2);
+  // Re-lock the app if it was backgrounded longer than this (WhatsApp-style).
+  static const _lockAfter = Duration(minutes: 15);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Configure IAP (no-op unless RC_API_KEY is provided) and start the
+    // connectivity-regained sync trigger.
+    ref.read(purchaseServiceProvider).configure();
+    ref.read(syncSchedulerProvider).start();
+    // Attempt a sync on launch (no-op unless authenticated + entitled).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _triggerSync());
+  }
+
+  void _triggerSync() {
+    // Fire-and-forget; runs only when the chosen cadence is due, and the engine
+    // still gates on entitlement and guards re-entry.
+    ref.read(syncControllerProvider).maybePeriodicSync();
   }
 
   @override
@@ -69,6 +84,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _backgroundedAt = DateTime.now();
     } else if (state == AppLifecycleState.resumed) {
       _maybeLock();
+      _triggerSync();
     }
   }
 
@@ -76,8 +92,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (_lockShowing) return;
     final bg = _backgroundedAt;
     if (bg == null || DateTime.now().difference(bg) < _lockAfter) return;
+    // App-lock protects local health data, which exists without an account, so
+    // it no longer depends on having a session token.
     if (!Session.isAppLockEnabled()) return;
-    if (!await Session.hasToken()) return;
     final nav = navigatorKey.currentState;
     if (nav == null) return;
     _lockShowing = true;

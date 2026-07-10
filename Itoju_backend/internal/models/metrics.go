@@ -109,13 +109,13 @@ func (m MetricsModel) DeleteUserMetricsBatch(ctx context.Context, userID string,
 func (m MetricsModel) GetMetricsStatus(ctx context.Context, userID string, date time.Time) (map[string]bool, error) {
 	query := `
 	SELECT
-		EXISTS(SELECT 1 FROM user_symptoms_metric  WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_sleep_metric      WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_food_metric       WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_exercise_metric   WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_medication_metric WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_bowel_metric      WHERE user_id = $1 AND date = $2),
-		EXISTS(SELECT 1 FROM user_urine_metric      WHERE user_id = $1 AND date = $2)`
+		EXISTS(SELECT 1 FROM user_symptoms_metric  WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_sleep_metric      WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_food_metric       WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_exercise_metric   WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_medication_metric WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_bowel_metric      WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL),
+		EXISTS(SELECT 1 FROM user_urine_metric      WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL)`
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()

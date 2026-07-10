@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:itoju_mobile/features/auth/pages/DecisionPage.dart';
+import 'package:itoju_mobile/features/onboarding/name_step.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/onboarding/onbaording1.dart';
 import 'package:itoju_mobile/features/onboarding/onboard3.dart';
@@ -77,7 +77,7 @@ class _OnBoardingState extends State<OnBoarding> {
                             Navigator.pushAndRemoveUntil(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const DecisionPage()),
+                                  builder: (context) => const NameStep()),
                               (route) => false,
                             );
                           },
@@ -137,7 +137,7 @@ class _OnBoardingState extends State<OnBoarding> {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const DecisionPage()),
+                                builder: (context) => const NameStep()),
                             (route) => false,
                           );
                         },

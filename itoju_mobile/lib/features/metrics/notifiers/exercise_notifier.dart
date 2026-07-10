@@ -1,37 +1,34 @@
-import 'package:dio/dio.dart';
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
+import 'package:itoju_mobile/data/models/exercise_model.dart';
+import 'package:itoju_mobile/data/repositories/exercise_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/app_exception.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
+
+// Re-exported so existing `import '.../exercise_notifier.dart'` users keep
+// seeing ExerciseModel after it moved to the shared data layer.
+export 'package:itoju_mobile/data/models/exercise_model.dart';
 
 final exerciseProvider =
     StateNotifierProvider<ExerciseNotifier, ExerciseState>((ref) {
-  return ExerciseNotifier(ref, ref.read(dioProvider));
+  return ExerciseNotifier(ref, ref.read(exerciseRepositoryProvider));
 });
 
+/// Offline-first exercise notifier. Same public surface as before, but
+/// reads/writes the local Drift store through ExerciseRepository instead of
+/// calling the API.
 class ExerciseNotifier extends StateNotifier<ExerciseState> {
-  ExerciseNotifier(this.ref, this.dio) : super(ExerciseState.initial());
+  ExerciseNotifier(this.ref, this.repo) : super(ExerciseState.initial());
   Ref ref;
-  Dio dio;
+  ExerciseRepository repo;
 
   Future<void> getExercise(String date) async {
     state = state.copyWith(getStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/exercise_metrics/$date');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<ExerciseModel> exerciseModel = List<ExerciseModel>.from(
-            body['exerciseMetric'].map((e) => ExerciseModel.fromMap(e)));
-        state = state.copyWith(
-            getStatus: Loader.loaded, exerciseModel: exerciseModel);
-      } else {
-        state = state.copyWith(getStatus: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(getStatus: Loader.error, error: e.message);
+      final models = await repo.getForDate(date);
+      state =
+          state.copyWith(getStatus: Loader.loaded, exerciseModel: models);
     } catch (e) {
       state = state.copyWith(
           getStatus: Loader.error, error: 'An unexpected error occurred');
@@ -39,30 +36,18 @@ class ExerciseNotifier extends StateNotifier<ExerciseState> {
   }
 
   Future<ApiResponse> updateExercise(
-      String start, String ended, List tags, int noOfTimes, int id) async {
+      String start, String ended, List tags, int noOfTimes, String id) async {
     state = state.copyWith(postStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.put('user/exercise_metrics/$id', data: {
-        "start": start,
-        "ended": ended,
-        "no_of_times": noOfTimes,
-        "tags": tags,
-      });
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(postStatus: Loader.loaded);
-        // getExercise();
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(postStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(postStatus: Loader.error);
-      return AppException.handleError(e);
+      await repo.update(ExerciseModel(
+        id: id,
+        tags: tags,
+        noOfTimes: noOfTimes,
+        started: start,
+        ended: ended,
+      ));
+      state = state.copyWith(postStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Successfully updated Exercise');
     } catch (e) {
       state = state.copyWith(
           postStatus: Loader.error, error: 'An unexpected error occurred');
@@ -72,25 +57,18 @@ class ExerciseNotifier extends StateNotifier<ExerciseState> {
 
   Future<ApiResponse> createExercise(String name, String date) async {
     state = state.copyWith(postStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.post('user/exercise_metrics/$date', data: {
-        "name": name,
-      });
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(postStatus: Loader.loaded);
-        // getExercise();
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(postStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(postStatus: Loader.error, error: e.message);
-      return AppException.handleError(e);
+      await repo.create(
+          date,
+          ExerciseModel(
+            name: name,
+            tags: const [],
+            noOfTimes: 0,
+            started: '',
+            ended: '',
+          ));
+      state = state.copyWith(postStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Successfully added Exercise');
     } catch (e) {
       state = state.copyWith(
           postStatus: Loader.error, error: 'An unexpected error occurred');
@@ -98,26 +76,12 @@ class ExerciseNotifier extends StateNotifier<ExerciseState> {
     }
   }
 
-  Future<ApiResponse> deleteExercise(int id) async {
+  Future<ApiResponse> deleteExercise(String id) async {
     state = state.copyWith(delStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.delete(
-        'user/exercise_metrics/$id',
-      );
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(delStatus: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(delStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(delStatus: Loader.error, error: e.message);
-      return AppException.handleError(e);
+      await repo.delete(id);
+      state = state.copyWith(delStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Exercise successfully deleted');
     } catch (e) {
       state = state.copyWith(
           delStatus: Loader.error, error: 'An unexpected error occurred');
@@ -153,34 +117,5 @@ class ExerciseState {
         getStatus: getStatus ?? this.getStatus,
         postStatus: postStatus ?? this.postStatus,
         delStatus: delStatus ?? this.delStatus);
-  }
-}
-
-class ExerciseModel {
-  final int? id;
-  final int? noOfTimes;
-  final String? name;
-  final String? started;
-  final String? ended;
-  final List? tags;
-
-  ExerciseModel(
-    this.id,
-    this.name,
-    this.tags,
-    this.noOfTimes,
-    this.started,
-    this.ended,
-  );
-
-  factory ExerciseModel.fromMap(Map<String, dynamic> data) {
-    return ExerciseModel(
-      data['id'] ?? 0,
-      data['name'] ?? '',
-      data['tags'] ?? [],
-      data['no_of_times'] ?? 0,
-      data['start'] ?? '',
-      data['ended'] ?? '',
-    );
   }
 }

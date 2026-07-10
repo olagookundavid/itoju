@@ -141,6 +141,26 @@ func (app *Application) RequireAdminUser(next http.HandlerFunc) http.HandlerFunc
 	})
 }
 
+// RequireSyncEntitlement gates cloud sync behind an active paid entitlement.
+// It composes on top of RequireActivatedAndAuthedUser and checks the "sync"
+// entitlement server-side (never trusting a client flag); a lapsed or absent
+// subscription yields 402 Payment Required.
+func (app *Application) RequireSyncEntitlement(next http.HandlerFunc) http.HandlerFunc {
+	return app.RequireActivatedAndAuthedUser(func(w http.ResponseWriter, r *http.Request) {
+		user := app.contextGetUser(r)
+		ok, err := app.Models.Subscriptions.HasActiveEntitlement(r.Context(), user.ID, "sync")
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+		if !ok {
+			app.paymentRequiredResponse(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (app *Application) RequireActivatedAndAuthedUser(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := app.contextGetUser(r)

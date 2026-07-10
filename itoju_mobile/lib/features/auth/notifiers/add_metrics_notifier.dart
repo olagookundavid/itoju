@@ -1,21 +1,19 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
+import 'package:itoju_mobile/data/repositories/tracked_metrics_repository.dart';
 import 'package:itoju_mobile/features/auth/notifiers/get_tracked_metric_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/app_exception.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final addMetricsProvider =
     StateNotifierProvider<AddMetricsNotifier, AddMetricsState>((ref) {
-  return AddMetricsNotifier(ref, ref.read(dioProvider));
+  return AddMetricsNotifier(ref, ref.read(trackedMetricsRepositoryProvider));
 });
 
 class AddMetricsNotifier extends StateNotifier<AddMetricsState> {
-  AddMetricsNotifier(this.ref, this.dio) : super(AddMetricsState.initial());
+  AddMetricsNotifier(this.ref, this.repo) : super(AddMetricsState.initial());
 
   Ref ref;
-  Dio dio;
+  TrackedMetricsRepository repo;
 
   Future<ApiResponse> addMetrics(List metrics, List delete) async {
     List addMetrics = [];
@@ -37,27 +35,17 @@ class AddMetricsNotifier extends StateNotifier<AddMetricsState> {
       }
     }
     state = state.copyWith(loadStatus: Loader.loading);
-    final Response response, response2;
     try {
-      response = await dio.post('user/metrics', data: {"metrics": addMetrics});
-      response2 =
-          await dio.delete('user/metrics', data: {"metrics": delMetrics});
-      var body = response.data;
-      var body2 = response2.data;
-      if (response.statusCode == 200 && response2.statusCode == 200) {
-        state = state.copyWith(loadStatus: Loader.loaded);
-        return ApiResponse(
-          successMessage: "Successfully Updated User Metrics",
-        );
-      } else {
-        state = state.copyWith(loadStatus: Loader.error);
-        return ApiResponse(
-          errorMessage: body["error"] ?? body2["error"],
-        );
+      for (final e in addMetrics) {
+        await repo.add(e as int);
       }
-    } on DioException catch (e) {
-      state = state.copyWith(loadStatus: Loader.error);
-      return AppException.handleError(e);
+      for (final e in delMetrics) {
+        await repo.remove(e as int);
+      }
+      state = state.copyWith(loadStatus: Loader.loaded);
+      return ApiResponse(
+        successMessage: "Successfully Updated User Metrics",
+      );
     } catch (e) {
       state = state.copyWith(loadStatus: Loader.error);
       return ApiResponse(errorMessage: 'An unexpected error occurred');

@@ -3,13 +3,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
 )
 
 type BowelMetric struct {
-	ID   int       `json:"id"`
+	ID   string    `json:"id"`
 	Time string    `json:"time"`
 	Tags []string  `json:"tags"`
 	Date time.Time `json:"date"`
@@ -26,8 +27,8 @@ func (m BowelMetricModel) GetUserBowelMetrics(ctx context.Context, userId string
 	query := `
 	SELECT ubm.id, ubm.time, ubm.type, ubm.pain, ubm.tags, ubm.date
     FROM user_bowel_metric ubm
-    WHERE ubm.user_id = $1 AND ubm.date = $2
-	ORDER BY ubm.id DESC;
+    WHERE ubm.user_id = $1 AND ubm.date = $2 AND ubm.deleted_at IS NULL
+	ORDER BY ubm.date DESC, ubm.id;
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -70,13 +71,14 @@ func (m BowelMetricModel) InsertBowelMetric(ctx context.Context, userID string, 
 
 // UpdateBowelMetric partially updates a bowel metric in one statement, scoped
 // to the owning user; a 0-row update surfaces as ErrRecordNotFound.
-func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id int64, userID string, timeOfDay *string, typ, pain *float64, tags *[]string) error {
-	query := `UPDATE user_bowel_metric SET
+func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id string, userID string, timeOfDay *string, typ, pain *float64, tags *[]string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(`UPDATE user_bowel_metric SET
 	    time = COALESCE($1, time),
 	    pain = COALESCE($2, pain),
 	    type = COALESCE($3, type),
 	    tags = COALESCE($4, tags)
-	    WHERE id = $5 AND user_id = $6`
+	    WHERE %s = $5 AND user_id = $6 AND deleted_at IS NULL`, col)
 
 	var tagsArg any
 	if tags != nil {
@@ -84,7 +86,7 @@ func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id int64, userI
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, timeOfDay, pain, typ, tagsArg, id, userID)
+	result, err := m.DB.ExecContext(ctx, query, timeOfDay, pain, typ, tagsArg, val, userID)
 	if err != nil {
 		return err
 	}
@@ -98,14 +100,12 @@ func (m BowelMetricModel) UpdateBowelMetric(ctx context.Context, id int64, userI
 	return nil
 }
 
-func (m BowelMetricModel) DeleteBowelMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_bowel_metric WHERE id = $1 AND user_id = $2 `
+func (m BowelMetricModel) DeleteBowelMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_bowel_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}

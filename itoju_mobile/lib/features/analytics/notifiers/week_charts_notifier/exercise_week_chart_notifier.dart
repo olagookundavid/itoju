@@ -1,39 +1,29 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final exerciseWeekChartProvider =
     StateNotifierProvider<ExerciseWeekChartProvider, ExerciseWeekChartState>(
         (ref) {
-  return ExerciseWeekChartProvider(ref, ref.read(dioProvider));
+  return ExerciseWeekChartProvider(
+      ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class ExerciseWeekChartProvider extends StateNotifier<ExerciseWeekChartState> {
-  ExerciseWeekChartProvider(this.ref, this.dio)
+  ExerciseWeekChartProvider(this.ref, this.service)
       : super(ExerciseWeekChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getExerciseWeekDaysChart(int month) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
       final year = DateTime.now().year;
-      response = await dio.get('user/exercise_month_analytics/$year/$month');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final exerciseWeekChartModel =
-            ExerciseWeekChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded,
-            exerciseWeekChartModel: exerciseWeekChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.exerciseWeek(month, year);
+      final exerciseWeekChartModel = ExerciseWeekChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded,
+          exerciseWeekChartModel: exerciseWeekChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

@@ -1,37 +1,26 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final symsWeekChartProvider =
     StateNotifierProvider<SymsWeekChartProvider, SymsWeekChartState>((ref) {
-  return SymsWeekChartProvider(ref, ref.read(dioProvider));
+  return SymsWeekChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class SymsWeekChartProvider extends StateNotifier<SymsWeekChartState> {
-  SymsWeekChartProvider(this.ref, this.dio)
+  SymsWeekChartProvider(this.ref, this.service)
       : super(SymsWeekChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getSymsWeekDaysChart(int symsId, int month) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
       final year = DateTime.now().year;
-      response = await dio.get('user/syms_month_analytics/$symsId/$year/$month');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final symsWeekChartModel =
-            SymsWeekChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, symsWeekChartModel: symsWeekChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.symsWeek(symsId, month, year);
+      final symsWeekChartModel = SymsWeekChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, symsWeekChartModel: symsWeekChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

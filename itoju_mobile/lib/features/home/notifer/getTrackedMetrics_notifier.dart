@@ -1,38 +1,33 @@
 // ignore_for_file: file_names
 
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/models/tracked_metrics_model.dart';
+import 'package:itoju_mobile/data/repositories/tracked_metrics_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
+
+export 'package:itoju_mobile/data/models/tracked_metrics_model.dart';
 
 final getUserMetricsProvider =
     StateNotifierProvider<GetUserMetricsNotifier, GetUserMetricsState>((ref) {
-  return GetUserMetricsNotifier(ref, ref.read(dioProvider));
+  return GetUserMetricsNotifier(ref, ref.read(trackedMetricsRepositoryProvider));
 });
 
+/// Offline-first: the home screen's list of selected tracked metrics now reads
+/// live rows from the local Drift store instead of `user/metrics`.
 class GetUserMetricsNotifier extends StateNotifier<GetUserMetricsState> {
-  GetUserMetricsNotifier(this.ref, this.dio)
+  GetUserMetricsNotifier(this.ref, this.repo)
       : super(GetUserMetricsState.initial());
   Ref ref;
-  Dio dio;
+  TrackedMetricsRepository repo;
 
   Future<void> getGetUserMetrics() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/metrics');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<UserMetricsModel> metricsModel = List<UserMetricsModel>.from(
-            body['metrics'].map((e) => UserMetricsModel.fromMap(e)));
-        state =
-            state.copyWith(status: Loader.loaded, metricsModel: metricsModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final selected = await repo.getSelected();
+      final metricsModel = selected
+          .map((m) => UserMetricsModel(id: m.id, name: m.name))
+          .toList();
+      state = state.copyWith(status: Loader.loaded, metricsModel: metricsModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -62,23 +57,6 @@ class GetUserMetricsState {
       metricsModel: metricsModel ?? this.metricsModel,
       status: status ?? this.status,
       error: error ?? this.error,
-    );
-  }
-}
-
-class UserMetricsModel {
-  final int? id;
-  final String? name;
-
-  UserMetricsModel({
-    required this.id,
-    required this.name,
-  });
-
-  factory UserMetricsModel.fromMap(Map<String, dynamic> data) {
-    return UserMetricsModel(
-      id: data['id'] ?? 0,
-      name: data['name'] ?? '',
     );
   }
 }

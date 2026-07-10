@@ -12,6 +12,7 @@ require golang.org/x/crypto v0.52.0
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/uuid v1.6.0
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce

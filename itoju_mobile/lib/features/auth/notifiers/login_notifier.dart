@@ -8,6 +8,8 @@ import 'package:itoju_mobile/services/app_exception.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/Storage/secure_store.dart';
+import 'package:itoju_mobile/sync/purchase_service.dart';
+import 'package:itoju_mobile/sync/sync_engine.dart';
 
 class LoginNotifier extends StateNotifier<LoginState> {
   LoginNotifier(this.ref, this.dio) : super(LoginState.initial(ref));
@@ -30,6 +32,7 @@ class LoginNotifier extends StateNotifier<LoginState> {
         await SecureStore.write(SecureKeys.token, body['data']['token']);
         await SecureStore.write(SecureKeys.password, password);
         await HiveStorage.put(HiveKeys.userName, email);
+        await _activateSync(body['user_id'] as String?);
         state = state.copyWith(
           loadStatus: Loader.loaded,
         );
@@ -65,6 +68,7 @@ class LoginNotifier extends StateNotifier<LoginState> {
           body['data'] != null &&
           body['data']['token'] != null) {
         await SecureStore.write(SecureKeys.token, body['data']['token']);
+        await _activateSync(body['user_id'] as String?);
         state = state.copyWith(loadStatus: Loader.loaded);
         return ApiResponse(successMessage: body['message']);
       } else if (response.statusCode == 200 &&
@@ -86,6 +90,21 @@ class LoginNotifier extends StateNotifier<LoginState> {
       state = state.copyWith(loadStatus: Loader.error);
       return ApiResponse(errorMessage: 'An error occurred');
     }
+  }
+
+  /// After a successful sign-in, bind the local account to the server user
+  /// (so deterministic ids re-key on first sync), refresh the cached sync
+  /// entitlement, and kick off a sync. All best-effort — never blocks login.
+  Future<void> _activateSync(String? serverUserId) async {
+    if (serverUserId != null && serverUserId.isNotEmpty) {
+      await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+      // Bind RevenueCat purchases to the server user (no-op unless IAP is
+      // configured); the webhook re-binds the subscription server-side.
+      await ref.read(purchaseServiceProvider).bindTo(serverUserId);
+    }
+    await ref.read(entitlementServiceProvider).refreshFromServer();
+    // Fire-and-forget; the engine gates on entitlement and re-keys on first run.
+    ref.read(syncEngineProvider).syncNow();
   }
 
   static String _formatDob(DateTime dob) {

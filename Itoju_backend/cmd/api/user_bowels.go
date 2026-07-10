@@ -31,7 +31,7 @@ func (app *Application) GetUserBowelMetrics(w http.ResponseWriter, r *http.Reque
 
 func (app *Application) UpdateBowelMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
@@ -100,7 +100,7 @@ func (app *Application) CreateBowelMetric(w http.ResponseWriter, r *http.Request
 func (app *Application) DeleteBowelMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return

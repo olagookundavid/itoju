@@ -12,10 +12,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/olagookundavid/itoju/internal/validator"
 	"github.com/olagookundavid/itoju/internal/worker"
 )
+
+// metricIDArg maps a metric row's :id path param to a WHERE column + value:
+// a UUID targets the new uuid `id`; a bare integer targets `legacy_id`, so
+// still-deployed old app builds that send integer ids keep working during the
+// transition.
+func metricIDArg(param string) (col string, val any) {
+	if _, err := uuid.Parse(param); err == nil {
+		return "id", param
+	}
+	if n, err := strconv.Atoi(param); err == nil {
+		return "legacy_id", n
+	}
+	return "id", param
+}
 
 type envelope map[string]any
 

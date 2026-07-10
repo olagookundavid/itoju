@@ -1,39 +1,29 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final foodDiaryWeekChartProvider =
     StateNotifierProvider<FoodDiaryWeekChartProvider, FoodDiary7ChartState>(
         (ref) {
-  return FoodDiaryWeekChartProvider(ref, ref.read(dioProvider));
+  return FoodDiaryWeekChartProvider(
+      ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class FoodDiaryWeekChartProvider extends StateNotifier<FoodDiary7ChartState> {
-  FoodDiaryWeekChartProvider(this.ref, this.dio)
+  FoodDiaryWeekChartProvider(this.ref, this.service)
       : super(FoodDiary7ChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getFoodDiaryWeekDaysChart(String tag, int month) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
       final year = DateTime.now().year;
-      response = await dio.get('user/tag_month_analytics/$year/$month/$tag');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final foodDiary7ChartModel =
-            FoodDiary7ChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.foodTagsWeek(tag, month, year);
+      final foodDiary7ChartModel = FoodDiary7ChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

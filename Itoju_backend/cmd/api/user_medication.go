@@ -31,7 +31,7 @@ func (app *Application) GetUserMedicationMetrics(w http.ResponseWriter, r *http.
 
 func (app *Application) UpdateMedicationMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
@@ -102,7 +102,7 @@ func (app *Application) CreateMedicationMetric(w http.ResponseWriter, r *http.Re
 func (app *Application) DeleteMedicationMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return

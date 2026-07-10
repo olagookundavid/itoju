@@ -26,7 +26,7 @@ func (app *Application) CreateSymsMetric(w http.ResponseWriter, r *http.Request)
 	}
 	user := app.contextGetUser(r)
 	symsMetric := &models.SymsMetric{
-		Id: input.Id, Date: date,
+		SymptomsID: input.Id, Date: date,
 	}
 
 	err = app.Models.SymsMetric.CreateSymsMetric(r.Context(), user.ID, *symsMetric)
@@ -91,7 +91,7 @@ func (app *Application) GetUserTopNSyms(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request) {
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
@@ -129,7 +129,7 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 		symsMetric.NightSeverity = *input.NightSeverity
 	}
 
-	err = app.Models.SymsMetric.UpdateSymsMetric(r.Context(), symsMetric, int(id), user.ID)
+	err = app.Models.SymsMetric.UpdateSymsMetric(r.Context(), symsMetric, id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -150,7 +150,7 @@ func (app *Application) UpdateSymsMetric(w http.ResponseWriter, r *http.Request)
 }
 
 func (app *Application) DeleteSymsMetric(w http.ResponseWriter, r *http.Request) {
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return

@@ -31,4 +31,12 @@ class SecureStore {
 class SecureKeys {
   static const token = 'token';
   static const password = 'password';
+
+  /// Anonymous local account id (UUIDv4), minted on first launch. Owns all local
+  /// data and is the namespace for deterministic ids until cloud sync binds this
+  /// device to a server user.
+  static const localAccountId = 'local_account_id';
+
+  /// Server user id this device is bound to once cloud sync is enabled.
+  static const boundServerUserId = 'bound_server_user_id';
 }

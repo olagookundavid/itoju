@@ -1,39 +1,33 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
+import 'package:itoju_mobile/data/models/medication_model.dart';
+import 'package:itoju_mobile/data/repositories/medication_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/app_exception.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
+
+// Re-exported so existing `import '.../medication_notifier.dart'` users keep
+// seeing MedicationModel after it moved to the shared data layer.
+export 'package:itoju_mobile/data/models/medication_model.dart';
 
 final medicationProvider =
     StateNotifierProvider<MedicationNotifier, MedicationState>((ref) {
-  return MedicationNotifier(ref, ref.read(dioProvider));
+  return MedicationNotifier(ref, ref.read(medicationRepositoryProvider));
 });
 
+/// Offline-first medication notifier. Same public surface as before, but
+/// reads/writes the local Drift store through MedicationRepository instead of
+/// calling the API.
 class MedicationNotifier extends StateNotifier<MedicationState> {
-  MedicationNotifier(this.ref, this.dio) : super(MedicationState.initial());
+  MedicationNotifier(this.ref, this.repo) : super(MedicationState.initial());
   Ref ref;
-  Dio dio;
+  MedicationRepository repo;
 
   Future<void> getMedicationList(String date) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/medication_metrics/$date');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<MedicationModel> medicationModels = List<MedicationModel>.from(
-            body['medicationMetrics'].map((e) => MedicationModel.fromMap(e)));
-        state = state.copyWith(
-            status: Loader.loaded, medicationModels: medicationModels);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final models = await repo.getForDate(date);
+      state = state.copyWith(status: Loader.loaded, medicationModels: models);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -43,28 +37,10 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
   Future<ApiResponse> createMedicationMetric(
       String date, MedicationModel model) async {
     state = state.copyWith(postStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.post('user/medication_metrics/$date', data: {
-        'metric': model.metric,
-        'name': model.name,
-        'dosage': model.dosage,
-        'time': model.time,
-        'quantity': model.quantity,
-      });
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(postStatus: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(postStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(postStatus: Loader.error, error: e.message);
-      return AppException.handleError(e);
+      await repo.create(date, model);
+      state = state.copyWith(postStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Successfully added Medication');
     } catch (e) {
       state = state.copyWith(
           postStatus: Loader.error, error: 'An unexpected error occurred');
@@ -74,30 +50,10 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
 
   Future<ApiResponse> updateMedicationMetric(MedicationModel model) async {
     state = state.copyWith(updateStatus: Loader.loading);
-    final Response response;
-
     try {
-      response = await dio.put('user/medication_metrics/${model.id}', data: {
-        "time": model.time,
-        'metric': model.metric,
-        'name': model.name,
-        'dosage': model.dosage,
-        'quantity': model.quantity,
-      });
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(updateStatus: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state =
-            state.copyWith(updateStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(updateStatus: Loader.error, error: e.message);
-      return AppException.handleError(e);
+      await repo.update(model);
+      state = state.copyWith(updateStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Successfully updated Medication');
     } catch (e) {
       state = state.copyWith(
           updateStatus: Loader.error, error: 'An unexpected error occurred');
@@ -105,26 +61,12 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
     }
   }
 
-  Future<ApiResponse> deleteSymsMetric(int id) async {
+  Future<ApiResponse> deleteSymsMetric(String id) async {
     state = state.copyWith(delStatus: Loader.loading);
-    final Response response;
     try {
-      response = await dio.delete(
-        'user/medication_metrics/$id',
-      );
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(delStatus: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(delStatus: Loader.error, error: body["error"]);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(delStatus: Loader.error, error: e.message);
-      return AppException.handleError(e);
+      await repo.delete(id);
+      state = state.copyWith(delStatus: Loader.loaded);
+      return ApiResponse(successMessage: 'Medication successfully deleted');
     } catch (e) {
       state = state.copyWith(
           delStatus: Loader.error, error: 'An unexpected error occurred');
@@ -164,33 +106,5 @@ class MedicationState {
         delStatus: delStatus ?? this.delStatus,
         updateStatus: updateStatus ?? this.updateStatus,
         postStatus: postStatus ?? this.postStatus);
-  }
-}
-
-class MedicationModel {
-  final int? id;
-  final String time;
-  final String metric;
-  final String name;
-  final int dosage;
-  final int quantity;
-  MedicationModel({
-    required this.id,
-    required this.time,
-    required this.metric,
-    required this.name,
-    required this.dosage,
-    required this.quantity,
-  });
-
-  factory MedicationModel.fromMap(Map<String, dynamic> data) {
-    return MedicationModel(
-      id: data['id'] ?? 0,
-      time: data['time'] ?? '',
-      metric: data['metric'] ?? '',
-      name: data['name'] ?? '',
-      dosage: data['dosage'] ?? 0,
-      quantity: data['quantity'] ?? 0,
-    );
   }
 }

@@ -161,7 +161,7 @@ class _SleepWidgetState extends ConsumerState<SleepWidget> {
                                   isExtraNight,
                                   true,
                                   sleepModel: SleepModel(
-                                      id: 0,
+                                      id: null,
                                       timeSlept: '',
                                       timeWokeUp: '',
                                       tags: [],

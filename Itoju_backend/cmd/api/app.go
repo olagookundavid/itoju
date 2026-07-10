@@ -51,4 +51,10 @@ type Config struct {
 		BufferSize      int
 		FlushIntervalMs int
 	}
+	RevenueCat struct {
+		// WebhookToken is the shared secret RevenueCat sends in the Authorization
+		// header of webhook calls (configured in the RC dashboard). Empty disables
+		// the webhook endpoint (returns 503) so a misconfigured deploy fails safe.
+		WebhookToken string
+	}
 }

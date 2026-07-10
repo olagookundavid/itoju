@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
 type SymsMetric struct {
-	Id                int       `json:"id"`
+	Id                string    `json:"id"`
+	SymptomsID        int       `json:"symptoms_id"`
 	Name              string    `json:"name"`
 	Date              time.Time `json:"date"`
 	MorningSeverity   float32   `json:"morning_severity"`
@@ -26,23 +28,31 @@ type SymsMetricModel struct {
 }
 
 func (m SymsMetricModel) CreateSymsMetric(ctx context.Context, userId string, symsMetric SymsMetric) error {
+	// id (set by the BEFORE INSERT trigger) is deterministic per
+	// (user, symptom, day), so that triple is a single physical row for its whole
+	// lifetime. Re-creating a soft-deleted entry therefore revives the tombstone
+	// (clears deleted_at) rather than inserting a duplicate; a genuine LIVE
+	// duplicate updates no row (the WHERE is false) and surfaces as ErrNoRows,
+	// which we map to ErrRecordAlreadyExist to preserve the handler's behaviour.
 	query := `
 	INSERT INTO user_symptoms_metric (user_id, symptoms_id, date)
-	VALUES ($1, $2, $3) `
+	VALUES ($1, $2, $3)
+	ON CONFLICT (id) DO UPDATE SET deleted_at = NULL
+	WHERE user_symptoms_metric.deleted_at IS NOT NULL
+	RETURNING id `
 
-	args := []any{userId, symsMetric.Id, symsMetric.Date}
+	args := []any{userId, symsMetric.SymptomsID, symsMetric.Date}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query, args...)
+	var id string
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&id)
 	if err != nil {
-		switch {
-		case isUniqueViolation(err, "unique_user_symptom_date"):
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrRecordAlreadyExist
-		default:
-			return err
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (m SymsMetricModel) GetUserSymptomsMetric(ctx context.Context, userId string, date time.Time) ([]*SymsMetric, error) {
@@ -50,7 +60,7 @@ func (m SymsMetricModel) GetUserSymptomsMetric(ctx context.Context, userId strin
 	SELECT usm.id, s.name, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
 	FROM user_symptoms_metric usm
 	JOIN symptoms s ON usm.symptoms_id = s.id
-	WHERE usm.user_id = $1 AND usm.date = $2
+	WHERE usm.user_id = $1 AND usm.date = $2 AND usm.deleted_at IS NULL
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -83,6 +93,7 @@ func (m SymsMetricModel) GetUserTopNSyms(ctx context.Context, userId string, int
 	JOIN symptoms s ON usm.symptoms_id = s.id
 	WHERE usm.user_id = $1
 	AND usm.date >= CURRENT_DATE - make_interval(days => $2)
+	AND usm.deleted_at IS NULL
 	GROUP BY s.name, usm.symptoms_id
 	ORDER BY count DESC
 	LIMIT 4;
@@ -112,16 +123,14 @@ func (m SymsMetricModel) GetUserTopNSyms(ctx context.Context, userId string, int
 	return outPuts, nil
 }
 
-func (m SymsMetricModel) Get(ctx context.Context, id int64, userID string) (*SymsMetric, error) {
-	if id < 1 {
-		return nil, ErrRecordNotFound
-	}
-	query := ` SELECT usm.id, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
-	FROM user_symptoms_metric usm WHERE id = $1 AND user_id = $2; `
+func (m SymsMetricModel) Get(ctx context.Context, id string, userID string) (*SymsMetric, error) {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` SELECT usm.id, usm.date, usm.morning_severity, usm.afternoon_severity, usm.night_severity
+	FROM user_symptoms_metric usm WHERE usm.%s = $1 AND usm.user_id = $2 AND usm.deleted_at IS NULL; `, col)
 	var symsMetric SymsMetric
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(&symsMetric.Id, &symsMetric.Date, &symsMetric.MorningSeverity, &symsMetric.AfternoonSeverity, &symsMetric.NightSeverity)
+	err := m.DB.QueryRowContext(ctx, query, val, userID).Scan(&symsMetric.Id, &symsMetric.Date, &symsMetric.MorningSeverity, &symsMetric.AfternoonSeverity, &symsMetric.NightSeverity)
 
 	if err != nil {
 		switch {
@@ -134,11 +143,12 @@ func (m SymsMetricModel) Get(ctx context.Context, id int64, userID string) (*Sym
 	return &symsMetric, nil
 }
 
-func (m SymsMetricModel) UpdateSymsMetric(ctx context.Context, symsMetric *SymsMetric, id int, userID string) error {
+func (m SymsMetricModel) UpdateSymsMetric(ctx context.Context, symsMetric *SymsMetric, id string, userID string) error {
 
-	query := ` UPDATE user_symptoms_metric SET morning_severity = $1, afternoon_severity= $2, night_severity = $3 WHERE id = $4 AND user_id = $5; `
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_symptoms_metric SET morning_severity = $1, afternoon_severity= $2, night_severity = $3 WHERE %s = $4 AND user_id = $5 AND deleted_at IS NULL; `, col)
 
-	args := []any{symsMetric.MorningSeverity, symsMetric.AfternoonSeverity, symsMetric.NightSeverity, symsMetric.Id, userID}
+	args := []any{symsMetric.MorningSeverity, symsMetric.AfternoonSeverity, symsMetric.NightSeverity, val, userID}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, args...)
@@ -155,14 +165,12 @@ func (m SymsMetricModel) UpdateSymsMetric(ctx context.Context, symsMetric *SymsM
 	return nil
 }
 
-func (m SymsMetricModel) DeleteSymsMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_symptoms_metric WHERE id = $1 AND user_id = $2 `
+func (m SymsMetricModel) DeleteSymsMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_symptoms_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}
@@ -191,7 +199,7 @@ func (m SymsMetricModel) DaysTrackedInARow(ctx context.Context, userID string) (
                     SELECT date, 
                            CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END AS tracked
                     FROM user_symptoms_metric
-                    WHERE user_id = $1
+                    WHERE user_id = $1 AND deleted_at IS NULL
                     GROUP BY date
                 ) AS t
             ) AS s
@@ -220,7 +228,7 @@ func (m SymsMetricModel) DaysTrackedFree(ctx context.Context, userID string) (*i
 			SELECT g.date, 
 				   CASE WHEN COUNT(usm.user_id) = 0 THEN 1 ELSE 0 END AS tracked
 			FROM generate_series(CURRENT_DATE, CURRENT_DATE - INTERVAL '29 days', '-1 day') AS g(date)
-			LEFT JOIN user_symptoms_metric AS usm ON g.date = usm.date AND usm.user_id = $1
+			LEFT JOIN user_symptoms_metric AS usm ON g.date = usm.date AND usm.user_id = $1 AND usm.deleted_at IS NULL
 			GROUP BY g.date
 		) AS t
 	) AS s

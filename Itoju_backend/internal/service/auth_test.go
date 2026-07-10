@@ -14,6 +14,8 @@ import (
 
 type fakeUserStore struct {
 	byEmail   map[string]*models.User
+	byUID     map[string]*models.User
+	uidByUser map[string]string
 	getErr    error
 	insertErr error
 	inserted  []*models.User
@@ -28,6 +30,33 @@ func (f *fakeUserStore) GetByEmail(_ context.Context, email string) (*models.Use
 		return nil, models.ErrRecordNotFound
 	}
 	return u, nil
+}
+
+func (f *fakeUserStore) GetByFirebaseUID(_ context.Context, uid string) (*models.User, error) {
+	u, ok := f.byUID[uid]
+	if !ok {
+		return nil, models.ErrRecordNotFound
+	}
+	return u, nil
+}
+
+func (f *fakeUserStore) LinkFirebaseUID(_ context.Context, userID, uid string) error {
+	if f.uidByUser == nil {
+		f.uidByUser = map[string]string{}
+	}
+	if existing, ok := f.uidByUser[userID]; ok && existing != "" {
+		return models.ErrRecordAlreadyExist // already bound to a different uid
+	}
+	f.uidByUser[userID] = uid
+	if f.byUID == nil {
+		f.byUID = map[string]*models.User{}
+	}
+	for _, u := range f.byEmail {
+		if u.ID == userID {
+			f.byUID[uid] = u
+		}
+	}
+	return nil
 }
 
 func (f *fakeUserStore) Insert(_ context.Context, u *models.User) error {
@@ -262,4 +291,65 @@ func (r *raceUserStore) GetByEmail(_ context.Context, _ string) (*models.User, e
 
 func (r *raceUserStore) Insert(_ context.Context, _ *models.User) error {
 	return models.ErrDuplicateEmail
+}
+
+func (r *raceUserStore) GetByFirebaseUID(_ context.Context, _ string) (*models.User, error) {
+	return nil, models.ErrRecordNotFound
+}
+
+func (r *raceUserStore) LinkFirebaseUID(_ context.Context, _, _ string) error {
+	return nil
+}
+
+// TestSocialLoginRejectsForeignIdentity is the security regression for the
+// account-takeover fix: an account already bound to one Firebase UID cannot be
+// claimed by a different verified identity sharing the same email.
+func TestSocialLoginRejectsForeignIdentity(t *testing.T) {
+	victim := userWithPassword(t, "victim-id", "victim@example.com", "secretpass1")
+	users := &fakeUserStore{
+		byEmail:   map[string]*models.User{victim.Email: victim},
+		byUID:     map[string]*models.User{"uid-owner": victim},
+		uidByUser: map[string]string{victim.ID: "uid-owner"},
+	}
+	s := &AuthService{
+		Users:  users,
+		Tokens: &fakeTokenStore{},
+		Points: &fakePoints{},
+		Firebase: &fakeVerifier{enabled: true, identity: &firebaseauth.Identity{
+			UID: "uid-attacker", Email: "victim@example.com", EmailVerified: true, Name: "V",
+		}},
+	}
+	_, err := s.SocialLogin(context.Background(), "token", "")
+	if !errors.Is(err, ErrAccountConflict) {
+		t.Fatalf("expected ErrAccountConflict for a foreign identity, got %v", err)
+	}
+}
+
+// TestSocialLoginBindsThenLoginsSameIdentity verifies the legitimate paths: an
+// unbound email account is bound on first social sign-in, and the same UID logs
+// straight in afterwards.
+func TestSocialLoginBindsThenLoginsSameIdentity(t *testing.T) {
+	u := userWithPassword(t, "u1", "user@example.com", "secretpass1")
+	users := &fakeUserStore{byEmail: map[string]*models.User{u.Email: u}}
+	s := &AuthService{
+		Users:  users,
+		Tokens: &fakeTokenStore{},
+		Points: &fakePoints{},
+		Firebase: &fakeVerifier{enabled: true, identity: &firebaseauth.Identity{
+			UID: "uid-1", Email: "user@example.com", EmailVerified: true, Name: "U",
+		}},
+	}
+	// first sign-in: binds and logs in
+	res, err := s.SocialLogin(context.Background(), "token", "")
+	if err != nil || res.Token == nil {
+		t.Fatalf("first social sign-in should bind + login, got res=%v err=%v", res, err)
+	}
+	if users.uidByUser[u.ID] != "uid-1" {
+		t.Fatalf("account should be bound to uid-1, got %q", users.uidByUser[u.ID])
+	}
+	// second sign-in with the same uid: straight login
+	res, err = s.SocialLogin(context.Background(), "token", "")
+	if err != nil || res.Token == nil {
+		t.Fatalf("same-identity re-login should succeed, got res=%v err=%v", res, err)
+	}
 }

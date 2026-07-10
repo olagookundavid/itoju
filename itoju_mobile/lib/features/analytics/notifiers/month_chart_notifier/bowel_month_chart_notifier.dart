@@ -1,37 +1,26 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/bowel_7_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final bowelMonthChartProvider =
     StateNotifierProvider<BowelMonthChartProvider, BowelMonthChartState>((ref) {
-  return BowelMonthChartProvider(ref, ref.read(dioProvider));
+  return BowelMonthChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class BowelMonthChartProvider extends StateNotifier<BowelMonthChartState> {
-  BowelMonthChartProvider(this.ref, this.dio)
+  BowelMonthChartProvider(this.ref, this.service)
       : super(BowelMonthChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getBowelMonthDaysChart(String year) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/bowel_year_analytics/$year');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final bowelMonthChartModel =
-            BowelMonthChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, bowelMonthChartModel: bowelMonthChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.bowelMonth(int.parse(year));
+      final bowelMonthChartModel = BowelMonthChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, bowelMonthChartModel: bowelMonthChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

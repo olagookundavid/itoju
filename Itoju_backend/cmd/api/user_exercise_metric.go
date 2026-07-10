@@ -77,7 +77,7 @@ func (app *Application) CreateExerciseMetric(w http.ResponseWriter, r *http.Requ
 }
 
 func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Request) {
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
@@ -121,7 +121,7 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 		exerciseMetric.Tags = *input.Tags
 	}
 
-	err = app.Models.ExerciseMetric.UpdateExerciseMetric(r.Context(), exerciseMetric, int(id), user.ID)
+	err = app.Models.ExerciseMetric.UpdateExerciseMetric(r.Context(), exerciseMetric, id, user.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -142,7 +142,7 @@ func (app *Application) UpdateExerciseMetric(w http.ResponseWriter, r *http.Requ
 }
 
 func (app *Application) DeleteExerciseMetric(w http.ResponseWriter, r *http.Request) {
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return

@@ -1,35 +1,27 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/models/tracked_metrics_model.dart';
+import 'package:itoju_mobile/data/repositories/tracked_metrics_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
+
+export 'package:itoju_mobile/data/models/tracked_metrics_model.dart';
 
 final metricProvider =
     StateNotifierProvider.autoDispose<MetricNotifier, MetricState>((ref) {
-  return MetricNotifier(ref, ref.read(dioProvider));
+  return MetricNotifier(ref, ref.read(trackedMetricsRepositoryProvider));
 });
 
+/// Offline-first tracked-metrics notifier. Same public surface; the catalog now
+/// comes from the seeded local table and selections from the local Drift store.
 class MetricNotifier extends StateNotifier<MetricState> {
-  MetricNotifier(this.ref, this.dio) : super(MetricState.initial());
+  MetricNotifier(this.ref, this.repo) : super(MetricState.initial());
   Ref ref;
-  Dio dio;
+  TrackedMetricsRepository repo;
 
   Future<void> getMetric() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('allmetrics');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<MetricModel> metricLists = List<MetricModel>.from(
-            body['metrics'].map((e) => MetricModel.fromMap(e)));
-
-        state = state.copyWith(status: Loader.loaded, metricLists: metricLists);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final metricLists = await repo.getCatalog();
+      state = state.copyWith(status: Loader.loaded, metricLists: metricLists);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -38,22 +30,10 @@ class MetricNotifier extends StateNotifier<MetricState> {
 
   Future<void> getUserMetric() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/metrics');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<MetricModel> userMetricLists = List<MetricModel>.from(
-            body['metrics'].map((e) => MetricModel.fromMap(e)));
-
-        state = state.copyWith(
-            status: Loader.loaded, userMetricLists: userMetricLists);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final userMetricLists = await repo.getSelected();
+      state = state.copyWith(
+          status: Loader.loaded, userMetricLists: userMetricLists);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -86,19 +66,5 @@ class MetricState {
         status: status ?? this.status,
         error: error ?? this.error,
         userMetricLists: userMetricLists ?? this.userMetricLists);
-  }
-}
-
-class MetricModel {
-  final int? id;
-  final String? name;
-
-  MetricModel({
-    required this.id,
-    required this.name,
-  });
-
-  factory MetricModel.fromMap(Map<String, dynamic> data) {
-    return MetricModel(id: data['id'] ?? 0, name: data['name'] ?? '');
   }
 }

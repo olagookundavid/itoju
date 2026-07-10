@@ -31,6 +31,8 @@ type Models struct {
 	AnalyticsMetric  AnalyticsModel
 	UserPoint        UserPointModel
 	UserPeriod       UserPeriodModel
+	Subscriptions    SubscriptionModel
+	Sync             SyncModel
 }
 
 func NewModels(db *sql.DB) Models {
@@ -54,5 +56,7 @@ func NewModels(db *sql.DB) Models {
 		AnalyticsMetric:  AnalyticsModel{DB: db},
 		UserPoint:        UserPointModel{DB: db},
 		UserPeriod:       UserPeriodModel{DB: db},
+		Subscriptions:    SubscriptionModel{DB: db},
+		Sync:             SyncModel{DB: db},
 	}
 }

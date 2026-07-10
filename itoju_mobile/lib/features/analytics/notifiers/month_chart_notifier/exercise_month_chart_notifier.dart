@@ -1,40 +1,29 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final exerciseMonthChartProvider =
     StateNotifierProvider<ExerciseMonthChartProvider, ExerciseMonthChartState>(
         (ref) {
-  return ExerciseMonthChartProvider(ref, ref.read(dioProvider));
+  return ExerciseMonthChartProvider(
+      ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class ExerciseMonthChartProvider
     extends StateNotifier<ExerciseMonthChartState> {
-  ExerciseMonthChartProvider(this.ref, this.dio)
+  ExerciseMonthChartProvider(this.ref, this.service)
       : super(ExerciseMonthChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getExerciseMonthDaysChart(String year) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
-
     try {
-      response = await dio.get('user/exercise_year_analytics/$year');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final exerciseMonthChartModel =
-            ExerciseMonthChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded,
-            exerciseMonthChartModel: exerciseMonthChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.exerciseMonth(int.parse(year));
+      final exerciseMonthChartModel = ExerciseMonthChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded,
+          exerciseMonthChartModel: exerciseMonthChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

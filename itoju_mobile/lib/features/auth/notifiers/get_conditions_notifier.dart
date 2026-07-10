@@ -1,38 +1,29 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/models/conditions_model.dart';
+import 'package:itoju_mobile/data/repositories/conditions_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
+
+export 'package:itoju_mobile/data/models/conditions_model.dart';
 
 final getConditionsProvider = StateNotifierProvider.autoDispose<
     GetConditionsNotifier, GetConditionsState>((ref) {
-  return GetConditionsNotifier(ref, ref.read(dioProvider));
+  return GetConditionsNotifier(ref, ref.read(conditionsRepositoryProvider));
 });
 
+/// Offline-first conditions notifier. Same public surface; the catalog now comes
+/// from the seeded local table and selections from the local Drift store.
 class GetConditionsNotifier extends StateNotifier<GetConditionsState> {
-  GetConditionsNotifier(this.ref, this.dio)
+  GetConditionsNotifier(this.ref, this.repo)
       : super(GetConditionsState.initial());
   Ref ref;
-  Dio dio;
+  ConditionsRepository repo;
 
   Future<void> getConditions() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('allconditions');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<GetConditionsModel> conditionsLists =
-            List<GetConditionsModel>.from(
-                body['conditions'].map((e) => GetConditionsModel.fromMap(e)));
-
-        state = state.copyWith(
-            status: Loader.loaded, conditionsLists: conditionsLists);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final conditionsLists = await repo.getCatalog();
+      state = state.copyWith(
+          status: Loader.loaded, conditionsLists: conditionsLists);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -41,23 +32,10 @@ class GetConditionsNotifier extends StateNotifier<GetConditionsState> {
 
   Future<void> getUserConditions() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/conditions');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        List<GetConditionsModel> userConditionsLists =
-            List<GetConditionsModel>.from(
-                body['conditions'].map((e) => GetConditionsModel.fromMap(e)));
-
-        state = state.copyWith(
-            status: Loader.loaded, userConditionsLists: userConditionsLists);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final userConditionsLists = await repo.getSelected();
+      state = state.copyWith(
+          status: Loader.loaded, userConditionsLists: userConditionsLists);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
@@ -87,22 +65,7 @@ class GetConditionsState {
       String? error}) {
     return GetConditionsState(
         conditionsLists: conditionsLists ?? this.conditionsLists,
-        status: status ?? this.status,
         userConditionsLists: userConditionsLists ?? this.userConditionsLists,
         error: error ?? this.error);
-  }
-}
-
-class GetConditionsModel {
-  final int? id;
-  final String? name;
-
-  GetConditionsModel({
-    required this.id,
-    required this.name,
-  });
-
-  factory GetConditionsModel.fromMap(Map<String, dynamic> data) {
-    return GetConditionsModel(id: data['id'] ?? 0, name: data['name'] ?? '');
   }
 }

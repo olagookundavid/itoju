@@ -8,6 +8,7 @@ import 'package:itoju_mobile/features/auth/notifiers/signup_notifier.dart';
 import 'package:itoju_mobile/features/auth/pages/oauth_signup.dart';
 import 'package:itoju_mobile/features/auth/pages/login.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/components/asset/constants/images.dart';
 import 'package:itoju_mobile/components/asset/constants/terms_and_conditions.dart';
 import 'package:itoju_mobile/features/widgets/coming_soon_dialog.dart';
@@ -39,6 +40,16 @@ class _SignUpPageState extends State<SignUpPage> {
   TextEditingController confirmPasswordController = TextEditingController();
   TextEditingController firstNameController = TextEditingController();
   TextEditingController lastNameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefill the name captured during local-first onboarding.
+    final localName = HiveStorage.get(HiveKeys.localName) as String?;
+    if (localName != null && localName.isNotEmpty) {
+      firstNameController.text = localName;
+    }
+  }
 
   @override
   void dispose() {

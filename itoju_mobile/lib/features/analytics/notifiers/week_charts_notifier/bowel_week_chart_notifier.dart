@@ -1,39 +1,28 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/bowel_7_day_chart_notifier.dart';
 
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final bowelWeekChartProvider =
     StateNotifierProvider<BowelWeekChartProvider, BowelWeekChartState>((ref) {
-  return BowelWeekChartProvider(ref, ref.read(dioProvider));
+  return BowelWeekChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class BowelWeekChartProvider extends StateNotifier<BowelWeekChartState> {
-  BowelWeekChartProvider(this.ref, this.dio)
+  BowelWeekChartProvider(this.ref, this.service)
       : super(BowelWeekChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getBowelWeekDaysChart(int month) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
       final year = DateTime.now().year;
-      response = await dio.get('user/bowel_month_analytics/$year/$month');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final bowel7ChartModel =
-            BowelWeekChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, bowel7ChartModel: bowel7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.bowelWeek(month, year);
+      final bowel7ChartModel = BowelWeekChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, bowel7ChartModel: bowel7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

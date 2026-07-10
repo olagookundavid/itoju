@@ -331,7 +331,7 @@ class _SleepListState extends ConsumerState<SleepList> {
                                   .createSleepMetric(
                                       widget.date,
                                       SleepModel(
-                                          id: 0,
+                                          id: null,
                                           timeSlept: timeSlept,
                                           timeWokeUp: timeWokeUp,
                                           tags: userTags.toList(),
@@ -342,7 +342,7 @@ class _SleepListState extends ConsumerState<SleepList> {
                                   .updateSleepMetric(
                                       widget.sleepModel.id!,
                                       SleepModel(
-                                          id: 0,
+                                          id: null,
                                           timeSlept: timeSlept,
                                           timeWokeUp: timeWokeUp,
                                           tags: userTags.toList(),

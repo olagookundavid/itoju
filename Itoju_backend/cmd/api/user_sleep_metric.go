@@ -31,7 +31,7 @@ func (app *Application) GetUserSleepMetrics(w http.ResponseWriter, r *http.Reque
 
 func (app *Application) UpdateSleepMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return
@@ -102,7 +102,7 @@ func (app *Application) CreateSleepMetric(w http.ResponseWriter, r *http.Request
 func (app *Application) DeleteSleepMetric(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
-	id, err := app.readIDParam(r)
+	id, err := app.readStringParam(r, "id")
 	if err != nil {
 		app.NotFoundResponse(w, r)
 		return

@@ -267,7 +267,7 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                                     DateFormat('yyyy-MM-dd')
                                                         .format(selectedDate!),
                                                     MedicationModel(
-                                                        id: 0,
+                                                        id: null,
                                                         time: DateFormatter
                                                             .formatTime(DateTime
                                                                     .now()

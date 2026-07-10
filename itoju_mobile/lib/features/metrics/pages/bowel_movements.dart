@@ -156,7 +156,7 @@ class _BowelMovementState extends ConsumerState<BowelMovement> {
                               child: BowelList(
                                   isNew: true,
                                   bowelModel: BowelModel(
-                                    id: 0,
+                                    id: null,
                                     time: '',
                                     pain: 0,
                                     tags: [],

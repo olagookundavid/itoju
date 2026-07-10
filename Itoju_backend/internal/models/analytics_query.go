@@ -63,7 +63,7 @@ func (m AnalyticsModel) symptomOccurrences(ctx context.Context, userID string, s
 		SELECT %s AS bucket,
 			AVG((morning_severity + afternoon_severity + night_severity) / 3) AS average_severity
 		FROM user_symptoms_metric
-		WHERE user_id = $1 AND symptoms_id = $2 AND %s
+		WHERE user_id = $1 AND symptoms_id = $2 AND deleted_at IS NULL AND %s
 		GROUP BY bucket
 		ORDER BY bucket;`, p.bucket, dr)
 
@@ -97,7 +97,7 @@ func (m AnalyticsModel) bowelTypeOccurrences(ctx context.Context, userID string,
 	query := fmt.Sprintf(`
 		SELECT %s AS bucket, type, COUNT(*) AS occurrences
 		FROM user_bowel_metric
-		WHERE user_id = $1 AND %s
+		WHERE user_id = $1 AND deleted_at IS NULL AND %s
 		GROUP BY bucket, type
 		ORDER BY bucket, type;`, p.bucket, dr)
 
@@ -131,7 +131,7 @@ func (m AnalyticsModel) exerciseOccurrences(ctx context.Context, userID string, 
 	query := fmt.Sprintf(`
 		SELECT %s AS bucket, SUM(no_of_times) AS total_exercises
 		FROM user_exercise_metric
-		WHERE user_id = $1 AND %s
+		WHERE user_id = $1 AND deleted_at IS NULL AND %s
 		GROUP BY bucket
 		ORDER BY bucket;`, p.bucket, dr)
 
@@ -221,7 +221,7 @@ func tagOccurrencesCTE(bucket, dateRange string) string {
 		SELECT %s AS bucket,
 			UNNEST(breakfast_tags || lunch_tags || dinner_tags || snack_tags) AS tag
 		FROM user_food_metric
-		WHERE user_id = $1 AND %s)`, bucket, dateRange)
+		WHERE user_id = $1 AND deleted_at IS NULL AND %s)`, bucket, dateRange)
 }
 
 // backfillKV ensures every bucket in [fillFrom, fillTo] is present with at least

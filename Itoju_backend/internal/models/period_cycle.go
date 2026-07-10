@@ -87,7 +87,7 @@ func buildCycleDays(cycleID, userID string, startDate time.Time, cycleLen, perio
 
 func (m *UserPeriodModel) GetMenstrualCycles(userID string) ([]MenstrualCycle, error) {
 	query := `SELECT id, user_id, start_date, cycle_length, period_length
-              FROM menstrual_cycles WHERE user_id = $1 ORDER BY start_date DESC`
+              FROM menstrual_cycles WHERE user_id = $1 AND deleted_at IS NULL ORDER BY start_date DESC`
 
 	rows, err := m.DB.Query(query, userID)
 	if err != nil {
@@ -113,8 +113,9 @@ func (m *UserPeriodModel) GetRecentCycleDays(ctx context.Context, userID string)
 	query := `SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq
 	          FROM cycles_days
 	          WHERE user_id = $1
+	            AND deleted_at IS NULL
 	            AND cycle_id IN (
-	                SELECT id FROM menstrual_cycles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 3)
+	                SELECT id FROM menstrual_cycles WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 3)
 	          ORDER BY cycle_id, date ASC`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -149,7 +150,7 @@ func (m *UserPeriodModel) insertMenstrualCycleTx(ctx context.Context, tx *sql.Tx
 	err := tx.QueryRowContext(ctx, query, cycle.UserID, cycle.StartDate, cycle.CycleLength, cycle.PeriodLength, time.Now()).Scan(&id)
 	if err != nil {
 		switch {
-		case isUniqueViolation(err, "menstrual_cycles_start_date_key"):
+		case isUniqueViolation(err, "ux_menstrual_cycles_user_start"):
 			return "", ErrRecordAlreadyExist
 		default:
 			return "", err
@@ -184,7 +185,7 @@ func (m *UserPeriodModel) bulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx,
 
 func (m *UserPeriodModel) UpdateCycleDay(ctx context.Context, cycleDay *CycleDay) error {
 
-	query := `UPDATE cycles_days SET flow = $1, pain = $2, is_ovulation = $3, is_period = $4, cmq = $5, tags = $6  WHERE id = $7 AND user_id = $8`
+	query := `UPDATE cycles_days SET flow = $1, pain = $2, is_ovulation = $3, is_period = $4, cmq = $5, tags = $6  WHERE id = $7 AND user_id = $8 AND deleted_at IS NULL`
 
 	args := []any{cycleDay.Flow, cycleDay.Pain, cycleDay.IsOvulation, cycleDay.IsPeriod, cycleDay.CMQ, pq.Array(cycleDay.Tags), cycleDay.ID, cycleDay.UserID}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -207,7 +208,7 @@ func (m *UserPeriodModel) GetCycleDay(ctx context.Context, id, userID string) (*
 	if id == "" {
 		return nil, ErrRecordNotFound
 	}
-	query := ` SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq FROM cycles_days WHERE id = $1 AND user_id = $2; `
+	query := ` SELECT id, cycle_id, date, is_period, is_ovulation, flow, pain, tags, cmq FROM cycles_days WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL; `
 	var cycleDay CycleDay
 	cycleDay.UserID = userID
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -236,21 +237,31 @@ func (m *UserPeriodModel) GetCycleDay(ctx context.Context, id, userID string) (*
 }
 
 func (m *UserPeriodModel) DeleteMenstrualCycle(ctx context.Context, id, user_id string) error {
-
-	query := ` DELETE FROM menstrual_cycles WHERE id = $1 AND user_id = $2 `
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
-	if err != nil {
-		return err
-	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
-	return nil
+	return withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		// Soft-delete cascades explicitly: a tombstone on the cycle does not
+		// fire the ON DELETE CASCADE FK, so its day rows must be tombstoned too.
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE cycles_days SET deleted_at = now() WHERE cycle_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+			id, user_id); err != nil {
+			return err
+		}
+
+		result, err := tx.ExecContext(ctx,
+			`UPDATE menstrual_cycles SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+			id, user_id)
+		if err != nil {
+			return err
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowsAffected == 0 {
+			return ErrRecordNotFound
+		}
+		return nil
+	})
 }

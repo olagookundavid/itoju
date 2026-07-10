@@ -1,36 +1,26 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final bowel7ChartProvider =
     StateNotifierProvider<Bowel7ChartProvider, Bowel7ChartState>((ref) {
-  return Bowel7ChartProvider(ref, ref.read(dioProvider));
+  return Bowel7ChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class Bowel7ChartProvider extends StateNotifier<Bowel7ChartState> {
-  Bowel7ChartProvider(this.ref, this.dio) : super(Bowel7ChartState.initial());
+  Bowel7ChartProvider(this.ref, this.service)
+      : super(Bowel7ChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getBowel7DaysChart() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/bowel_days_analytics/7');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final bowel7ChartModel =
-            Bowel7ChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, bowel7ChartModel: bowel7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.bowel7Days();
+      final bowel7ChartModel = Bowel7ChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, bowel7ChartModel: bowel7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

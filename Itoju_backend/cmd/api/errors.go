@@ -101,3 +101,8 @@ func (app *Application) NotYetSet(w http.ResponseWriter, r *http.Request) {
 	//i have set 380 to not set!
 	app.errorResponse(w, r, 380, message)
 }
+
+func (app *Application) paymentRequiredResponse(w http.ResponseWriter, r *http.Request) {
+	message := "an active sync subscription is required for this resource"
+	app.errorResponse(w, r, http.StatusPaymentRequired, message)
+}

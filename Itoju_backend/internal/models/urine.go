@@ -3,13 +3,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
 )
 
 type UrineMetric struct {
-	ID       int       `json:"id"`
+	ID       string    `json:"id"`
 	Time     string    `json:"time"`
 	Tags     []string  `json:"tags"`
 	Date     time.Time `json:"date"`
@@ -27,8 +28,8 @@ func (m UrineMetricModel) GetUserUrineMetrics(ctx context.Context, userId string
 	query := `
 	SELECT uum.id, uum.time, uum.type, uum.pain, uum.tags, uum.date, uum.quantity
     FROM user_urine_metric uum
-    WHERE uum.user_id = $1 AND uum.date = $2
-	ORDER BY uum.id DESC;
+    WHERE uum.user_id = $1 AND uum.date = $2 AND uum.deleted_at IS NULL
+	ORDER BY uum.date DESC, uum.id;
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -72,14 +73,15 @@ func (m UrineMetricModel) InsertUrineMetric(ctx context.Context, userID string, 
 // UpdateUrineMetric partially updates a urine metric in one statement: nil
 // input fields are left unchanged (COALESCE), the row is scoped to the owning
 // user, and a 0-row update surfaces as ErrRecordNotFound.
-func (m UrineMetricModel) UpdateUrineMetric(ctx context.Context, id int64, userID string, timeOfDay *string, typ, pain, quantity *float64, tags *[]string) error {
-	query := `UPDATE user_urine_metric SET
+func (m UrineMetricModel) UpdateUrineMetric(ctx context.Context, id string, userID string, timeOfDay *string, typ, pain, quantity *float64, tags *[]string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(`UPDATE user_urine_metric SET
 	    time = COALESCE($1, time),
 	    pain = COALESCE($2, pain),
 	    type = COALESCE($3, type),
 	    tags = COALESCE($4, tags),
 	    quantity = COALESCE($5, quantity)
-	    WHERE id = $6 AND user_id = $7`
+	    WHERE %s = $6 AND user_id = $7 AND deleted_at IS NULL`, col)
 
 	var tagsArg any
 	if tags != nil {
@@ -87,7 +89,7 @@ func (m UrineMetricModel) UpdateUrineMetric(ctx context.Context, id int64, userI
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, timeOfDay, pain, typ, tagsArg, quantity, id, userID)
+	result, err := m.DB.ExecContext(ctx, query, timeOfDay, pain, typ, tagsArg, quantity, val, userID)
 	if err != nil {
 		return err
 	}
@@ -101,14 +103,12 @@ func (m UrineMetricModel) UpdateUrineMetric(ctx context.Context, id int64, userI
 	return nil
 }
 
-func (m UrineMetricModel) DeleteUrineMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_urine_metric WHERE id = $1 AND user_id = $2 `
+func (m UrineMetricModel) DeleteUrineMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_urine_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}

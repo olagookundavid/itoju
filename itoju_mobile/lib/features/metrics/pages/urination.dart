@@ -174,7 +174,7 @@ class _UrineMovementState extends ConsumerState<UrineMovement> {
                               child: UrineList(
                                   isNew: true,
                                   urineModel: UrineModel(
-                                      id: 0,
+                                      id: null,
                                       time: '',
                                       pain: 0,
                                       tags: [],

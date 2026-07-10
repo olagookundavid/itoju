@@ -3,13 +3,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
 )
 
 type SleepMetric struct {
-	ID         int       `json:"id"`
+	ID         string    `json:"id"`
 	IsNight    bool      `json:"is_night"`
 	TimeSlept  string    `json:"time_slept"`
 	TimeWokeUp string    `json:"time_woke_up"`
@@ -27,8 +28,8 @@ func (m SleepMetricModel) GetUserSleepMetrics(ctx context.Context, userId string
 	query := `
 	SELECT usm.id, usm.is_night, usm.time_slept, usm.time_woke_up, usm.tags, usm.date, usm.severity
     FROM user_sleep_metric usm
-    WHERE usm.user_id = $1 AND usm.date = $2
-	ORDER BY usm.id DESC;
+    WHERE usm.user_id = $1 AND usm.date = $2 AND usm.deleted_at IS NULL
+	ORDER BY usm.date DESC, usm.id;
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -71,13 +72,14 @@ func (m SleepMetricModel) InsertSleepMetric(ctx context.Context, userID string, 
 
 // UpdateSleepMetric partially updates a sleep metric in one statement, scoped
 // to the owning user; a 0-row update surfaces as ErrRecordNotFound.
-func (m SleepMetricModel) UpdateSleepMetric(ctx context.Context, id int64, userID string, timeSlept, timeWokeUp *string, severity *float64, tags *[]string) error {
-	query := `UPDATE user_sleep_metric SET
+func (m SleepMetricModel) UpdateSleepMetric(ctx context.Context, id string, userID string, timeSlept, timeWokeUp *string, severity *float64, tags *[]string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(`UPDATE user_sleep_metric SET
 	    time_slept = COALESCE($1, time_slept),
 	    time_woke_up = COALESCE($2, time_woke_up),
 	    tags = COALESCE($3, tags),
 	    severity = COALESCE($4, severity)
-	    WHERE id = $5 AND user_id = $6`
+	    WHERE %s = $5 AND user_id = $6 AND deleted_at IS NULL`, col)
 
 	var tagsArg any
 	if tags != nil {
@@ -85,7 +87,7 @@ func (m SleepMetricModel) UpdateSleepMetric(ctx context.Context, id int64, userI
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, timeSlept, timeWokeUp, tagsArg, severity, id, userID)
+	result, err := m.DB.ExecContext(ctx, query, timeSlept, timeWokeUp, tagsArg, severity, val, userID)
 	if err != nil {
 		return err
 	}
@@ -99,14 +101,12 @@ func (m SleepMetricModel) UpdateSleepMetric(ctx context.Context, id int64, userI
 	return nil
 }
 
-func (m SleepMetricModel) DeleteSleepMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_sleep_metric WHERE id = $1 AND user_id = $2 `
+func (m SleepMetricModel) DeleteSleepMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_sleep_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}

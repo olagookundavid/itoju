@@ -204,6 +204,8 @@ func flagSetup(dbUrl string) *api.Config {
 	flag.IntVar(&cfg.Points.BatchSize, "points-batch-size", 100, "Max point awards flushed per batch")
 	flag.IntVar(&cfg.Points.BufferSize, "points-buffer-size", 2048, "Point-award intake buffer size")
 	flag.IntVar(&cfg.Points.FlushIntervalMs, "points-flush-interval-ms", 1000, "Point-award max flush interval in milliseconds")
+	//revenuecat (subscription entitlement webhook)
+	flag.StringVar(&cfg.RevenueCat.WebhookToken, "revenuecat-webhook-token", os.Getenv("RC_WEBHOOK_TOKEN"), "Shared secret for the RevenueCat webhook Authorization header")
 
 	return &cfg
 }

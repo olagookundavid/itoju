@@ -5,6 +5,8 @@ import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/features/auth/pages/login.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
+import 'package:itoju_mobile/sync/sync_controller.dart';
+import 'package:itoju_mobile/sync/sync_schedule.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/auth/pages/add_conditions.dart';
 import 'package:itoju_mobile/features/auth/pages/add_tracked_metrics.dart';
@@ -28,6 +30,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool switchValueFingerPrint =
       HiveStorage.get(HiveKeys.showBiometrics) ?? false;
   bool switchValueAppLock = Session.isAppLockEnabled();
+  bool _loggedIn = false;
+  bool _backingUp = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Session.hasToken().then((v) {
+      if (mounted) setState(() => _loggedIn = v);
+    });
+  }
 
   Future<void> _logout(BuildContext context) async {
     // Revoke the token server-side first (best-effort), then tear down the
@@ -195,9 +207,163 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       }),
                 ],
               ),
+              SizedBox(height: 20.h),
+              _cloudSyncSection(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // --- Cloud Sync ------------------------------------------------------------
+
+  Widget _sectionLabel(String text) => Padding(
+        padding: EdgeInsets.only(bottom: 8.h),
+        child: Text(
+          text,
+          style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColorPurple),
+        ),
+      );
+
+  Widget _cloudSyncSection() {
+    if (!_loggedIn) {
+      // Local-first: sync is optional and only matters once there's an account.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('Cloud Sync'),
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SignInPage()),
+              );
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Sign in to back up & sync your data',
+                    style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.textGrey),
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    color: AppColors.primaryColorPurple),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    final controller = ref.read(syncControllerProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('Cloud Sync'),
+        Row(
+          children: [
+            Text(
+              'Automatic sync',
+              style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryColorPurple),
+            ),
+            const Spacer(),
+            DropdownButton<String>(
+              value: controller.cadence,
+              underline: const SizedBox.shrink(),
+              items: SyncSchedule.all
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(_cadenceLabel(c)),
+                      ))
+                  .toList(),
+              onChanged: (value) async {
+                if (value == null) return;
+                await controller.setCadence(value);
+                if (mounted) setState(() {});
+              },
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Last backup: ${_lastSyncedLabel(controller.lastSyncAt)}',
+                style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textGrey),
+              ),
+            ),
+            _backingUp
+                ? const SizedBox(
+                    width: 20, height: 20, child: CircularProgressIndicator())
+                : TextButton(
+                    onPressed: _backupNow,
+                    child: Text(
+                      'Back up now',
+                      style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColorPurple),
+                    ),
+                  ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _cadenceLabel(String c) {
+    switch (c) {
+      case SyncSchedule.off:
+        return 'Off';
+      case SyncSchedule.daily:
+        return 'Daily';
+      case SyncSchedule.weekly:
+        return 'Weekly';
+      case SyncSchedule.monthly:
+        return 'Monthly';
+      default:
+        return c;
+    }
+  }
+
+  String _lastSyncedLabel(DateTime? dt) {
+    if (dt == null) return 'never';
+    final local = dt.toLocal();
+    final d = '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/${local.year}';
+    final t = '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+    return '$d $t';
+  }
+
+  Future<void> _backupNow() async {
+    setState(() => _backingUp = true);
+    bool did = false;
+    try {
+      did = await ref.read(syncControllerProvider).backupNow();
+    } finally {
+      if (mounted) setState(() => _backingUp = false);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(did
+            ? 'Backed up'
+            : 'Sync is a premium feature — subscribe to enable cloud backup'),
       ),
     );
   }

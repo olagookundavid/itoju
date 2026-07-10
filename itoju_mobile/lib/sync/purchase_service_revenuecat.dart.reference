@@ -1,0 +1,72 @@
+// REFERENCE — the full RevenueCat implementation of PurchaseService.
+//
+// It is kept out of the build (`.reference` extension) only because this
+// sandbox cannot download the Android toolchain `purchases_flutter` needs
+// (AGP >= 8.11 via dl.google.com, which is network-throttled here). To enable
+// cloud-sync PURCHASES in a normal environment:
+//   1. Re-add `purchases_flutter: ^8.0.0` to pubspec.yaml.
+//   2. Bump the Android toolchain (Flutter already recommends AGP >= 8.6,
+//      Kotlin >= 2.1) in android/settings.gradle + android/build.gradle.
+//   3. Rename this file to purchase_service.dart (replacing the stub).
+//   4. Provide the RevenueCat key at build time: --dart-define=RC_API_KEY=...
+//
+// Entitlement GATING already works without this (server webhook ->
+// /v1/user/entitlements -> cached in SyncMeta); this only adds the purchase UX.
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+
+import '../data/account_service.dart';
+import 'sync_engine.dart';
+
+const String rcApiKey = String.fromEnvironment('RC_API_KEY', defaultValue: '');
+const String kSyncEntitlement = 'sync';
+
+class PurchaseService {
+  PurchaseService(this._ref);
+  final Ref _ref;
+
+  bool get isEnabled => rcApiKey.isNotEmpty;
+
+  Future<void> configure() async {
+    if (!isEnabled) return;
+    final accountId = await _ref.read(accountServiceProvider).localAccountId();
+    await Purchases.configure(
+      PurchasesConfiguration(rcApiKey)..appUserID = accountId,
+    );
+  }
+
+  Future<void> bindTo(String serverUserId) async {
+    if (!isEnabled) return;
+    await Purchases.logIn(serverUserId);
+  }
+
+  Future<bool> buySync() async {
+    if (!isEnabled) return false;
+    final offerings = await Purchases.getOfferings();
+    final package = offerings.current?.availablePackages.isNotEmpty == true
+        ? offerings.current!.availablePackages.first
+        : null;
+    if (package == null) return false;
+
+    final customerInfo = await Purchases.purchasePackage(package);
+    final entitled =
+        customerInfo.entitlements.active.containsKey(kSyncEntitlement);
+
+    await _ref.read(entitlementServiceProvider).refreshFromServer();
+    if (entitled) {
+      _ref.read(syncEngineProvider).syncNow();
+    }
+    return entitled;
+  }
+
+  Future<bool> restore() async {
+    if (!isEnabled) return false;
+    final info = await Purchases.restorePurchases();
+    await _ref.read(entitlementServiceProvider).refreshFromServer();
+    return info.entitlements.active.containsKey(kSyncEntitlement);
+  }
+}
+
+final purchaseServiceProvider =
+    Provider<PurchaseService>((ref) => PurchaseService(ref));

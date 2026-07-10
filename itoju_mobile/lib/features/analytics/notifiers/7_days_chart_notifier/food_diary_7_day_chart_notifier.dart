@@ -1,37 +1,26 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final foodDiary7ChartProvider =
     StateNotifierProvider<FoodDiary7ChartProvider, FoodDiary7ChartState>((ref) {
-  return FoodDiary7ChartProvider(ref, ref.read(dioProvider));
+  return FoodDiary7ChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class FoodDiary7ChartProvider extends StateNotifier<FoodDiary7ChartState> {
-  FoodDiary7ChartProvider(this.ref, this.dio)
+  FoodDiary7ChartProvider(this.ref, this.service)
       : super(FoodDiary7ChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getFoodDiary7DaysChart(String tag) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/tag_days_analytics/7/$tag');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final foodDiary7ChartModel =
-            FoodDiary7ChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.foodTags7Days(tag);
+      final foodDiary7ChartModel = FoodDiary7ChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

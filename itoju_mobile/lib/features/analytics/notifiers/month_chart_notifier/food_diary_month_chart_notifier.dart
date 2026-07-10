@@ -1,39 +1,29 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/week_charts_notifier/food_week_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final foodDiaryMonthChartProvider = StateNotifierProvider<
     FoodDiaryMonthChartProvider, FoodDiaryMonthChartState>((ref) {
-  return FoodDiaryMonthChartProvider(ref, ref.read(dioProvider));
+  return FoodDiaryMonthChartProvider(
+      ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class FoodDiaryMonthChartProvider
     extends StateNotifier<FoodDiaryMonthChartState> {
-  FoodDiaryMonthChartProvider(this.ref, this.dio)
+  FoodDiaryMonthChartProvider(this.ref, this.service)
       : super(FoodDiaryMonthChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getFoodDiaryMonthDaysChart(String tag, String year) async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/tag_year_analytics/$year/$tag');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final foodDiary7ChartModel =
-            FoodDiaryMonthChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.foodTagsMonth(tag, int.parse(year));
+      final foodDiary7ChartModel = FoodDiaryMonthChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, foodDiary7ChartModel: foodDiary7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

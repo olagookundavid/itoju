@@ -1,38 +1,27 @@
 // ignore_for_file: file_names
 
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/data/analytics/local_analytics_service.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final exercise7ChartProvider =
     StateNotifierProvider<Exercise7ChartProvider, Exercise7ChartState>((ref) {
-  return Exercise7ChartProvider(ref, ref.read(dioProvider));
+  return Exercise7ChartProvider(ref, ref.read(localAnalyticsServiceProvider));
 });
 
 class Exercise7ChartProvider extends StateNotifier<Exercise7ChartState> {
-  Exercise7ChartProvider(this.ref, this.dio)
+  Exercise7ChartProvider(this.ref, this.service)
       : super(Exercise7ChartState.initial());
   Ref ref;
-  Dio dio;
+  LocalAnalyticsService service;
 
   Future<void> getExercise7DaysChart() async {
     state = state.copyWith(status: Loader.loading);
-    final Response response;
     try {
-      response = await dio.get('user/exercise_days_analytics/7');
-
-      var body = response.data;
-      if (response.statusCode == 200) {
-        final exercise7ChartModel =
-            Exercise7ChartModel.fromMap(body['analyticsMetrics']);
-        state = state.copyWith(
-            status: Loader.loaded, exercise7ChartModel: exercise7ChartModel);
-      } else {
-        state = state.copyWith(status: Loader.error, error: body["error"]);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(status: Loader.error, error: e.message);
+      final data = await service.exercise7Days();
+      final exercise7ChartModel = Exercise7ChartModel.fromMap(data);
+      state = state.copyWith(
+          status: Loader.loaded, exercise7ChartModel: exercise7ChartModel);
     } catch (e) {
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');

@@ -10,7 +10,7 @@ import (
 )
 
 type FoodMetric struct {
-	ID             int       `json:"id"`
+	ID             string    `json:"id"`
 	UserID         string    `json:"user_id"`
 	Date           time.Time `json:"date"`
 	BreakfastMeal  string    `json:"breakfast_meal"`
@@ -37,7 +37,7 @@ type FoodMetricModel struct {
 func (m FoodMetricModel) GetUserFoodMetric(ctx context.Context, userId string, date time.Time) (*FoodMetric, error) {
 	query := `
 	SELECT id, user_id, date, breakfast_meal, lunch_meal, dinner_meal, breakfast_extra, lunch_extra,dinner_extra, breakfast_fruit, lunch_fruit, dinner_fruit, breakfast_tags, lunch_tags, dinner_tags, snack_name, snack_tags, glass_no
-	FROM user_food_metric WHERE user_id = $1 AND date = $2;
+	FROM user_food_metric WHERE user_id = $1 AND date = $2 AND deleted_at IS NULL;
     `
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -73,13 +73,34 @@ func (m FoodMetricModel) GetUserFoodMetric(ctx context.Context, userId string, d
 }
 
 func (m FoodMetricModel) InsertFoodMetric(ctx context.Context, foodMetric *FoodMetric) error {
+	// Food is one-per-day: id (set by the BEFORE INSERT trigger) is
+	// deterministic per (user, day), so a repeat "set today's food" — including
+	// re-adding after a soft delete — upserts the same physical row and clears any
+	// tombstone, rather than colliding on the deterministic id.
 	query := `
-        INSERT INTO user_food_metric (user_id, date, breakfast_meal, lunch_meal, dinner_meal, 
-                                       breakfast_extra, lunch_extra, dinner_extra, 
-                                       breakfast_fruit, lunch_fruit, dinner_fruit, 
-                                       breakfast_tags, lunch_tags, dinner_tags, 
+        INSERT INTO user_food_metric (user_id, date, breakfast_meal, lunch_meal, dinner_meal,
+                                       breakfast_extra, lunch_extra, dinner_extra,
+                                       breakfast_fruit, lunch_fruit, dinner_fruit,
+                                       breakfast_tags, lunch_tags, dinner_tags,
                                        snack_name, snack_tags, glass_no)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        ON CONFLICT (id) DO UPDATE SET
+            deleted_at = NULL,
+            breakfast_meal = EXCLUDED.breakfast_meal,
+            lunch_meal = EXCLUDED.lunch_meal,
+            dinner_meal = EXCLUDED.dinner_meal,
+            breakfast_extra = EXCLUDED.breakfast_extra,
+            lunch_extra = EXCLUDED.lunch_extra,
+            dinner_extra = EXCLUDED.dinner_extra,
+            breakfast_fruit = EXCLUDED.breakfast_fruit,
+            lunch_fruit = EXCLUDED.lunch_fruit,
+            dinner_fruit = EXCLUDED.dinner_fruit,
+            breakfast_tags = EXCLUDED.breakfast_tags,
+            lunch_tags = EXCLUDED.lunch_tags,
+            dinner_tags = EXCLUDED.dinner_tags,
+            snack_name = EXCLUDED.snack_name,
+            snack_tags = EXCLUDED.snack_tags,
+            glass_no = EXCLUDED.glass_no
     `
 	args := []interface{}{
 		foodMetric.UserID,
@@ -130,7 +151,7 @@ func (m FoodMetricModel) UpdateFoodMetric(ctx context.Context, foodMetric *FoodM
             snack_tags = $14,
             glass_no = $15
         WHERE
-            id = $16 AND user_id = $17 AND date = $18
+            id = $16 AND user_id = $17 AND date = $18 AND deleted_at IS NULL
     `
 	args := []interface{}{
 		foodMetric.BreakfastMeal,

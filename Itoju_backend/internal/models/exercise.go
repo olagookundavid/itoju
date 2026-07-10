@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
 )
 
 type ExerciseMetric struct {
-	ID        int       `json:"id"`
+	ID        string    `json:"id"`
 	UserID    string    `json:"-"`
 	Date      time.Time `json:"date"`
 	Name      string    `json:"name"`
@@ -47,8 +48,8 @@ func (m ExerciseMetricModel) GetUserExerciseMetric(ctx context.Context, userId s
 	query := `
     SELECT uem.id, uem.name, uem.started, uem.ended, uem.tags, uem.date, uem.no_of_times
     FROM user_exercise_metric uem
-    WHERE uem.user_id = $1 AND uem.date = $2
-	ORDER BY uem.id DESC;
+    WHERE uem.user_id = $1 AND uem.date = $2 AND uem.deleted_at IS NULL
+	ORDER BY uem.date DESC, uem.id;
     `
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -74,11 +75,12 @@ func (m ExerciseMetricModel) GetUserExerciseMetric(ctx context.Context, userId s
 	return exerciseMetrics, nil
 }
 
-func (m ExerciseMetricModel) UpdateExerciseMetric(ctx context.Context, exerciseMetric *ExerciseMetric, id int, userID string) error {
+func (m ExerciseMetricModel) UpdateExerciseMetric(ctx context.Context, exerciseMetric *ExerciseMetric, id string, userID string) error {
 
-	query := ` UPDATE user_exercise_metric SET started = $1, ended = $2, tags = $3, no_of_times = $4 WHERE id = $5 AND user_id = $6; `
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_exercise_metric SET started = $1, ended = $2, tags = $3, no_of_times = $4 WHERE %s = $5 AND user_id = $6 AND deleted_at IS NULL; `, col)
 
-	args := []any{&exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.NoOfTimes, id, userID}
+	args := []any{&exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.NoOfTimes, val, userID}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	result, err := m.DB.ExecContext(ctx, query, args...)
@@ -95,20 +97,18 @@ func (m ExerciseMetricModel) UpdateExerciseMetric(ctx context.Context, exerciseM
 	return nil
 }
 
-func (m ExerciseMetricModel) Get(ctx context.Context, id int64, userID string) (*ExerciseMetric, error) {
-	if id < 1 {
-		return nil, ErrRecordNotFound
-	}
-	query := `
+func (m ExerciseMetricModel) Get(ctx context.Context, id string, userID string) (*ExerciseMetric, error) {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(`
     SELECT uem.id, uem.name, uem.started, uem.ended, uem.tags, uem.date, uem.no_of_times
     FROM user_exercise_metric uem
-    WHERE id = $1 AND user_id = $2
-    `
+    WHERE uem.%s = $1 AND uem.user_id = $2 AND uem.deleted_at IS NULL
+    `, col)
 
 	var exerciseMetric ExerciseMetric
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, id, userID).Scan(&exerciseMetric.ID, &exerciseMetric.Name, &exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.Date, &exerciseMetric.NoOfTimes)
+	err := m.DB.QueryRowContext(ctx, query, val, userID).Scan(&exerciseMetric.ID, &exerciseMetric.Name, &exerciseMetric.Started, &exerciseMetric.Ended, pq.Array(&exerciseMetric.Tags), &exerciseMetric.Date, &exerciseMetric.NoOfTimes)
 
 	if err != nil {
 		switch {
@@ -121,14 +121,12 @@ func (m ExerciseMetricModel) Get(ctx context.Context, id int64, userID string) (
 	return &exerciseMetric, nil
 }
 
-func (m ExerciseMetricModel) DeleteExerciseMetric(ctx context.Context, id int64, user_id string) error {
-	if id < 1 {
-		return ErrRecordNotFound
-	}
-	query := ` DELETE FROM user_exercise_metric WHERE id = $1 AND user_id = $2 `
+func (m ExerciseMetricModel) DeleteExerciseMetric(ctx context.Context, id string, user_id string) error {
+	col, val := MetricIDArg(id)
+	query := fmt.Sprintf(` UPDATE user_exercise_metric SET deleted_at = now() WHERE %s = $1 AND user_id = $2 AND deleted_at IS NULL `, col)
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	result, err := m.DB.ExecContext(ctx, query, id, user_id)
+	result, err := m.DB.ExecContext(ctx, query, val, user_id)
 	if err != nil {
 		return err
 	}

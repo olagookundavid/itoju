@@ -247,20 +247,20 @@ class _MealListState extends ConsumerState<MealList> {
                           final model =
                               (widget.name.toLowerCase() == 'breakfast'
                                   ? FoodMetricModel(
-                                      id: 0,
+                                      id: null,
                                       breakfastMeal: mealCtrl.text,
                                       breakfastExtra: extraCtrl.text,
                                       breakfastFruit: fruitCtrl.text,
                                       breakfastTags: userTags.toList())
                                   : widget.name.toLowerCase() == 'lunch'
                                       ? FoodMetricModel(
-                                          id: 0,
+                                          id: null,
                                           lunchMeal: mealCtrl.text,
                                           lunchExtra: extraCtrl.text,
                                           lunchFruit: fruitCtrl.text,
                                           lunchTags: userTags.toList())
                                       : FoodMetricModel(
-                                          id: 0,
+                                          id: null,
                                           dinnerMeal: mealCtrl.text,
                                           dinnerExtra: extraCtrl.text,
                                           dinnerFruit: fruitCtrl.text,
@@ -481,7 +481,7 @@ class _SnackListState extends ConsumerState<SnackList> {
                               .updateFoodMetricMetric(
                                   widget.date,
                                   FoodMetricModel(
-                                      id: 0,
+                                      id: null,
                                       snackName: snackCtrl.text,
                                       snackTags: userTags.toList()));
 
@@ -725,7 +725,7 @@ class _WaterListState extends ConsumerState<WaterList> {
                           final response = await ref
                               .read(foodMetricProvider.notifier)
                               .updateFoodMetricMetric(widget.date,
-                                  FoodMetricModel(id: 0, glassNo: waterNo));
+                                  FoodMetricModel(id: null, glassNo: waterNo));
 
                           if (response.successMessage.isNotEmpty) {
                             getAlert(response.successMessage, isWarning: false);

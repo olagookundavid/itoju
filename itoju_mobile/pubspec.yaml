@@ -50,12 +50,21 @@ dependencies:
   # sign_in_with_apple: ^5.0.0
   # cloud_firestore: ^4.15.7
   # flutter_facebook_auth: ^6.1.1
+  # Offline-first local store (M1)
+  drift: ^2.20.0
+  drift_flutter: ^0.2.0
+  path_provider: ^2.1.4
+  uuid: ^4.5.1
+  connectivity_plus: ^6.0.5
+  # purchases_flutter: ^8.0.0  # RevenueCat IAP — re-enable with AGP >= 8.6 (see purchase_service.dart)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^2.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.13
 flutter:
   uses-material-design: true
 
