@@ -141,24 +141,30 @@ func (app *Application) RequireAdminUser(next http.HandlerFunc) http.HandlerFunc
 	})
 }
 
-// RequireSyncEntitlement gates cloud sync behind an active paid entitlement.
-// It composes on top of RequireActivatedAndAuthedUser and checks the "sync"
-// entitlement server-side (never trusting a client flag); a lapsed or absent
-// subscription yields 402 Payment Required.
+// RequireSyncEntitlement gates cloud sync. During MVP (pre-launch) sync is FREE
+// for every authenticated, activated user — no paid entitlement is required and
+// there is no payment screen, so early users can try everything. The paid
+// entitlement check is deliberately DISABLED (not deleted) below; re-enable it
+// when monetization ships. See ARCHITECTURE_AND_DECISIONS.md (D11).
 func (app *Application) RequireSyncEntitlement(next http.HandlerFunc) http.HandlerFunc {
-	return app.RequireActivatedAndAuthedUser(func(w http.ResponseWriter, r *http.Request) {
-		user := app.contextGetUser(r)
-		ok, err := app.Models.Subscriptions.HasActiveEntitlement(r.Context(), user.ID, "sync")
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-			return
-		}
-		if !ok {
-			app.paymentRequiredResponse(w, r)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	return app.RequireActivatedAndAuthedUser(next)
+
+	// Paywalled version — restore post-MVP to gate sync behind an active "sync"
+	// entitlement (server-side, never trusting a client flag; 402 when absent):
+	//
+	// return app.RequireActivatedAndAuthedUser(func(w http.ResponseWriter, r *http.Request) {
+	// 	user := app.contextGetUser(r)
+	// 	ok, err := app.Models.Subscriptions.HasActiveEntitlement(r.Context(), user.ID, "sync")
+	// 	if err != nil {
+	// 		app.serverErrorResponse(w, r, err)
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		app.paymentRequiredResponse(w, r)
+	// 		return
+	// 	}
+	// 	next.ServeHTTP(w, r)
+	// })
 }
 
 func (app *Application) RequireActivatedAndAuthedUser(next http.HandlerFunc) http.HandlerFunc {

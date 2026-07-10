@@ -29,13 +29,20 @@ class ServerEntitlementService implements EntitlementService {
 
   @override
   Future<bool> isSyncEnabled() async {
+    // MVP (pre-launch): cloud sync is FREE for any signed-in user — no paid
+    // entitlement, no paywall. Gating on the cached "syncEnabled" flag is
+    // disabled (not deleted); restore it when monetization ships. See
+    // ARCHITECTURE_AND_DECISIONS.md (D11).
     final hasToken =
         (await SecureStore.read(SecureKeys.token) ?? '').isNotEmpty;
-    if (!hasToken) return false;
-    final row = await (_db.select(_db.syncMeta)
-          ..where((t) => t.key.equals('syncEnabled')))
-        .getSingleOrNull();
-    return row?.value == 'true';
+    return hasToken;
+
+    // Paywalled version — restore post-MVP:
+    // if (!hasToken) return false;
+    // final row = await (_db.select(_db.syncMeta)
+    //       ..where((t) => t.key.equals('syncEnabled')))
+    //     .getSingleOrNull();
+    // return row?.value == 'true';
   }
 
   @override

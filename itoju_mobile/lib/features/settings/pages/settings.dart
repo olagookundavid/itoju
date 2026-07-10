@@ -363,7 +363,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SnackBar(
         content: Text(did
             ? 'Backed up'
-            : 'Sync is a premium feature — subscribe to enable cloud backup'),
+            : "Couldn't back up — make sure you're signed in and online"),
       ),
     );
   }
