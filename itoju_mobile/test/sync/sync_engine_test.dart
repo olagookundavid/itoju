@@ -11,17 +11,27 @@ class FakeSyncApi implements SyncApi {
   FakeSyncApi({this.pushResponse = const {}, this.pullResponse = const {}});
   Map<String, dynamic> pushResponse;
   Map<String, dynamic> pullResponse;
+
+  /// Queued page responses for paginated pulls (used before [pullResponse]).
+  final List<Map<String, dynamic>> pullPages = [];
   List<Map<String, dynamic>>? lastPush;
+  final List<List<Map<String, dynamic>>> pushCalls = [];
+  final List<Map<String, dynamic>> pullCalls = [];
 
   @override
   Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes) async {
     lastPush = changes;
+    pushCalls.add(changes);
     return pushResponse;
   }
 
   @override
-  Future<Map<String, dynamic>> pull(String since, int limit) async =>
-      pullResponse;
+  Future<Map<String, dynamic>> pull(String since, int limit,
+      {String? until, Map<String, dynamic> cursors = const {}}) async {
+    pullCalls.add({'since': since, 'until': until, 'cursors': cursors});
+    if (pullPages.isNotEmpty) return pullPages.removeAt(0);
+    return pullResponse;
+  }
 }
 
 void main() {
@@ -166,4 +176,122 @@ void main() {
     expect(after.type, 9);
     expect(after.syncState, 'pending'); // still needs pushing
   });
+
+  test('push drains >500 pending rows in chunks instead of wedging', () async {
+    // 620 pending bowel rows — over the server's 500-rows-per-table cap.
+    await db.transaction(() async {
+      for (var i = 0; i < 620; i++) {
+        await db.customStatement(
+          'INSERT INTO bowel_metrics (id, date, type, pain, time, tags, '
+          'sync_state, local_updated_at, updated_at) '
+          "VALUES (?, '2026-01-01', 1, 0.1, '08:00', '[]', 'pending', 1, 1)",
+          ['chunk-$i'],
+        );
+      }
+    });
+
+    // The fake acks whatever it was sent, like the real server does.
+    api.pushResponse = {};
+    Map<String, dynamic> ackAll(List<Map<String, dynamic>> changes) => {
+          'results': {
+            for (final c in changes)
+              c['table'] as String: [
+                for (final r in c['rows'] as List)
+                  {'id': (r as Map)['id'], 'status': 'applied'}
+              ]
+          }
+        };
+    // Wire the fake to ack dynamically by replaying through pushResponse.
+    // (FakeSyncApi returns pushResponse; set it per call via a wrapper.)
+    var call = 0;
+    final ackingApi = _AckingSyncApi(onPush: (changes) {
+      call++;
+      return ackAll(changes);
+    });
+    final c2 = ProviderContainer(overrides: [
+      appDatabaseProvider.overrideWithValue(db),
+      syncApiProvider.overrideWithValue(ackingApi),
+    ]);
+    addTearDown(c2.dispose);
+
+    await c2.read(syncEngineProvider).push();
+
+    expect(call, 2, reason: '620 rows at 500/chunk should take 2 requests');
+    expect(ackingApi.rowCounts, [500, 120]);
+    final pending = await db.customSelect(
+        "SELECT count(*) AS c FROM bowel_metrics WHERE sync_state = 'pending'")
+        .getSingle();
+    expect(pending.data['c'], 0, reason: 'everything must end up synced');
+  });
+
+  test('pull follows per-table cursors across pages and only then advances the watermark',
+      () async {
+    Map<String, dynamic> row(String id, String date) => {
+          'id': id,
+          'date': date,
+          'type': 1,
+          'pain': 0.1,
+          'time': '08:00',
+          'tags': <String>[],
+          'updated_at': '2026-06-01T00:00:00Z',
+          'deleted_at': null,
+        };
+    const w = '2026-06-03T00:00:00.123456Z';
+    api.pullPages.addAll([
+      {
+        'changes': {
+          'user_bowel_metric': [row('p1', '2026-06-01'), row('p2', '2026-06-01')]
+        },
+        'watermark': w,
+        'has_more': true,
+        'cursors': {
+          'user_bowel_metric': {'ts': '2026-06-01T00:00:00.5Z', 'id': 'p2'}
+        },
+      },
+      {
+        'changes': {
+          'user_bowel_metric': [row('p3', '2026-06-02')]
+        },
+        'watermark': w,
+        'has_more': false,
+        'cursors': {},
+      },
+    ]);
+
+    await container.read(syncEngineProvider).pull();
+
+    // Page 2 resumed with the sweep's watermark and page 1's cursor.
+    expect(api.pullCalls.length, 2);
+    expect(api.pullCalls[1]['until'], w);
+    expect(
+        (api.pullCalls[1]['cursors'] as Map)['user_bowel_metric']['id'], 'p2');
+
+    // All three rows landed; the persisted watermark is the sweep bound.
+    final n = await db
+        .customSelect('SELECT count(*) AS c FROM bowel_metrics')
+        .getSingle();
+    expect(n.data['c'], 3);
+    final wm = await (db.select(db.syncMeta)
+          ..where((t) => t.key.equals('pullWatermark')))
+        .getSingleOrNull();
+    expect(wm?.value, w);
+  });
+}
+
+class _AckingSyncApi implements SyncApi {
+  _AckingSyncApi({required this.onPush});
+  final Map<String, dynamic> Function(List<Map<String, dynamic>>) onPush;
+  final List<int> rowCounts = [];
+
+  @override
+  Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes) async {
+    rowCounts.add(changes.fold<int>(
+        0, (sum, c) => sum + (c['rows'] as List).length));
+    return onPush(changes);
+  }
+
+  @override
+  Future<Map<String, dynamic>> pull(String since, int limit,
+          {String? until, Map<String, dynamic> cursors = const {}}) async =>
+      {'changes': {}, 'has_more': false};
 }

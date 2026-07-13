@@ -39,7 +39,11 @@ class SettingsRepository {
 
   Future<UserSetting?> _row() async {
     final id = IdMinter.settings(await _account.deterministicNamespaceId());
-    return (_db.select(_db.userSettings)..where((t) => t.id.equals(id)))
+    // limit(1) guards the sign-in binding window, where the settings row can
+    // transiently exist under both the old and new account namespace ids.
+    return (_db.select(_db.userSettings)
+          ..where((t) => t.id.equals(id))
+          ..limit(1))
         .getSingleOrNull();
   }
 

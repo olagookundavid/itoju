@@ -48,46 +48,50 @@ class _AppLockScreenState extends State<AppLockScreen> {
   Widget build(BuildContext context) {
     if (_unlocked && widget.child != null) return widget.child!;
 
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outline_rounded,
-                  size: 64.r, color: AppColors.primaryColorPurple),
-              verticalGap(20),
-              CustomText(
-                'Itoju is locked',
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColorPurple,
-              ),
-              verticalGap(8),
-              const CustomText(
-                'Unlock with your fingerprint, face, or device passcode to continue.',
-                textAlign: TextAlign.center,
-                color: AppColors.textGrey,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                maxline: 3,
-              ),
-              verticalGap(28),
-              _authenticating
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton.icon(
-                      onPressed: _attempt,
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Unlock'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryColorPurple,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 32.w, vertical: 12.h),
+    // The lock must not be dismissible via the system back button/gesture.
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline_rounded,
+                    size: 64.r, color: AppColors.primaryColorPurple),
+                verticalGap(20),
+                CustomText(
+                  'Itoju is locked',
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryColorPurple,
+                ),
+                verticalGap(8),
+                const CustomText(
+                  'Unlock with your fingerprint, face, or device passcode to continue.',
+                  textAlign: TextAlign.center,
+                  color: AppColors.textGrey,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  maxline: 3,
+                ),
+                verticalGap(28),
+                _authenticating
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton.icon(
+                        onPressed: _attempt,
+                        icon: const Icon(Icons.fingerprint),
+                        label: const Text('Unlock'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryColorPurple,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 32.w, vertical: 12.h),
+                        ),
                       ),
-                    ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

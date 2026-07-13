@@ -68,6 +68,12 @@ class _SignUpPageState extends State<SignUpPage> {
   DateTime? startDate;
   DateTime? endDate;
 
+  /// The password-rules checklist is only shown while the password field is
+  /// being edited (focused), so the form stays compact otherwise. Same idea
+  /// for the "Passwords match" indicator under Confirm Password.
+  bool _passwordFieldActive = false;
+  bool _confirmPasswordFieldActive = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,10 +143,10 @@ class _SignUpPageState extends State<SignUpPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const CustomText(
+                          CustomText(
                             "Date of Birth",
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.primaryColorPurple,
                           ),
                           10.ph,
@@ -178,54 +184,95 @@ class _SignUpPageState extends State<SignUpPage> {
                         },
                       ),
                       verticalSpaceTiny,
-                      CustomTextField(
-                        filled: true,
-                        title: "Password",
-                        hintText: "8+ strong characters",
-                        obscure: true,
-                        controller: passwordController,
-                        valdator: (value) {
-                          if (value!.isEmpty) {
-                            return "Field cannot be empty";
-                          }
-                          return null;
+                      // Focus wraps the field so the checklist below can show
+                      // only while the user is actually editing the password.
+                      Focus(
+                        onFocusChange: (hasFocus) {
+                          setState(() => _passwordFieldActive = hasFocus);
                         },
+                        child: CustomTextField(
+                          filled: true,
+                          title: "Password",
+                          hintText: "8+ strong characters",
+                          obscure: true,
+                          controller: passwordController,
+                          valdator: (value) {
+                            if (value!.isEmpty) {
+                              return "Field cannot be empty";
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                      ValueListenableBuilder(
-                          valueListenable: passwordController,
-                          builder: (context, textEditingValue, _) {
-                            final password = textEditingValue.text;
-                            final hasAtLeastEightChars = password.length >= 8;
-                            final hasUpperAndLowerCaseChars =
-                                password.contains(RegExp('[A-Z]'));
-                            final hasNumber =
-                                password.contains(RegExp('[0-9]'));
-                            final hasSpecialChar = password
-                                .contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-                            return PasswordValidator(
-                              hasAtLeastEightChars: hasAtLeastEightChars,
-                              hasUpperAndLowerCaseChars:
-                                  hasUpperAndLowerCaseChars,
-                              hasNumber: hasNumber,
-                              hasSpecialChar: hasSpecialChar,
-                            );
-                          }),
+                      Visibility(
+                        visible: _passwordFieldActive,
+                        child: ValueListenableBuilder(
+                            valueListenable: passwordController,
+                            builder: (context, textEditingValue, _) {
+                              final password = textEditingValue.text;
+                              final hasAtLeastEightChars = password.length >= 8;
+                              final hasUpperAndLowerCaseChars =
+                                  password.contains(RegExp('[A-Z]'));
+                              final hasNumber =
+                                  password.contains(RegExp('[0-9]'));
+                              final hasSpecialChar = password
+                                  .contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+                              return PasswordValidator(
+                                hasAtLeastEightChars: hasAtLeastEightChars,
+                                hasUpperAndLowerCaseChars:
+                                    hasUpperAndLowerCaseChars,
+                                hasNumber: hasNumber,
+                                hasSpecialChar: hasSpecialChar,
+                              );
+                            }),
+                      ),
                       25.ph,
-                      CustomTextField(
-                        filled: true,
-                        title: "Confirm Password",
-                        hintText: "8+ strong characters",
-                        obscure: true,
-                        controller: confirmPasswordController,
-                        valdator: (value) {
-                          if (value != passwordController.text) {
-                            return "Password does not match";
-                          }
-                          if (value!.isEmpty) {
-                            return "Field cannot be empty";
-                          }
-                          return null;
+                      Focus(
+                        onFocusChange: (hasFocus) {
+                          setState(
+                              () => _confirmPasswordFieldActive = hasFocus);
                         },
+                        child: CustomTextField(
+                          filled: true,
+                          title: "Confirm Password",
+                          hintText: "8+ strong characters",
+                          obscure: true,
+                          controller: confirmPasswordController,
+                          valdator: (value) {
+                            if (value != passwordController.text) {
+                              return "Password does not match";
+                            }
+                            if (value!.isEmpty) {
+                              return "Field cannot be empty";
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      Visibility(
+                        visible: _confirmPasswordFieldActive,
+                        child: ListenableBuilder(
+                            // Merge both fields so editing either updates the
+                            // match indicator live.
+                            listenable: Listenable.merge([
+                              passwordController,
+                              confirmPasswordController,
+                            ]),
+                            builder: (context, _) {
+                              final confirm = confirmPasswordController.text;
+                              final matches = confirm.isNotEmpty &&
+                                  confirm == passwordController.text;
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  10.ph,
+                                  PasswordConditionIndicator(
+                                    isValid: matches,
+                                    title: 'Passwords match',
+                                  ),
+                                ],
+                              );
+                            }),
                       ),
                       verticalSpaceTiny,
                       MyCeckBox(
@@ -346,14 +393,16 @@ class _SignUpPageState extends State<SignUpPage> {
                                   builder: (context) {
                                     return SignUpSuccess(
                                       () {
-                                        Navigator.pushAndRemoveUntil(
+                                        // Registration doesn't start a session
+                                        // yet, so log in next — but keep the
+                                        // stack so back still works.
+                                        Navigator.push(
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) {
                                               return const SignInPage();
                                             },
                                           ),
-                                          (route) => false,
                                         );
                                       },
                                       name: response.data,
@@ -457,11 +506,12 @@ class _SignUpPageState extends State<SignUpPage> {
                           ),
                           InkWell(
                             onTap: () {
-                              Navigator.pushAndRemoveUntil(
+                              // Swap for the login page, keeping WelcomePage
+                              // beneath during onboarding so back works.
+                              Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => const SignInPage()),
-                                (route) => false,
                               );
                             },
                             child: CustomText(

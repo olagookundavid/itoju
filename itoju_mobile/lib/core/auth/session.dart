@@ -22,10 +22,12 @@ class Session {
   }
 
   /// Clears the local session material only (token + biometric password +
-  /// cached username). Used both by explicit logout and the 401 bounce.
+  /// cached username + cached profile). Used both by explicit logout and the
+  /// 401 bounce.
   static Future<void> clearLocal() async {
     await SecureStore.clearAuth();
     await HiveStorage.delete(HiveKeys.userName);
+    await HiveStorage.delete(HiveKeys.profileCache);
   }
 
   /// Best-effort sign-out of the Firebase/Google provider sessions.

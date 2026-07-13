@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/Storage/secure_store.dart';
+import '../core/helpers/logger.dart';
 import '../data/account_service.dart';
 import '../data/db/app_database.dart';
 import '../data/ids.dart';
@@ -66,10 +67,13 @@ final entitlementServiceProvider = Provider<EntitlementService>(
 );
 
 /// Transport for the two sync endpoints. An interface so tests can substitute a
-/// fake without a live server.
+/// fake without a live server. `until`/`cursors` continue a paginated pull
+/// sweep: the server answers page 1 with a stable watermark and per-table
+/// keyset cursors, and every follow-up page passes both back unchanged.
 abstract class SyncApi {
   Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes);
-  Future<Map<String, dynamic>> pull(String since, int limit);
+  Future<Map<String, dynamic>> pull(String since, int limit,
+      {String? until, Map<String, dynamic> cursors});
 }
 
 /// The real transport over the authed Dio.
@@ -86,11 +90,14 @@ class DioSyncApi implements SyncApi {
   }
 
   @override
-  Future<Map<String, dynamic>> pull(String since, int limit) async {
+  Future<Map<String, dynamic>> pull(String since, int limit,
+      {String? until, Map<String, dynamic> cursors = const {}}) async {
     final dio = _ref.read(dioProvider);
     final res = await dio.post('sync/pull', data: {
       'since': since,
       'limit': limit,
+      if (until != null) 'until': until,
+      if (cursors.isNotEmpty) 'cursors': cursors,
     });
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -116,7 +123,9 @@ class SyncEngine {
   /// Push then pull, once, guarded so overlapping triggers don't stack. No-ops
   /// (returns false) unless the user is authenticated and holds the sync
   /// entitlement; returns true only when a full push+pull completed, so callers
-  /// can record the last-synced time.
+  /// can record the last-synced time. Never throws — offline/server errors
+  /// surface as `false` so every trigger (manual, launch, resume, reconnect)
+  /// degrades to "didn't sync" instead of an unhandled async exception.
   Future<bool> syncNow() async {
     if (_running) return false;
     if (!await _ref.read(entitlementServiceProvider).isSyncEnabled()) {
@@ -124,10 +133,13 @@ class SyncEngine {
     }
     _running = true;
     try {
-      await _bindIfNeeded();
+      if (!await _bindIfNeeded()) return false;
       await push();
       await pull();
       return true;
+    } catch (e) {
+      debugLog('sync failed: $e');
+      return false;
     } finally {
       _running = false;
     }
@@ -135,57 +147,85 @@ class SyncEngine {
 
   // --- push ---
 
+  /// The server caps a push at 500 rows per table per request, so pending rows
+  /// are drained in chunks: each round sends up to one chunk per table, marks
+  /// the acked rows synced, and repeats until nothing is pending. A user with
+  /// months of offline data therefore syncs in several requests instead of
+  /// wedging on one oversized batch.
+  static const _pushChunk = 500;
+
   Future<void> push() async {
-    final changes = <Map<String, dynamic>>[];
-    for (final spec in kSyncTables) {
-      final rows = await _db.customSelect(
-        'SELECT * FROM ${spec.client} WHERE sync_state = ?1',
-        variables: [Variable<String>('pending')],
-      ).get();
-      if (rows.isEmpty) continue;
-
-      final payload = rows.map((r) {
-        final d = r.data;
-        final m = <String, dynamic>{'id': d['id']};
-        for (final c in spec.cols) {
-          m[c.name] = _toJson(c.kind, d[c.name]);
-        }
-        m['updated_at'] = _tsToIso(d['updated_at'] as int);
-        m['deleted_at'] =
-            d['deleted_at'] == null ? null : _tsToIso(d['deleted_at'] as int);
-        return m;
-      }).toList();
-      changes.add({'table': spec.backend, 'rows': payload});
-    }
-    if (changes.isEmpty) return;
-
-    final resp = await _api.push(changes);
-    final results = (resp['results'] as Map?) ?? {};
-    await _db.transaction(() async {
+    var guard = 0;
+    while (guard++ < 200) {
+      final changes = <Map<String, dynamic>>[];
       for (final spec in kSyncTables) {
-        final list = (results[spec.backend] as List?) ?? [];
-        for (final r in list) {
-          final status = r['status'];
-          if (status == 'applied' || status == 'stale') {
-            await _db.customStatement(
-              'UPDATE ${spec.client} SET sync_state = ? WHERE id = ?',
-              ['synced', r['id']],
-            );
+        final rows = await _db.customSelect(
+          'SELECT * FROM ${spec.client} WHERE sync_state = ?1 LIMIT $_pushChunk',
+          variables: [Variable<String>('pending')],
+        ).get();
+        if (rows.isEmpty) continue;
+
+        final payload = rows.map((r) {
+          final d = r.data;
+          final m = <String, dynamic>{'id': d['id']};
+          for (final c in spec.cols) {
+            m[c.name] = _toJson(c.kind, d[c.name]);
+          }
+          m['updated_at'] = _tsToIso(d['updated_at'] as int);
+          m['deleted_at'] =
+              d['deleted_at'] == null ? null : _tsToIso(d['deleted_at'] as int);
+          return m;
+        }).toList();
+        changes.add({'table': spec.backend, 'rows': payload});
+      }
+      if (changes.isEmpty) return;
+
+      final resp = await _api.push(changes);
+      final results = (resp['results'] as Map?) ?? {};
+      var acked = 0;
+      await _db.transaction(() async {
+        for (final spec in kSyncTables) {
+          final list = (results[spec.backend] as List?) ?? [];
+          for (final r in list) {
+            final status = r['status'];
+            if (status == 'applied' || status == 'stale') {
+              await _db.customStatement(
+                'UPDATE ${spec.client} SET sync_state = ? WHERE id = ?',
+                ['synced', r['id']],
+              );
+              acked++;
+            } else if (status == 'rejected') {
+              // Quarantine: a rejected row (foreign id) will never be accepted —
+              // stop re-sending it every sync. It stays local-only.
+              await _db.customStatement(
+                'UPDATE ${spec.client} SET sync_state = ? WHERE id = ?',
+                ['rejected', r['id']],
+              );
+            }
           }
         }
-      }
-    });
+      });
+      // Nothing was acked this round: don't spin on rows the server won't take.
+      if (acked == 0) return;
+    }
   }
 
   // --- pull ---
 
+  /// Pulls the server delta in a paginated sweep. Every page of one sweep runs
+  /// against the SAME server-chosen upper bound (`until`) and resumes each
+  /// table from the keyset cursor the server returned, so a table with more
+  /// rows than one page can never have rows skipped. The persisted watermark
+  /// only advances once the sweep completes — an interrupted sweep simply
+  /// re-runs from the old watermark (applies are idempotent).
   Future<void> pull() async {
     final since = await _meta('pullWatermark') ?? '';
+    String? until;
+    var cursors = <String, dynamic>{};
     var hasMore = true;
-    var cursor = since;
     var guard = 0;
-    while (hasMore && guard++ < 100) {
-      final resp = await _api.pull(cursor, 500);
+    while (hasMore && guard++ < 1000) {
+      final resp = await _api.pull(since, 500, until: until, cursors: cursors);
       final changes = (resp['changes'] as Map?) ?? {};
       await _db.transaction(() async {
         for (final spec in kSyncTables) {
@@ -195,12 +235,12 @@ class SyncEngine {
           }
         }
       });
-      final watermark = resp['watermark'] as String?;
-      if (watermark != null) {
-        await _setMeta('pullWatermark', watermark);
-        cursor = watermark;
-      }
+      until = (resp['watermark'] as String?) ?? until;
+      cursors = Map<String, dynamic>.from(resp['cursors'] as Map? ?? {});
       hasMore = (resp['has_more'] as bool?) ?? false;
+    }
+    if (until != null && !hasMore) {
+      await _setMeta('pullWatermark', until);
     }
   }
 
@@ -249,20 +289,39 @@ class SyncEngine {
   /// On the first authenticated sync, re-key deterministic rows minted under the
   /// anonymous local account to the server user id, so the same day maps to the
   /// same id the server computes. Safe because nothing has synced yet. Runs once.
-  Future<void> _bindIfNeeded() async {
-    // boundServerUserId is written by the sign-in flow before the first sync; if
-    // it isn't set yet, there's nothing to bind.
-    final serverUserId = await SecureStore.read(SecureKeys.boundServerUserId);
-    if (serverUserId == null || serverUserId.isEmpty) return;
+  ///
+  /// Returns false — refusing the sync — when the CURRENT session belongs to a
+  /// different server user than the one this device's data is bound to: pushing
+  /// would upload user A's health data into user B's account and pulling would
+  /// merge B's cloud data into A's local store. The switch must be resolved
+  /// explicitly (keep-or-erase at sign-in) before sync resumes.
+  Future<bool> _bindIfNeeded() async {
+    // boundServerUserId is written by the sign-in flow before the first sync. A
+    // session from a build predating that flow won't have it — self-heal by
+    // asking the server who the token belongs to.
+    var serverUserId = await SecureStore.read(SecureKeys.boundServerUserId);
+    if (serverUserId == null || serverUserId.isEmpty) {
+      final fetched = await _fetchAuthedUserId();
+      if (fetched == null || fetched.isEmpty) return false;
+      serverUserId = fetched;
+      await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+      await SecureStore.write(SecureKeys.currentServerUserId, serverUserId);
+    }
+    final current = await SecureStore.read(SecureKeys.currentServerUserId);
+    if (current != null && current.isNotEmpty && current != serverUserId) {
+      debugLog('sync refused: signed-in user differs from bound user');
+      return false;
+    }
     // Re-key exactly once, tracked separately from boundServerUserId (which is
     // set at login, before this runs).
-    if (await _meta('reKeyed') == 'true') return;
+    if (await _meta('reKeyed') == 'true') return true;
     final localAccount =
         await _ref.read(accountServiceProvider).localAccountId();
     if (localAccount != serverUserId) {
       await _rekeyDeterministicIds(localAccount, serverUserId);
     }
     await _setMeta('reKeyed', 'true');
+    return true;
   }
 
   Future<void> _rekeyDeterministicIds(String from, String to) async {
@@ -298,6 +357,18 @@ class SyncEngine {
             [newId, oldId]);
         await _reid('menstrual_cycles', oldId, newId);
       }
+      // cycle days (id = v5(account, cycleId, date)) — after their parents, so
+      // cycle_id already carries the new deterministic value.
+      final days = await _db
+          .customSelect('SELECT id, cycle_id, date FROM cycle_days')
+          .get();
+      for (final r in days) {
+        await _reid(
+            'cycle_days',
+            r.data['id'] as String,
+            IdMinter.cycleDay(to, r.data['cycle_id'] as String,
+                r.data['date'] as String));
+      }
       // settings (single row)
       await _reid('user_settings', IdMinter.settings(from),
           IdMinter.settings(to));
@@ -305,10 +376,47 @@ class SyncEngine {
     // From now on deterministic ids derive from the server user id.
   }
 
+  /// Renames a row's id, merging when the target id already exists (a row for
+  /// the same day was created under the new namespace during the binding
+  /// window). The newer edit wins; the loser is dropped — without this, the
+  /// UPDATE would hit a PK collision and abort the whole re-key transaction,
+  /// permanently wedging binding.
   Future<void> _reid(String table, String oldId, String newId) async {
     if (oldId == newId) return;
+    final clash = await _db.customSelect(
+      'SELECT updated_at FROM $table WHERE id = ?1',
+      variables: [Variable<String>(newId)],
+    ).getSingleOrNull();
+    if (clash != null) {
+      final old = await _db.customSelect(
+        'SELECT updated_at FROM $table WHERE id = ?1',
+        variables: [Variable<String>(oldId)],
+      ).getSingleOrNull();
+      if (old == null) return;
+      final oldTs = (old.data['updated_at'] as int?) ?? 0;
+      final newTs = (clash.data['updated_at'] as int?) ?? 0;
+      if (oldTs > newTs) {
+        await _db.customStatement(
+            'DELETE FROM $table WHERE id = ?', [newId]);
+      } else {
+        await _db.customStatement(
+            'DELETE FROM $table WHERE id = ?', [oldId]);
+        return;
+      }
+    }
     await _db.customStatement(
         'UPDATE $table SET id = ? WHERE id = ?', [newId, oldId]);
+  }
+
+  /// Asks the server who the current session token belongs to (used to self-heal
+  /// a missing binding from a pre-binding build). Null when offline/unauthorized.
+  Future<String?> _fetchAuthedUserId() async {
+    try {
+      final res = await _ref.read(dioProvider).get('users/profile');
+      return (res.data?['user'] as Map?)?['id'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   // --- SyncMeta helpers ---

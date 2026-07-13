@@ -51,8 +51,41 @@ class HiveKeys {
   /// Used to greet them and to prefill sign-up when they later enable sync.
   static const localName = 'localName';
 
+  /// Where the user is in the first-launch flow. Written BEFORE navigating to
+  /// the next step, so killing the app mid-flow always resumes at the right
+  /// screen — the dashboard is reachable only once this is [OnboardingStage.done].
+  /// (Supersedes the old boolean [firstTime], which is kept for migration.)
+  static const onboardingStage = 'onboardingStage';
+
+  /// Cached copy of the public resources list (JSON). Resources are free for
+  /// everyone — even offline/anonymous users — so the last-fetched list is
+  /// kept locally and refreshed whenever the app is online.
+  static const resourcesCache = 'resourcesCache';
+
+  /// Cached copy of the signed-in user's profile (JSON map). Lets profile
+  /// screens and greetings render offline instead of showing null/blank;
+  /// refreshed on every successful profile fetch, cleared on logout.
+  static const profileCache = 'profileCache';
+
   /// Cloud-sync cadence prefs (catch-up-on-open scheduling).
   static const syncCadence = 'syncCadence'; // off | daily | weekly | monthly
   static const syncDailyHour = 'syncDailyHour'; // hour-of-day for daily (0-23)
   static const lastSyncAt = 'lastSyncAt'; // ISO-8601 of last successful sync
+}
+
+/// Values of [HiveKeys.onboardingStage] — the resumable first-launch flow:
+/// slides → auth choice → name step → done.
+class OnboardingStage {
+  static const slides = 'slides'; // (or unset) still on the intro slides
+  static const auth = 'auth'; // choosing sign up / log in / no account
+  static const name = 'name'; // on the "What should we call you?" step
+  static const done = 'done'; // flow complete — app routes to the dashboard
+
+  static String current() =>
+      (HiveStorage.get(HiveKeys.onboardingStage) as String?) ?? slides;
+
+  static Future<void> set(String stage) =>
+      Future.value(HiveStorage.put(HiveKeys.onboardingStage, stage));
+
+  static bool get isDone => current() == done;
 }

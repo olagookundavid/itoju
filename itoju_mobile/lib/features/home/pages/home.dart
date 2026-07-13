@@ -315,12 +315,39 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     .cupertino,
                                           );
                                         },
-                                        child: CustomText(
-                                          'No tracked metrics yet, click to add',
-                                          color: AppColors.primaryColorPurple,
-                                          maxline: 3,
-                                          fontSize: 23.sp,
-                                          textAlign: TextAlign.center,
+                                        child: Column(
+                                          children: [
+                                            CustomText(
+                                              'No tracked metrics yet',
+                                              color: AppColors
+                                                  .primaryColorPurple,
+                                              maxline: 2,
+                                              fontSize: 23.sp,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            10.ph,
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.add_circle,
+                                                  color: AppColors
+                                                      .primaryColorPurple,
+                                                  size: 26.sp,
+                                                ),
+                                                6.pw,
+                                                CustomText(
+                                                  'Tap here to add',
+                                                  color: AppColors
+                                                      .primaryColorPurple,
+                                                  fontSize: 23.sp,
+                                                  fontWeight: FontWeight.w800,
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ))
                                     : GridView.builder(
                                         shrinkWrap: true,

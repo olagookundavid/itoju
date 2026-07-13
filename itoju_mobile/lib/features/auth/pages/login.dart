@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:itoju_mobile/features/auth/notifiers/login_notifier.dart';
+import 'package:itoju_mobile/features/auth/widgets/account_switch_dialog.dart';
 import 'package:itoju_mobile/features/auth/pages/forgot_password_screen.dart';
 import 'package:itoju_mobile/features/auth/pages/signUp_Page.dart.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
+import 'package:itoju_mobile/features/onboarding/name_step.dart';
 import 'package:itoju_mobile/features/widgets/coming_soon_dialog.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/margins.dart';
@@ -30,6 +32,47 @@ class SignInPage extends ConsumerStatefulWidget {
 }
 
 class _SignInPageState extends ConsumerState<SignInPage> {
+  /// Finishes a successful sign-in. When the signed-in account differs from the
+  /// one this device's health data is bound to, the user must choose: erase the
+  /// previous account's local data and continue, or cancel the sign-in. Without
+  /// this, two people's health records could mix on a shared device.
+  Future<void> _completeLogin(dynamic response) async {
+    final data = response.data;
+    final switchPending = data is Map && data['accountSwitch'] == true;
+    if (switchPending) {
+      final erased = await showAccountSwitchDialog(context, ref);
+      if (!erased) {
+        // Cancel: the helper already dropped the new session; nothing changed.
+        getAlert('Sign-in cancelled — nothing was changed');
+        return;
+      }
+    }
+    if (!mounted) return;
+    // Signing in DURING onboarding continues to the name step (prefilled from
+    // the account); signing in later (e.g. Settings → sync) goes to the app.
+    if (!OnboardingStage.isDone) {
+      await OnboardingStage.set(OnboardingStage.name);
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const NameStep()),
+        (route) => false,
+      );
+    } else {
+      pushScreen(
+        context,
+        screen: const LandingPage(),
+        pageTransitionAnimation: PageTransitionAnimation.cupertino,
+      );
+    }
+    // The first sync after sign-in downloads the account's history in the
+    // background — say so, or returning users see screens quietly filling in.
+    getAlert(
+        'Signed in! Downloading your data in the background — '
+        'your history will appear shortly.',
+        isWarning: false);
+  }
+
   final GlobalKey<FormState> _signInFormKey = GlobalKey<FormState>();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
@@ -191,14 +234,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                           emailController.text, passwordController.text);
 
                       if (response.successMessage.isNotEmpty) {
-                        // ignore: use_build_context_synchronously
-                        pushScreen(
-                          context,
-                          screen: const LandingPage(),
-                          pageTransitionAnimation:
-                              PageTransitionAnimation.cupertino,
-                        );
-                        getAlert(response.successMessage, isWarning: false);
+                        await _completeLogin(response);
                       } else if (response.responseMessage!.isNotEmpty) {
                         getAlert(response.responseMessage!);
                       } else {
@@ -241,20 +277,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     final response =
                         await model.loginWithBioMetric(initialEmail, password);
                     if (response.successMessage.isNotEmpty) {
-                      getAlert(response.successMessage, isWarning: false);
-
-                      Timer(const Duration(seconds: 1), () {
-                        pushScreen(
-                          context,
-                          screen: const LandingPage(),
-                          pageTransitionAnimation:
-                              PageTransitionAnimation.cupertino,
-                        );
-                        // Navigator.of(context).pushAndRemoveUntil(
-                        //     MaterialPageRoute(builder: (BuildContext context) {
-                        //   return const LandingPage();
-                        // }), (Route<dynamic> route) => false);
-                      });
+                      await _completeLogin(response);
                     } else if (response.responseMessage!.isNotEmpty) {
                       getAlert(response.responseMessage!);
                     } else {
@@ -298,14 +321,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                               .read(loginNotifier.notifier)
                               .signInWithGoogle();
                           if (response.successMessage.isNotEmpty) {
-                            getAlert(response.successMessage, isWarning: false);
-                            Timer(const Duration(seconds: 1), () {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                      builder: (BuildContext context) {
-                                return const LandingPage();
-                              }), (Route<dynamic> route) => false);
-                            });
+                            await _completeLogin(response);
                           } else if (response.responseMessage!.isNotEmpty) {
                             getAlert(response.responseMessage!);
                           } else {
@@ -374,11 +390,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     ),
                     InkWell(
                       onTap: () {
-                        Navigator.pushAndRemoveUntil(
+                        // Swap this page for sign-up, keeping whatever is
+                        // beneath (WelcomePage during onboarding, Settings
+                        // later) so back still works.
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                               builder: (context) => const SignUpPage()),
-                          (route) => false,
                         );
                       },
                       child: CustomText(

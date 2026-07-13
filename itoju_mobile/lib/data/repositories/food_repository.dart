@@ -23,8 +23,17 @@ class FoodRepository {
   final AccountService _account;
 
   Future<FoodMetricModel?> getForDate(String date) async {
+    // Ordered + limit 1 rather than getSingleOrNull: during the sign-in binding
+    // window a duplicate row for the same date can transiently exist (old vs
+    // new account namespace id) until the re-key merges them — the read must
+    // show the newest edit, not throw.
     final row = await (_db.select(_db.foodMetrics)
-          ..where((t) => t.date.equals(date) & t.deletedAt.isNull()))
+          ..where((t) => t.date.equals(date) & t.deletedAt.isNull())
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc)
+          ])
+          ..limit(1))
         .getSingleOrNull();
     return row == null ? null : _toModel(row);
   }

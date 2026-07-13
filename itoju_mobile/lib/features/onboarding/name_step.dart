@@ -1,27 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
+import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/features/auth/notifiers/profile_notifier.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
+import 'package:itoju_mobile/services/flush_bar_service.dart';
 
-/// Local-first onboarding: ask only for a name so the user can start using the
-/// app immediately, with no account and no network. The name is stored locally
-/// (Hive) and later prefills sign-up if they choose to enable cloud sync.
-class NameStep extends StatefulWidget {
+/// The last onboarding step: "What should we call you?" — shown on every path.
+/// Anonymous users type a name (stored locally); signed-in users see the field
+/// prefilled from their account (alias, falling back to first name) and can
+/// proceed or change it. Saving marks onboarding done, so relaunching can only
+/// reach the dashboard once this step completes.
+class NameStep extends ConsumerStatefulWidget {
   const NameStep({super.key});
 
   @override
-  State<NameStep> createState() => _NameStepState();
+  ConsumerState<NameStep> createState() => _NameStepState();
 }
 
-class _NameStepState extends State<NameStep> {
+class _NameStepState extends ConsumerState<NameStep> {
   final _controller = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     final existing = HiveStorage.get(HiveKeys.localName) as String?;
-    if (existing != null) _controller.text = existing;
+    if (existing != null && existing.isNotEmpty) {
+      _controller.text = existing;
+    } else {
+      _prefillFromAccount();
+    }
+  }
+
+  /// Signed-in users (they logged in / signed up just before this step) get the
+  /// field prefilled from their account: alias if they've set one before, else
+  /// the first name they registered with. Best-effort — offline just leaves the
+  /// field empty.
+  Future<void> _prefillFromAccount() async {
+    if (!await Session.hasToken()) return;
+    await ref.read(profileProvider.notifier).getProfile();
+    if (!mounted || _controller.text.isNotEmpty) return;
+    final user = ref.read(profileProvider).userModel;
+    final name = (user?.alias?.isNotEmpty == true)
+        ? user!.alias!
+        : (user?.firstName ?? '');
+    if (name.isNotEmpty) _controller.text = name;
   }
 
   @override
@@ -32,13 +57,22 @@ class _NameStepState extends State<NameStep> {
 
   Future<void> _continue() async {
     final name = _controller.text.trim();
-    if (name.isNotEmpty) {
-      await HiveStorage.put(HiveKeys.localName, name);
+    // A name is required — the app greets the user by it everywhere, so there
+    // is no skip path out of this step.
+    if (name.isEmpty) {
+      getAlert('Please enter your name to continue');
+      return;
     }
-    _goToApp();
+    await HiveStorage.put(HiveKeys.localName, name);
+    // Roam the display name with the account (no-op offline/anonymous).
+    if (await Session.hasToken()) {
+      ref.read(profileProvider.notifier).updateAlias(name);
+    }
+    await _goToApp();
   }
 
-  void _goToApp() {
+  Future<void> _goToApp() async {
+    await OnboardingStage.set(OnboardingStage.done);
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -68,8 +102,7 @@ class _NameStepState extends State<NameStep> {
               ),
               SizedBox(height: 12.h),
               Text(
-                'No account needed — you can start tracking right away. '
-                'You can sign in later to back up and sync your data.',
+                'This is how the app greets you. You can change it anytime.',
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w400,
@@ -114,18 +147,7 @@ class _NameStepState extends State<NameStep> {
                   ),
                 ),
               ),
-              SizedBox(height: 8.h),
-              Center(
-                child: TextButton(
-                  onPressed: _goToApp,
-                  child: Text(
-                    'Skip for now',
-                    style: TextStyle(
-                        fontSize: 14.sp, color: AppColors.textGrey),
-                  ),
-                ),
-              ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 24.h),
             ],
           ),
         ),

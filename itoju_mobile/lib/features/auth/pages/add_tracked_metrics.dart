@@ -72,7 +72,8 @@ class _AddTrackedMetricsState extends ConsumerState<AddTrackedMetrics> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CustomText(
-                        "Welcome ${ref.watch(profileProvider).userModel?.firstName}",
+                        "Welcome ${ref.watch(profileProvider).userModel?.firstName ?? HiveStorage.get(HiveKeys.localName) ?? ''}"
+                            .trimRight(),
                         fontSize: 16.sp,
                         color: AppColors.primaryColorPurple,
                         fontWeight: FontWeight.w700,

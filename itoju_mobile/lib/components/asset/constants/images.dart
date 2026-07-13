@@ -4,7 +4,9 @@ class Images {
   static const String onBoard1 = "asset/png/Rectangle 199.png";
   static const String onBoard2 = "asset/png/Rectangle 198.png";
   static const String onBoard3 = "asset/png/Rectangle 200.png";
-  static const String startIcon = "images/itoju_icon.png";
+  // The Itoju app icon/logo (bundled; the old "images/itoju_icon.png" path was
+  // never in the pubspec asset list).
+  static const String startIcon = "asset/png/itojuicon.png";
   static const String endIcon = "images/final_result.png";
   static const String success = "asset/png/signUp_success.png";
   static const String backAche = "images/backache.svg";

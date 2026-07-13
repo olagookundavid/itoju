@@ -45,6 +45,40 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// Erases every row of user data (health records, points, selections,
+  /// settings, and all sync bookkeeping), keeping only the seeded catalogs.
+  /// Used when a DIFFERENT server account signs in on this device and the user
+  /// confirms the switch — the previous user's health data must not be visible
+  /// to, or uploaded under, the new account.
+  Future<void> eraseAllUserData() async {
+    await transaction(() async {
+      for (final table in <TableInfo>[
+        symptomMetrics,
+        foodMetrics,
+        sleepMetrics,
+        medicationMetrics,
+        exerciseMetrics,
+        urineMetrics,
+        bowelMetrics,
+        menstrualCycles,
+        cycleDays,
+        smileyEntries,
+        pointRecords,
+        userTrackedMetrics,
+        userConditions,
+        userSettings,
+        syncMeta,
+      ]) {
+        await delete(table).go();
+      }
+      // Re-record the catalog seed so the seeding guard stays meaningful.
+      await into(syncMeta).insertOnConflictUpdate(
+        SyncMetaCompanion.insert(
+            key: 'catalogSeedVersion', value: const Value('1')),
+      );
+    });
+  }
+
   /// Seeds the catalog tables to match the server SERIAL ids (see seed_catalogs).
   /// Idempotent: guarded by a SyncMeta version so it runs once.
   Future<void> _seedCatalogs() async {

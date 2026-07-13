@@ -1,21 +1,18 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/dio_provider.dart';
 
 final homeDateProvider =
     StateNotifierProvider<HomeDateNotifier, HomeDateState>((ref) {
-  return HomeDateNotifier(ref, ref.read(dioProvider));
+  return HomeDateNotifier(ref);
 });
 
 class HomeDateNotifier extends StateNotifier<HomeDateState> {
-  HomeDateNotifier(this.ref, this.dio) : super(HomeDateState.initial()) {
+  HomeDateNotifier(this.ref) : super(HomeDateState.initial()) {
     actionGetPreviousWeek();
     // actionGetThisWeek();
     actionGetNextWeek();
   }
   Ref ref;
-  Dio dio;
   DateTime today = DateTime.now();
 
   List<DateTime> _getWeekRangeFromDateTime(DateTime date) {

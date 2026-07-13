@@ -1,6 +1,6 @@
 .PHONY: help confirm buildapk buildaab run-local
 
-PROD_URL = https://tense-tedi-mercyjae-0360fa81.koyeb.app/v1/
+PROD_URL = https://sensible-charita-mercyjae-71eea44d.koyeb.app/v1/
 LOCAL_URL = http://10.0.2.2:8080/v1/
 
 help:

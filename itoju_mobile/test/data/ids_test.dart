@@ -28,6 +28,15 @@ void main() {
     );
   });
 
+  test('cycle + cycle-day deterministic ids match backend golden vectors', () {
+    final cycleId = IdMinter.cycle(user, date);
+    expect(cycleId, '21647642-d3b3-5eaa-b17a-46f1b6806d57');
+    expect(
+      IdMinter.cycleDay(user, cycleId, date),
+      '77229aff-1df0-5e14-9361-bf49c94497f3',
+    );
+  });
+
   test('v7 ids are unique and time-ordered', () {
     final a = IdMinter.v7();
     final b = IdMinter.v7();

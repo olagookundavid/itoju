@@ -66,6 +66,7 @@ class GetConditionsState {
     return GetConditionsState(
         conditionsLists: conditionsLists ?? this.conditionsLists,
         userConditionsLists: userConditionsLists ?? this.userConditionsLists,
+        status: status ?? this.status,
         error: error ?? this.error);
   }
 }

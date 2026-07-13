@@ -33,9 +33,12 @@ class IdMinter {
   static String cycle(String accountId, String startDate) =>
       _v5('$accountId:menstrual_cycles:$startDate');
 
-  /// Deterministic id for a one-per-day cycle-day row.
-  static String cycleDay(String accountId, String date) =>
-      _v5('$accountId:cycles_days:$date');
+  /// Deterministic id for a cycle-day row (one per (cycle, day)). Includes the
+  /// parent cycle id — itself deterministic — so two devices generating the same
+  /// cycle produce identical day ids, while days of overlapping cycles stay
+  /// distinct. Must match the backend trigger recipe (migration 038).
+  static String cycleDay(String accountId, String cycleId, String date) =>
+      _v5('$accountId:cycles_days:$cycleId:$date');
 
   /// Deterministic id for a tracked-metric selection row (one per metric).
   static String trackedMetric(String accountId, int metricId) =>

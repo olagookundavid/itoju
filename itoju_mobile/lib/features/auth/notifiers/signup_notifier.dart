@@ -32,7 +32,6 @@ class RegisterNotifier extends StateNotifier<RegisterState> {
     state = state.copyWith(loadStatus: Loader.loading);
     final Response response;
     try {
-      debugPrint(dob.toIso8601String()); //"2004-02-14T08:00:00Z"
       response = await dio.post('register', data: {
         "first_name": fname,
         "last_name": lname,
@@ -42,7 +41,6 @@ class RegisterNotifier extends StateNotifier<RegisterState> {
       });
 
       var body = response.data;
-      debugPrint(response.statusCode.toString());
       if (response.statusCode == 201) {
         state = state.copyWith(loadStatus: Loader.loaded);
         return ApiResponse(
@@ -79,11 +77,19 @@ class RegisterNotifier extends StateNotifier<RegisterState> {
     // account from the verified token + supplied date of birth.
     final res =
         await ref.read(loginNotifier.notifier).socialLogin(idToken, dob: dob);
-    // Surface the entered name so the success screen can greet the user
-    // (the server response carries the session token, not the name).
+    // Surface the entered name so the success screen can greet the user (the
+    // server response carries the session token, not the name), and carry
+    // through the account-switch flag from socialLogin so the sign-up UI can
+    // resolve a device linked to a different account before proceeding.
     if (res.successMessage.isNotEmpty) {
+      final switchPending =
+          res.data is Map && (res.data as Map)['accountSwitch'] == true;
       return ApiResponse(
-          successMessage: res.successMessage, data: '$fname $lname'.trim());
+          successMessage: res.successMessage,
+          data: {
+            'name': '$fname $lname'.trim(),
+            'accountSwitch': switchPending,
+          });
     }
     return res;
   }

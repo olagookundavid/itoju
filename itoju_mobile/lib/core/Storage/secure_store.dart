@@ -26,6 +26,13 @@ class SecureStore {
     await _storage.delete(key: SecureKeys.token);
     await _storage.delete(key: SecureKeys.password);
   }
+
+  /// Wipes EVERY secure key (token, biometric password, local account id, and
+  /// the device→account binding). Used by the factory reset that backs both
+  /// "Erase data" and "Delete account".
+  static Future<void> clearAll() async {
+    await _storage.deleteAll();
+  }
 }
 
 class SecureKeys {
@@ -39,4 +46,10 @@ class SecureKeys {
 
   /// Server user id this device is bound to once cloud sync is enabled.
   static const boundServerUserId = 'bound_server_user_id';
+
+  /// Server user id of the CURRENT session's token (written on every login).
+  /// When it differs from [boundServerUserId], a different person signed in on
+  /// this device — sync is refused until the switch is resolved (keep-or-erase)
+  /// so two users' health data can never mix.
+  static const currentServerUserId = 'current_server_user_id';
 }

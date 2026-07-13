@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:itoju_mobile/features/onboarding/name_step.dart';
+import 'package:itoju_mobile/features/onboarding/welcome_page.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/onboarding/onbaording1.dart';
 import 'package:itoju_mobile/features/onboarding/onboard3.dart';
@@ -35,6 +35,20 @@ class _OnBoardingState extends State<OnBoarding> {
     super.dispose();
   }
 
+  /// Leaves the slides (Skip or Get Started) for the auth choice step. The
+  /// stage is persisted BEFORE navigating so killing the app here resumes at
+  /// the WelcomePage, never the dashboard. firstTime stays for legacy installs.
+  Future<void> _leaveSlides(BuildContext context) async {
+    await HiveStorage.put(HiveKeys.firstTime, false);
+    await OnboardingStage.set(OnboardingStage.auth);
+    if (!context.mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const WelcomePage()),
+      (route) => false,
+    );
+  }
+
   // var box = Hive.box('onboarding');
 
   final List<Widget> _onBoardPages = [
@@ -58,10 +72,7 @@ class _OnBoardingState extends State<OnBoarding> {
                   top: 70.h,
                   right: 38.w,
                   child: InkWell(
-                    onTap: () => {
-                      // onBoardModel.goToSignUpSelection(),
-                      // box.put('status', 'true')
-                    },
+                    onTap: () => _leaveSlides(context),
                     child: Container(
                       height: 36.h,
                       width: 56.w,
@@ -71,22 +82,11 @@ class _OnBoardingState extends State<OnBoarding> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
-                        child: InkWell(
-                          onTap: () async {
-                            await HiveStorage.put(HiveKeys.firstTime, false);
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const NameStep()),
-                              (route) => false,
-                            );
-                          },
-                          child: CustomText(
-                            "Skip",
-                            fontSize: 12.sp,
-                            color: AppColors.skipGrey,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: CustomText(
+                          "Skip",
+                          fontSize: 12.sp,
+                          color: AppColors.skipGrey,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -132,15 +132,7 @@ class _OnBoardingState extends State<OnBoarding> {
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
-                        onPressed: () async {
-                          await HiveStorage.put(HiveKeys.firstTime, false);
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const NameStep()),
-                            (route) => false,
-                          );
-                        },
+                        onPressed: () => _leaveSlides(context),
                       )
                     : CustomButton(
                         onPressed: () {

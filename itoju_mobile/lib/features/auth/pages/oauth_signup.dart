@@ -8,7 +8,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:itoju_mobile/features/auth/notifiers/signup_notifier.dart';
 import 'package:itoju_mobile/features/auth/pages/signUp_Page.dart.dart';
 import 'package:itoju_mobile/features/auth/pages/login.dart';
+import 'package:itoju_mobile/features/auth/widgets/account_switch_dialog.dart';
+import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/features/landing/landing_page.dart';
+import 'package:itoju_mobile/features/onboarding/name_step.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/date_pick_widget.dart';
 import 'package:itoju_mobile/features/widgets/dates.dart';
@@ -120,10 +124,10 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const CustomText(
+                          CustomText(
                             "Date of Birth",
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.primaryColorPurple,
                           ),
                           10.ph,
@@ -257,7 +261,31 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
 
                             if (response.successMessage.isNotEmpty) {
                               if (!mounted) return;
-                              getAlert(response.successMessage,
+                              // The device may be bound to a DIFFERENT account.
+                              // Resolve the switch (erase & continue, or cancel)
+                              // before proceeding — same flow as login.
+                              final data = response.data;
+                              final switchPending = data is Map &&
+                                  data['accountSwitch'] == true;
+                              if (switchPending) {
+                                final erased = await showAccountSwitchDialog(
+                                    context, ref);
+                                if (!erased) {
+                                  getAlert(
+                                      'Sign-up cancelled — nothing was changed');
+                                  return;
+                                }
+                                if (!mounted) return;
+                              }
+                              final name = (data is Map ? data['name'] : data)
+                                      ?.toString() ??
+                                  '';
+                              // A returning account restores its history via
+                              // the background sync kicked off by sign-in.
+                              getAlert(
+                                  'Welcome! If you had data backed up, it is '
+                                  'downloading in the background and will '
+                                  'appear shortly.',
                                   isWarning: false);
 
                               Timer(const Duration(seconds: 1), () {
@@ -266,18 +294,30 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                                   context: context,
                                   builder: (context) {
                                     return SignUpSuccess(
-                                      () {
+                                      () async {
+                                        // The social sign-up already stored a
+                                        // session token. During onboarding,
+                                        // continue to the name step (prefilled
+                                        // from the account); otherwise land in
+                                        // the app.
+                                        if (!OnboardingStage.isDone) {
+                                          await OnboardingStage.set(
+                                              OnboardingStage.name);
+                                        }
+                                        if (!context.mounted) return;
                                         Navigator.pushAndRemoveUntil(
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) {
-                                              return const SignInPage();
+                                              return OnboardingStage.isDone
+                                                  ? const LandingPage()
+                                                  : const NameStep();
                                             },
                                           ),
                                           (route) => false,
                                         );
                                       },
-                                      name: response.data ?? '',
+                                      name: name,
                                     );
                                   },
                                 );
@@ -302,11 +342,12 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                           ),
                           InkWell(
                             onTap: () {
-                              Navigator.pushAndRemoveUntil(
+                              // Swap for the login page, keeping WelcomePage
+                              // beneath during onboarding so back works.
+                              Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => const SignInPage()),
-                                (route) => false,
                               );
                             },
                             child: CustomText(

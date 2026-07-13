@@ -4,11 +4,15 @@ import 'package:itoju_mobile/core/helpers/biometric_helper.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
 import 'package:itoju_mobile/features/auth/notifiers/signup_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
+import 'dart:async';
+
 import 'package:itoju_mobile/services/app_exception.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/Storage/secure_store.dart';
+import 'package:itoju_mobile/data/providers.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
+import 'package:itoju_mobile/sync/sync_controller.dart';
 import 'package:itoju_mobile/sync/sync_engine.dart';
 
 class LoginNotifier extends StateNotifier<LoginState> {
@@ -32,11 +36,13 @@ class LoginNotifier extends StateNotifier<LoginState> {
         await SecureStore.write(SecureKeys.token, body['data']['token']);
         await SecureStore.write(SecureKeys.password, password);
         await HiveStorage.put(HiveKeys.userName, email);
-        await _activateSync(body['user_id'] as String?);
+        final switchPending = await _activateSync(body['user_id'] as String?);
         state = state.copyWith(
           loadStatus: Loader.loaded,
         );
-        return ApiResponse(successMessage: body['message']);
+        return ApiResponse(
+            successMessage: body['message'],
+            data: {'accountSwitch': switchPending});
       } else {
         state = state.copyWith(loadStatus: Loader.error);
         return ApiResponse(
@@ -68,9 +74,11 @@ class LoginNotifier extends StateNotifier<LoginState> {
           body['data'] != null &&
           body['data']['token'] != null) {
         await SecureStore.write(SecureKeys.token, body['data']['token']);
-        await _activateSync(body['user_id'] as String?);
+        final switchPending = await _activateSync(body['user_id'] as String?);
         state = state.copyWith(loadStatus: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
+        return ApiResponse(
+            successMessage: body['message'],
+            data: {'accountSwitch': switchPending});
       } else if (response.statusCode == 200 &&
           body['registration_required'] == true) {
         state = state.copyWith(loadStatus: Loader.error);
@@ -95,16 +103,50 @@ class LoginNotifier extends StateNotifier<LoginState> {
   /// After a successful sign-in, bind the local account to the server user
   /// (so deterministic ids re-key on first sync), refresh the cached sync
   /// entitlement, and kick off a sync. All best-effort — never blocks login.
-  Future<void> _activateSync(String? serverUserId) async {
-    if (serverUserId != null && serverUserId.isNotEmpty) {
-      await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
-      // Bind RevenueCat purchases to the server user (no-op unless IAP is
-      // configured); the webhook re-binds the subscription server-side.
-      await ref.read(purchaseServiceProvider).bindTo(serverUserId);
+  ///
+  /// Returns true when a DIFFERENT server user than the one this device's data
+  /// is bound to just signed in. In that case nothing is bound and the engine
+  /// refuses to sync (so the two users' health data cannot mix) until the
+  /// caller resolves the switch — [confirmAccountSwitch] erases the previous
+  /// user's local data and continues, or the user signs out.
+  Future<bool> _activateSync(String? serverUserId) async {
+    if (serverUserId == null || serverUserId.isEmpty) return false;
+    await SecureStore.write(SecureKeys.currentServerUserId, serverUserId);
+    final bound = await SecureStore.read(SecureKeys.boundServerUserId);
+    if (bound != null && bound.isNotEmpty && bound != serverUserId) {
+      return true; // switch pending — do not bind, engine refuses to sync
     }
+    await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+    // Bind RevenueCat purchases to the server user (no-op unless IAP is
+    // configured); the webhook re-binds the subscription server-side.
+    await ref.read(purchaseServiceProvider).bindTo(serverUserId);
     await ref.read(entitlementServiceProvider).refreshFromServer();
-    // Fire-and-forget; the engine gates on entitlement and re-keys on first run.
-    ref.read(syncEngineProvider).syncNow();
+    // Fire-and-forget through the controller so lastSyncAt is stamped; the
+    // engine catches its own errors and re-keys on first run.
+    unawaited(ref.read(syncControllerProvider).backupNow());
+    return false;
+  }
+
+  /// Resolves an account switch by erasing the previous user's local health
+  /// data and binding this device to the newly signed-in user. The wipe is the
+  /// privacy-correct default on a shared device: the new user must not see —
+  /// or upload under their account — someone else's health records.
+  Future<void> confirmAccountSwitch() async {
+    final serverUserId =
+        await SecureStore.read(SecureKeys.currentServerUserId);
+    if (serverUserId == null || serverUserId.isEmpty) return;
+    await ref.read(appDatabaseProvider).eraseAllUserData();
+    // Drop the previous user's cached names so the new user isn't greeted by
+    // (or prefilled with) the old name — NameStep re-collects from the new
+    // account.
+    await HiveStorage.delete(HiveKeys.localName);
+    await HiveStorage.delete(HiveKeys.userName);
+    // Fresh local identity for the new user; nothing left to re-key.
+    await SecureStore.write(SecureKeys.localAccountId, null);
+    await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+    await ref.read(purchaseServiceProvider).bindTo(serverUserId);
+    await ref.read(entitlementServiceProvider).refreshFromServer();
+    unawaited(ref.read(syncControllerProvider).backupNow());
   }
 
   static String _formatDob(DateTime dob) {

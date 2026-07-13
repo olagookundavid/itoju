@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/auth/notifiers/profile_notifier.dart';
 import 'package:itoju_mobile/features/dashboard/notifiers/getSmiley_notifier.dart';
@@ -97,7 +98,7 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         CustomText(
-                          "Hi ${state.status != Loader.loaded ? '....' : state.userModel!.firstName!} 🤗",
+                          "Hi ${state.status == Loader.loaded && state.userModel?.firstName != null ? state.userModel!.firstName! : HiveStorage.get(HiveKeys.localName) ?? '....'} 🤗",
                           fontSize: 16.sp,
                           color: AppColors.primaryColorPurple,
                           fontWeight: FontWeight.w800,

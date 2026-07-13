@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/auth/notifiers/profile_notifier.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/achievement_widget.dart';
@@ -28,7 +29,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   void initState() {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      pic_no = ref.watch(profileProvider).userModel!.pic_no ?? 0;
+      pic_no = ref.watch(profileProvider).userModel?.pic_no ?? 0;
       setState(() {});
     });
     super.initState();
@@ -37,6 +38,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   int pic_no = 0;
   @override
   Widget build(BuildContext context) {
+    final userModel = ref.watch(profileProvider).userModel;
+    final displayName = userModel != null
+        ? '${userModel.firstName ?? ''} ${userModel.lastName ?? ''}'.trim()
+        : (HiveStorage.get(HiveKeys.localName) ?? 'Guest');
     return Scaffold(
       body: SingleChildScrollView(
         child: SafeArea(
@@ -104,17 +109,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               )),
                     ),
                     5.ph,
-                    CustomText(
-                        '${ref.watch(profileProvider).userModel?.firstName ?? '...'} ${ref.watch(profileProvider).userModel?.lastName ?? '...'}',
+                    CustomText(displayName,
                         color: AppColors.primaryColorPurple,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w500),
                     3.ph,
-                    CustomText(
-                        ref.watch(profileProvider).userModel?.email ?? '...',
-                        color: Colors.black,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500),
+                    if (userModel?.email != null) ...[
+                      CustomText(userModel!.email,
+                          color: Colors.black,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500),
+                    ],
                     50.ph,
                   ],
                 ),

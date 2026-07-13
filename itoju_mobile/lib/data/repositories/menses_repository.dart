@@ -93,15 +93,21 @@ class MensesRepository {
       final start = DateTime.parse(startDate);
       for (var i = 0; i < cycleLen; i++) {
         final ds = DateFormat('yyyy-MM-dd').format(start.add(Duration(days: i)));
-        await _db.into(_db.cycleDays).insert(CycleDaysCompanion.insert(
-              id: IdMinter.v7(),
-              localUpdatedAt: now,
-              cycleId: cycleId,
-              date: ds,
-              isPeriod: Value(i < periodLen),
-              isOvulation: Value(i >= periodLen + 9 && i < cycleLen),
-              updatedAt: Value(now),
-            ));
+        // Deterministic per (account, cycle, date) so a second device — or the
+        // server generating the same cycle — mints the identical id and the
+        // rows merge instead of duplicating.
+        await _db.into(_db.cycleDays).insert(
+              CycleDaysCompanion.insert(
+                id: IdMinter.cycleDay(account, cycleId, ds),
+                localUpdatedAt: now,
+                cycleId: cycleId,
+                date: ds,
+                isPeriod: Value(i < periodLen),
+                isOvulation: Value(i >= periodLen + 9 && i < cycleLen),
+                updatedAt: Value(now),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
       }
     });
     return true;

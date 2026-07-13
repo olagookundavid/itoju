@@ -32,6 +32,12 @@ class _ChangePasswordState extends State<ChangePassword> {
     super.dispose();
   }
 
+  /// The password-rules checklist is only shown while the new-password field
+  /// is being edited (focused), so the form stays compact otherwise. Same idea
+  /// for the "Passwords match" indicator under Confirm Password.
+  bool _newPasswordFieldActive = false;
+  bool _confirmPasswordFieldActive = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,35 +74,75 @@ class _ChangePasswordState extends State<ChangePassword> {
                 controller: passwordController,
               ),
               10.ph,
-              CustomTextField(
-                filled: true,
-                title: "New Password",
-                hintText: "8+ strong characters",
-                controller: newPasswordController,
+              // Focus wraps the field so the checklist below can show only
+              // while the user is actually editing the new password.
+              Focus(
+                onFocusChange: (hasFocus) {
+                  setState(() => _newPasswordFieldActive = hasFocus);
+                },
+                child: CustomTextField(
+                  filled: true,
+                  title: "New Password",
+                  hintText: "8+ strong characters",
+                  controller: newPasswordController,
+                ),
               ),
-              ValueListenableBuilder(
-                  valueListenable: newPasswordController,
-                  builder: (context, textEditingValue, _) {
-                    final password = textEditingValue.text;
-                    final hasAtLeastEightChars = password.length >= 8;
-                    final hasUpperAndLowerCaseChars =
-                        password.contains(RegExp('[A-Z]'));
-                    final hasNumber = password.contains(RegExp('[0-9]'));
-                    final hasSpecialChar =
-                        password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-                    return PasswordValidator(
-                      hasAtLeastEightChars: hasAtLeastEightChars,
-                      hasUpperAndLowerCaseChars: hasUpperAndLowerCaseChars,
-                      hasNumber: hasNumber,
-                      hasSpecialChar: hasSpecialChar,
-                    );
-                  }),
+              Visibility(
+                visible: _newPasswordFieldActive,
+                child: ValueListenableBuilder(
+                    valueListenable: newPasswordController,
+                    builder: (context, textEditingValue, _) {
+                      final password = textEditingValue.text;
+                      final hasAtLeastEightChars = password.length >= 8;
+                      final hasUpperAndLowerCaseChars =
+                          password.contains(RegExp('[A-Z]'));
+                      final hasNumber = password.contains(RegExp('[0-9]'));
+                      final hasSpecialChar =
+                          password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+                      return PasswordValidator(
+                        hasAtLeastEightChars: hasAtLeastEightChars,
+                        hasUpperAndLowerCaseChars: hasUpperAndLowerCaseChars,
+                        hasNumber: hasNumber,
+                        hasSpecialChar: hasSpecialChar,
+                      );
+                    }),
+              ),
               15.ph,
-              CustomTextField(
-                filled: true,
-                title: "Confirm Password",
-                hintText: "8+ strong characters",
-                controller: confirmPasswordController,
+              Focus(
+                onFocusChange: (hasFocus) {
+                  setState(() => _confirmPasswordFieldActive = hasFocus);
+                },
+                child: CustomTextField(
+                  filled: true,
+                  title: "Confirm Password",
+                  hintText: "8+ strong characters",
+                  controller: confirmPasswordController,
+                ),
+              ),
+              Visibility(
+                visible: _confirmPasswordFieldActive,
+                child: ListenableBuilder(
+                    // Merge both fields so editing either updates the match
+                    // indicator live.
+                    listenable: Listenable.merge([
+                      newPasswordController,
+                      confirmPasswordController,
+                    ]),
+                    builder: (context, _) {
+                      final confirm = confirmPasswordController.text;
+                      final matches = confirm.isNotEmpty &&
+                          confirm == newPasswordController.text;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          10.ph,
+                          PasswordConditionIndicator(
+                            isValid: matches,
+                            title: 'Passwords match',
+                          ),
+                        ],
+                      );
+                    }),
               ),
               20.ph,
               Consumer(builder: (context, ref, child) {
