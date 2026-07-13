@@ -149,23 +149,28 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	// Try to retrieve the corresponding user record for the email address. If it can't
-	// be found, return an error message to the client.
+	// The response is deliberately identical whether or not the email matches an
+	// account (and whether or not that account is activated), so this endpoint
+	// can't be used to enumerate registered email addresses.
+	env := envelope{
+		"message": "If an account exists for that email, a reset code has been sent.",
+	}
+	// Try to retrieve the corresponding user record for the email address. If it
+	// can't be found, return the generic success response without sending anything.
 	user, err := app.Models.Users.GetByEmail(r.Context(), input.Email)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
-			v.AddError("email", "no matching email address found")
-			app.failedValidationResponse(w, r, v.Errors)
+			app.respond(w, r, http.StatusOK, env)
 		default:
 			app.serverErrorResponse(w, r, err)
 		}
 		return
 	}
-	// Return an error message if the user is not activated.
+	// Inactive accounts can't reset their password, but we still return the
+	// generic success response (no email is sent, no token is created).
 	if !user.Activated {
-		v.AddError("email", "user account must be activated")
-		app.failedValidationResponse(w, r, v.Errors)
+		app.respond(w, r, http.StatusOK, env)
 		return
 	}
 	// Atomically invalidate any previous reset codes and issue a new 6-digit OTP
@@ -189,9 +194,6 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 			app.Logger.PrintError(err, map[string]string{"error": "failed to send password reset email"})
 		}
 	})
-	env := envelope{
-		"message": "If an account exists for that email, a reset code has been sent.",
-	}
 	app.respond(w, r, http.StatusOK, env)
 }
 

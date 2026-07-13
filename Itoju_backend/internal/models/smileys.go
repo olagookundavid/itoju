@@ -56,7 +56,7 @@ func (m SmileysModel) GetUserSmileys(ctx context.Context, userID string) ([]*Smi
 	query := ` SELECT smiley.id , smiley.name, user_smiley.granted_at, user_smiley.tags
 	FROM smiley
 	JOIN user_smiley ON smiley.id = user_smiley.smiley_id
-	WHERE user_smiley.user_id = $1; `
+	WHERE user_smiley.user_id = $1 AND user_smiley.deleted_at IS NULL; `
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
@@ -104,9 +104,9 @@ func (m SmileysModel) GetUserSmileysCount(ctx context.Context, userID string, in
 
 	query := `
     SELECT s.name, s.id, COALESCE(COUNT(us.smiley_id), 0) AS count,
-    (SELECT COUNT(*) FROM user_smiley WHERE user_id = $1 AND granted_at >= NOW() - make_interval(days => $2)) AS total_count
+    (SELECT COUNT(*) FROM user_smiley WHERE user_id = $1 AND granted_at >= NOW() - make_interval(days => $2) AND deleted_at IS NULL) AS total_count
     FROM smiley s
-    LEFT JOIN user_smiley us ON s.id = us.smiley_id AND us.user_id = $1 AND us.granted_at >= NOW() - make_interval(days => $2)
+    LEFT JOIN user_smiley us ON s.id = us.smiley_id AND us.user_id = $1 AND us.granted_at >= NOW() - make_interval(days => $2) AND us.deleted_at IS NULL
     GROUP BY s.name, s.id;`
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -138,7 +138,7 @@ func (m SmileysModel) GetLatestUserSmileyForToday(ctx context.Context, userID st
 	query := `
 	SELECT smiley_id, tags 
 	FROM user_smiley 
-	WHERE user_id = $1 AND DATE(granted_at) = $2 
+	WHERE user_id = $1 AND DATE(granted_at) = $2 AND deleted_at IS NULL
 	ORDER BY granted_at DESC 
 	LIMIT 1;`
 

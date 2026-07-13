@@ -141,7 +141,7 @@ func TestSyncPushPullDB(t *testing.T) {
 	// --- pull since epoch returns the row incl. the tombstone ---
 	// Wait past the pull grace window (server_updated_at was stamped just now).
 	time.Sleep(pullGrace + time.Second)
-	rows, _, err := m.Sync.Pull(context.Background(), uid, "user_bowel_metric", time.Time{}, 500)
+	rows, _, err := m.Sync.Pull(context.Background(), uid, "user_bowel_metric", time.Time{}, "", time.Now(), 500)
 	if err != nil {
 		t.Fatalf("pull: %v", err)
 	}

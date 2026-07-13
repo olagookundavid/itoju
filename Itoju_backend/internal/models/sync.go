@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -43,11 +44,16 @@ type syncCol struct {
 
 // syncSpec describes one table. idCol is the column holding the client-minted
 // UUID, which is the primary key `id` on every syncable table after the 036 PK
-// cutover.
+// cutover. healKey names the natural-key columns of one-per-day tables (guarded
+// by a live partial unique index): when a pushed row's id collides with an
+// existing live row for the same natural key — e.g. a server-side legacy id vs
+// the client's deterministic id for the same day — the push "heals" onto the
+// existing row instead of failing the batch.
 type syncSpec struct {
-	table string
-	idCol string
-	cols  []syncCol
+	table   string
+	idCol   string
+	cols    []syncCol
+	healKey []string
 }
 
 const dateLayout = "2006-01-02"
@@ -56,45 +62,45 @@ const dateLayout = "2006-01-02"
 // settings (menstruation, bodymeasure) and selection sets (user_symptoms,
 // user_conditions) are re-asserted by the client and land in a follow-up.
 var syncSpecs = map[string]syncSpec{
-	"user_symptoms_metric": {"user_symptoms_metric", "id", []syncCol{
+	"user_symptoms_metric": {table: "user_symptoms_metric", idCol: "id", cols: []syncCol{
 		{"symptoms_id", kNum}, {"date", kDate},
 		{"morning_severity", kNum}, {"afternoon_severity", kNum}, {"night_severity", kNum},
-	}},
-	"user_food_metric": {"user_food_metric", "id", []syncCol{
+	}, healKey: []string{"symptoms_id", "date"}},
+	"user_food_metric": {table: "user_food_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate},
 		{"breakfast_meal", kText}, {"lunch_meal", kText}, {"dinner_meal", kText},
 		{"breakfast_extra", kText}, {"lunch_extra", kText}, {"dinner_extra", kText},
 		{"breakfast_fruit", kText}, {"lunch_fruit", kText}, {"dinner_fruit", kText},
 		{"breakfast_tags", kTags}, {"lunch_tags", kTags}, {"dinner_tags", kTags},
 		{"snack_name", kText}, {"snack_tags", kTags}, {"glass_no", kNum},
-	}},
-	"user_sleep_metric": {"user_sleep_metric", "id", []syncCol{
+	}, healKey: []string{"date"}},
+	"user_sleep_metric": {table: "user_sleep_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"is_night", kBool}, {"time_slept", kText},
 		{"time_woke_up", kText}, {"tags", kTags}, {"severity", kNum},
 	}},
-	"user_medication_metric": {"user_medication_metric", "id", []syncCol{
+	"user_medication_metric": {table: "user_medication_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"name", kText}, {"dosage", kNum},
 		{"metric", kText}, {"quantity", kNum}, {"time", kText},
 	}},
-	"user_exercise_metric": {"user_exercise_metric", "id", []syncCol{
+	"user_exercise_metric": {table: "user_exercise_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"name", kText}, {"started", kText},
 		{"ended", kText}, {"tags", kTags}, {"no_of_times", kNum},
 	}},
-	"user_urine_metric": {"user_urine_metric", "id", []syncCol{
+	"user_urine_metric": {table: "user_urine_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"type", kNum}, {"pain", kNum},
 		{"time", kText}, {"tags", kTags}, {"quantity", kNum},
 	}},
-	"user_bowel_metric": {"user_bowel_metric", "id", []syncCol{
+	"user_bowel_metric": {table: "user_bowel_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"type", kNum}, {"pain", kNum}, {"time", kText}, {"tags", kTags},
 	}},
-	"menstrual_cycles": {"menstrual_cycles", "id", []syncCol{
+	"menstrual_cycles": {table: "menstrual_cycles", idCol: "id", cols: []syncCol{
 		{"start_date", kDate}, {"cycle_length", kNum}, {"period_length", kNum},
-	}},
-	"cycles_days": {"cycles_days", "id", []syncCol{
+	}, healKey: []string{"start_date"}},
+	"cycles_days": {table: "cycles_days", idCol: "id", cols: []syncCol{
 		{"cycle_id", kText}, {"date", kDate}, {"is_period", kBool}, {"is_ovulation", kBool},
 		{"flow", kNum}, {"pain", kNum}, {"tags", kTags}, {"cmq", kText},
 	}},
-	"user_smiley": {"user_smiley", "id", []syncCol{
+	"user_smiley": {table: "user_smiley", idCol: "id", cols: []syncCol{
 		{"smiley_id", kNum}, {"tags", kTags}, {"granted_at", kTs},
 	}},
 }
@@ -115,9 +121,18 @@ type PushResult struct {
 	ServerUpdatedAt time.Time `json:"server_updated_at"`
 }
 
+// ErrBadSyncRow marks a client-supplied row that failed validation (missing id,
+// unparseable timestamps). The handler maps it to a 422 instead of a 500 so a
+// malformed row is the client's error, not a server incident.
+var ErrBadSyncRow = errors.New("invalid sync row")
+
 // Push upserts a batch of rows for one table inside a single transaction, using
 // last-write-wins on updated_at and an ownership guard. Idempotent: re-pushing an
-// already-applied row returns "stale".
+// already-applied row returns "stale". Each row runs under a savepoint so a
+// natural-key unique violation (a client id colliding with an existing live row
+// for the same day — e.g. a server-backfilled legacy id vs a client-minted
+// deterministic id) is healed onto the existing row instead of aborting the
+// whole batch.
 func (m SyncModel) Push(ctx context.Context, userID, table string, rows []json.RawMessage) ([]PushResult, error) {
 	spec, ok := syncSpecs[table]
 	if !ok {
@@ -127,8 +142,24 @@ func (m SyncModel) Push(ctx context.Context, userID, table string, rows []json.R
 	err := withTx(ctx, m.DB, func(tx *sql.Tx) error {
 		upsertSQL := spec.upsertSQL()
 		ownerSQL := fmt.Sprintf(`SELECT user_id FROM %s WHERE %s = $1`, spec.table, spec.idCol)
-		for _, raw := range rows {
-			res, err := spec.pushRow(ctx, tx, userID, raw, upsertSQL, ownerSQL)
+		for i, raw := range rows {
+			row, err := spec.parseRow(raw)
+			if err != nil {
+				return err
+			}
+			sp := fmt.Sprintf("sync_row_%d", i)
+			if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+				return err
+			}
+			res, err := spec.upsertRow(ctx, tx, userID, row, upsertSQL, ownerSQL)
+			if err != nil && isUniqueViolation(err, "") {
+				// A secondary unique (one-per-day natural key) fired: recover the
+				// tx to the savepoint and converge onto the existing live row.
+				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp); rerr != nil {
+					return rerr
+				}
+				res, err = spec.healRow(ctx, tx, userID, row)
+			}
 			if err != nil {
 				return err
 			}
@@ -171,62 +202,180 @@ func (s syncSpec) upsertSQL() string {
 		s.table, s.table)
 }
 
-func (s syncSpec) pushRow(ctx context.Context, tx *sql.Tx, userID string, raw json.RawMessage, upsertSQL, ownerSQL string) (PushResult, error) {
+// parsedSyncRow is a client row after validation: its id, timestamps, and the
+// raw column values keyed by column name.
+type parsedSyncRow struct {
+	id        string
+	updatedAt time.Time
+	deletedAt any
+	data      map[string]any
+}
+
+// parseRow validates a raw client row; malformed input wraps ErrBadSyncRow so
+// the handler can answer 422 instead of 500.
+func (s syncSpec) parseRow(raw json.RawMessage) (parsedSyncRow, error) {
 	var row map[string]any
 	if err := json.Unmarshal(raw, &row); err != nil {
-		return PushResult{}, err
+		return parsedSyncRow{}, fmt.Errorf("%w: %s: %v", ErrBadSyncRow, s.table, err)
 	}
 	id, _ := row["id"].(string)
 	if id == "" {
-		return PushResult{}, fmt.Errorf("sync row for %s missing id", s.table)
+		return parsedSyncRow{}, fmt.Errorf("%w: %s row missing id", ErrBadSyncRow, s.table)
 	}
 	updatedAt, err := parseTime(row["updated_at"])
 	if err != nil {
-		return PushResult{}, fmt.Errorf("row %s: bad updated_at: %w", id, err)
+		return parsedSyncRow{}, fmt.Errorf("%w: row %s: bad updated_at: %v", ErrBadSyncRow, id, err)
 	}
 	var deletedAt any
 	if dv, ok := row["deleted_at"]; ok && dv != nil {
 		t, err := parseTime(dv)
 		if err != nil {
-			return PushResult{}, fmt.Errorf("row %s: bad deleted_at: %w", id, err)
+			return parsedSyncRow{}, fmt.Errorf("%w: row %s: bad deleted_at: %v", ErrBadSyncRow, id, err)
 		}
 		deletedAt = t
 	}
+	return parsedSyncRow{id: id, updatedAt: updatedAt, deletedAt: deletedAt, data: row}, nil
+}
 
+func (s syncSpec) upsertRow(ctx context.Context, tx *sql.Tx, userID string, row parsedSyncRow, upsertSQL, ownerSQL string) (PushResult, error) {
 	args := make([]any, 0, len(s.cols)+4)
-	args = append(args, id, userID)
+	args = append(args, row.id, userID)
 	for _, c := range s.cols {
-		args = append(args, bindArg(c.kind, row[c.name]))
+		args = append(args, bindArg(c.kind, row.data[c.name]))
 	}
-	args = append(args, updatedAt, deletedAt)
+	args = append(args, row.updatedAt, row.deletedAt)
 
 	var serverUpdatedAt time.Time
-	err = tx.QueryRowContext(ctx, upsertSQL, args...).Scan(&serverUpdatedAt)
+	err := tx.QueryRowContext(ctx, upsertSQL, args...).Scan(&serverUpdatedAt)
 	switch {
 	case err == nil:
-		return PushResult{ID: id, Status: "applied", ServerUpdatedAt: serverUpdatedAt}, nil
-	case err == sql.ErrNoRows:
+		return PushResult{ID: row.id, Status: "applied", ServerUpdatedAt: serverUpdatedAt}, nil
+	case errors.Is(err, sql.ErrNoRows):
 		// No row upserted: either a foreign-owned id (reject) or a stale write.
 		var owner string
-		qerr := tx.QueryRowContext(ctx, ownerSQL, id).Scan(&owner)
+		qerr := tx.QueryRowContext(ctx, ownerSQL, row.id).Scan(&owner)
 		if qerr == nil && owner != userID {
-			return PushResult{ID: id, Status: "rejected"}, nil
+			return PushResult{ID: row.id, Status: "rejected"}, nil
 		}
 		// Existing row is ours and newer (or the lookup failed benignly): stale.
 		var srv time.Time
 		_ = tx.QueryRowContext(ctx,
-			fmt.Sprintf(`SELECT server_updated_at FROM %s WHERE %s = $1`, s.table, s.idCol), id).Scan(&srv)
-		return PushResult{ID: id, Status: "stale", ServerUpdatedAt: srv}, nil
+			fmt.Sprintf(`SELECT server_updated_at FROM %s WHERE %s = $1`, s.table, s.idCol), row.id).Scan(&srv)
+		return PushResult{ID: row.id, Status: "stale", ServerUpdatedAt: srv}, nil
 	default:
 		return PushResult{}, err
 	}
 }
 
-// Pull returns rows changed after `since` (exclusive) up to the per-request
-// watermark (now-grace), ordered by server_updated_at, capped at limit. hasMore
-// signals the client to pull again advancing `since` to the last row's
-// server_updated_at.
-func (m SyncModel) Pull(ctx context.Context, userID, table string, since time.Time, limit int) ([]map[string]any, bool, error) {
+// healRow converges a pushed row whose id collided with an existing LIVE row
+// for the same natural key (one-per-day tables). Two steps, both keyed on the
+// natural key + user_id:
+//  1. LWW take-over — if the client's edit is newer, the existing row adopts
+//     the client's id AND data ("applied").
+//  2. Id-only adoption — if the existing row is newer, it adopts just the
+//     client's id so future syncs converge on one physical row; the client
+//     keeps its local copy pending-free and pulls the newer data ("stale").
+//
+// Tables without a healKey (list tables) reject the row rather than poisoning
+// the batch — a uniqueness conflict there means a misbehaving client.
+func (s syncSpec) healRow(ctx context.Context, tx *sql.Tx, userID string, row parsedSyncRow) (PushResult, error) {
+	if len(s.healKey) == 0 {
+		return PushResult{ID: row.id, Status: "rejected"}, nil
+	}
+
+	kindOf := func(name string) ColKindLookup {
+		for _, c := range s.cols {
+			if c.name == name {
+				return ColKindLookup{c.kind, true}
+			}
+		}
+		return ColKindLookup{}
+	}
+
+	// Shared natural-key WHERE (live row owned by this user).
+	whereKey := func(startArg int, args *[]any) (string, int) {
+		parts := []string{fmt.Sprintf("user_id = $%d", startArg)}
+		*args = append(*args, userID)
+		n := startArg + 1
+		for _, k := range s.healKey {
+			kk := kindOf(k)
+			parts = append(parts, fmt.Sprintf("%s = $%d", k, n))
+			*args = append(*args, bindArg(kk.kind, row.data[k]))
+			n++
+		}
+		parts = append(parts, "deleted_at IS NULL")
+		return strings.Join(parts, " AND "), n
+	}
+
+	// Step 1: full take-over when the client's edit wins LWW.
+	set := []string{fmt.Sprintf("%s = $1", s.idCol)}
+	args := []any{row.id}
+	n := 2
+	for _, c := range s.cols {
+		set = append(set, fmt.Sprintf("%s = $%d", c.name, n))
+		args = append(args, bindArg(c.kind, row.data[c.name]))
+		n++
+	}
+	set = append(set, fmt.Sprintf("updated_at = $%d", n))
+	args = append(args, row.updatedAt)
+	n++
+	set = append(set, fmt.Sprintf("deleted_at = $%d", n))
+	args = append(args, row.deletedAt)
+	n++
+	where, n := whereKey(n, &args)
+	takeover := fmt.Sprintf(`UPDATE %s SET %s WHERE %s AND updated_at < $%d RETURNING server_updated_at`,
+		s.table, strings.Join(set, ", "), where, n)
+	args = append(args, row.updatedAt)
+
+	var srv time.Time
+	err := tx.QueryRowContext(ctx, takeover, args...).Scan(&srv)
+	if err == nil {
+		return PushResult{ID: row.id, Status: "applied", ServerUpdatedAt: srv}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return PushResult{}, err
+	}
+
+	// Step 2: existing row is newer — adopt the client id only, keep server data.
+	args = []any{row.id}
+	where2, _ := whereKey(2, &args)
+	adopt := fmt.Sprintf(`UPDATE %s SET %s = $1 WHERE %s RETURNING server_updated_at`,
+		s.table, s.idCol, where2)
+	err = tx.QueryRowContext(ctx, adopt, args...).Scan(&srv)
+	switch {
+	case err == nil:
+		return PushResult{ID: row.id, Status: "stale", ServerUpdatedAt: srv}, nil
+	case errors.Is(err, sql.ErrNoRows):
+		// No live natural-key row after all — shouldn't happen; reject the row.
+		return PushResult{ID: row.id, Status: "rejected"}, nil
+	default:
+		return PushResult{}, err
+	}
+}
+
+// ColKindLookup pairs a column kind with whether the lookup found it.
+type ColKindLookup struct {
+	kind colKind
+	ok   bool
+}
+
+// PullCursor is a keyset cursor into one table's delta: strictly after the row
+// (Ts, ID) in (server_updated_at, id) order. The compound key matters because
+// many rows can share one server_updated_at (a single push tx, or the 032
+// backfill stamping all legacy rows identically) — a bare timestamp cursor
+// would skip the rest of a tie that straddles a page boundary.
+type PullCursor struct {
+	Ts string `json:"ts"`
+	ID string `json:"id"`
+}
+
+// Pull returns rows changed strictly after the cursor position — (since) when
+// cursorID is empty, else the keyset (cursorTs, cursorID) — up to and including
+// `until` (the request-stable watermark), ordered by (server_updated_at, id),
+// capped at limit. When hasMore is true the caller resumes from the returned
+// last-row cursor with the SAME `until`, and must not advance its persisted
+// watermark until a sweep completes with hasMore=false.
+func (m SyncModel) Pull(ctx context.Context, userID, table string, since time.Time, cursorID string, until time.Time, limit int) ([]map[string]any, bool, error) {
 	spec, ok := syncSpecs[table]
 	if !ok {
 		return nil, false, fmt.Errorf("unknown sync table %q", table)
@@ -234,7 +383,6 @@ func (m SyncModel) Pull(ctx context.Context, userID, table string, since time.Ti
 	if limit <= 0 || limit > 1000 {
 		limit = 500
 	}
-	watermark := time.Now().Add(-pullGrace)
 
 	selectCols := []string{spec.idCol + " AS id"}
 	for _, c := range spec.cols {
@@ -242,16 +390,25 @@ func (m SyncModel) Pull(ctx context.Context, userID, table string, since time.Ti
 	}
 	selectCols = append(selectCols, "updated_at", "deleted_at", "server_updated_at")
 
+	// First page uses a plain strict timestamp bound (watermark semantics);
+	// subsequent pages use the compound keyset so timestamp ties are not skipped.
+	cursorCond := "server_updated_at > $2"
+	args := []any{userID, since, until, limit}
+	if cursorID != "" {
+		cursorCond = fmt.Sprintf("(server_updated_at, %s) > ($2, $5::uuid)", spec.idCol)
+		args = append(args, cursorID)
+	}
+
 	query := fmt.Sprintf(`
 		SELECT %s FROM %s
-		WHERE user_id = $1 AND server_updated_at > $2 AND server_updated_at <= $3
+		WHERE user_id = $1 AND %s AND server_updated_at <= $3
 		ORDER BY server_updated_at, %s
 		LIMIT $4`,
-		strings.Join(selectCols, ", "), spec.table, spec.idCol)
+		strings.Join(selectCols, ", "), spec.table, cursorCond, spec.idCol)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	sqlRows, err := m.DB.QueryContext(ctx, query, userID, since, watermark, limit)
+	sqlRows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -292,15 +449,15 @@ func (s syncSpec) scanRow(rows *sql.Rows) (map[string]any, error) {
 		row[c.name] = readHolder(c.kind, holders[i])
 	}
 	if updatedAt.Valid {
-		row["updated_at"] = updatedAt.Time.UTC().Format(time.RFC3339)
+		row["updated_at"] = updatedAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 	if deletedAt.Valid {
-		row["deleted_at"] = deletedAt.Time.UTC().Format(time.RFC3339)
+		row["deleted_at"] = deletedAt.Time.UTC().Format(time.RFC3339Nano)
 	} else {
 		row["deleted_at"] = nil
 	}
 	if serverUpdatedAt.Valid {
-		row["server_updated_at"] = serverUpdatedAt.Time.UTC().Format(time.RFC3339)
+		row["server_updated_at"] = serverUpdatedAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 	return row, nil
 }
@@ -353,7 +510,7 @@ func readHolder(kind colKind, h any) any {
 	case kDate:
 		return h.(*time.Time).UTC().Format(dateLayout)
 	case kTs:
-		return h.(*time.Time).UTC().Format(time.RFC3339)
+		return h.(*time.Time).UTC().Format(time.RFC3339Nano)
 	default:
 		return *h.(*string)
 	}

@@ -30,6 +30,8 @@ func Routes(app *api.Application) http.Handler {
 	//Profile
 	router.Handler(http.MethodGet, "/v1/users/profile", app.RequireActivatedAndAuthedUser(app.GetUserProfileHandler))
 	router.Handler(http.MethodPut, "/v1/users/profile_pic", app.RequireActivatedAndAuthedUser(app.UpdateUserProfilePicHandler))
+	router.Handler(http.MethodPut, "/v1/users/alias", app.RequireActivatedAndAuthedUser(app.UpdateUserAliasHandler))
+	router.Handler(http.MethodDelete, "/v1/users/me", app.RequireActivatedAndAuthedUser(app.DeleteAccountHandler))
 
 	//User tracked metrics
 	metricEndp := "/v1/user/metrics"
@@ -146,7 +148,8 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodPut, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.UpdateMenstrualCycle)))
 	router.Handler(http.MethodDelete, "/v1/user/period/:id", app.RequireActivatedAndAuthedUser((app.DeleteMenstrualCycle)))
 
-	//Cloud sync (paywalled: both routes require an active "sync" entitlement)
+	//Cloud sync (free for authed users during the MVP; the "sync" entitlement
+	//paywall is dormant inside RequireSyncEntitlement and can be re-enabled)
 	router.Handler(http.MethodPost, "/v1/sync/push", app.RequireSyncEntitlement(app.PushSyncHandler))
 	router.Handler(http.MethodPost, "/v1/sync/pull", app.RequireSyncEntitlement(app.PullSyncHandler))
 	router.Handler(http.MethodGet, "/v1/user/entitlements", app.RequireActivatedAndAuthedUser(app.GetUserEntitlements))
@@ -158,5 +161,5 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodGet, "/v1/debug/vars", app.RequireAdminUser(expvar.Handler().ServeHTTP))
 
 	//Middlewares
-	return app.RecoverPanic(app.SecureHeaders(app.Metrics(app.Authenticate(router))))
+	return app.RecoverPanic(app.RateLimit(app.SecureHeaders(app.Metrics(app.Authenticate(router)))))
 }

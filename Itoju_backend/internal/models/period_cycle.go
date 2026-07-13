@@ -141,8 +141,20 @@ func (m *UserPeriodModel) GetRecentCycleDays(ctx context.Context, userID string)
 }
 
 func (m *UserPeriodModel) insertMenstrualCycleTx(ctx context.Context, tx *sql.Tx, cycle *MenstrualCycle) (string, error) {
+	// The cycle id (set by the BEFORE INSERT trigger from migration 038) is
+	// deterministic per (user, start_date), so that pair is a single physical row
+	// for its whole lifetime. Re-creating a soft-deleted cycle revives the
+	// tombstone with the new lengths; a LIVE duplicate updates no row (the WHERE
+	// is false) and surfaces as ErrNoRows → ErrRecordAlreadyExist, preserving the
+	// handler's behaviour.
 	query := `INSERT INTO menstrual_cycles (user_id, start_date, cycle_length, period_length, created_at)
-              VALUES ($1, $2, $3, $4, $5) RETURNING id`
+              VALUES ($1, $2, $3, $4, $5)
+              ON CONFLICT (id) DO UPDATE SET
+                  deleted_at = NULL,
+                  cycle_length = EXCLUDED.cycle_length,
+                  period_length = EXCLUDED.period_length
+              WHERE menstrual_cycles.deleted_at IS NOT NULL
+              RETURNING id`
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -150,6 +162,8 @@ func (m *UserPeriodModel) insertMenstrualCycleTx(ctx context.Context, tx *sql.Tx
 	err := tx.QueryRowContext(ctx, query, cycle.UserID, cycle.StartDate, cycle.CycleLength, cycle.PeriodLength, time.Now()).Scan(&id)
 	if err != nil {
 		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return "", ErrRecordAlreadyExist
 		case isUniqueViolation(err, "ux_menstrual_cycles_user_start"):
 			return "", ErrRecordAlreadyExist
 		default:
@@ -160,7 +174,10 @@ func (m *UserPeriodModel) insertMenstrualCycleTx(ctx context.Context, tx *sql.Tx
 }
 
 // BulkInsertCycleDaysTx inserts all cycle days for a cycle in a single
-// multi-row statement, instead of one round-trip per day.
+// multi-row statement, instead of one round-trip per day. Day ids are
+// deterministic per (user, cycle, date), so re-creating a soft-deleted cycle
+// revives its day rows — keeping any previously logged flow/pain/tags — and
+// only updates the layout flags for the new lengths.
 func (m *UserPeriodModel) bulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx, days []CycleDay) error {
 	if len(days) == 0 {
 		return nil
@@ -177,6 +194,10 @@ func (m *UserPeriodModel) bulkInsertCycleDaysTx(ctx context.Context, tx *sql.Tx,
 			n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9)
 		args = append(args, d.CycleID, d.UserID, d.Date, d.IsPeriod, d.IsOvulation, d.Flow, d.Pain, pq.Array(d.Tags), d.CMQ)
 	}
+	b.WriteString(` ON CONFLICT (id) DO UPDATE SET
+		deleted_at = NULL,
+		is_period = EXCLUDED.is_period,
+		is_ovulation = EXCLUDED.is_ovulation`)
 	if _, err := tx.ExecContext(ctx, b.String(), args...); err != nil {
 		return err
 	}

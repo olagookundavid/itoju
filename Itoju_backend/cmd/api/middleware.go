@@ -57,7 +57,8 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 
 		// When the limiter is disabled, pass the request straight through.
 		// (Previously the disabled branch fell through without calling next,
-		// which would silently drop every request if this was ever wired in.)
+		// which would have silently dropped every request now that this is
+		// wired into the global middleware chain.)
 		if !app.Config.Limiter.Enabled {
 			next.ServeHTTP(w, r)
 			return

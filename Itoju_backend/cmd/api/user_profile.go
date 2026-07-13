@@ -48,3 +48,50 @@ func (app *Application) UpdateUserProfilePicHandler(w http.ResponseWriter, r *ht
 	env := envelope{"message": "your Profile pic as been updated"}
 	app.respond(w, r, http.StatusOK, env)
 }
+
+// DeleteAccountHandler permanently deletes the authenticated user and, via the
+// ON DELETE CASCADE foreign keys, all of their server-side data (tokens,
+// tracked metrics, cycles, sync state, etc.). This is irreversible.
+func (app *Application) DeleteAccountHandler(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+	err := app.Models.Users.Delete(r.Context(), user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "your account and all associated data have been deleted"})
+}
+
+// UpdateUserAliasHandler stores the display name chosen on the onboarding
+// name step, so it roams with the account across devices.
+func (app *Application) UpdateUserAliasHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Alias string `json:"alias"`
+	}
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	if len(input.Alias) > 50 {
+		app.badRequestResponse(w, r, errors.New("alias must not be more than 50 characters"))
+		return
+	}
+	user := app.contextGetUser(r)
+	err = app.Models.Users.UpdateAlias(r.Context(), user.ID, input.Alias)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.NotFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	app.respond(w, r, http.StatusOK, envelope{"message": "your display name has been updated"})
+}

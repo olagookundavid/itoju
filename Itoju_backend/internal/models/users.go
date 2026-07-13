@@ -24,6 +24,7 @@ type User struct {
 	Activated bool      `json:"activated"`
 	IsAdmin   bool      `json:"is_admin"`
 	PicNo     int       `json:"pic_no"`
+	Alias     string    `json:"alias"`
 	Version   int       `json:"-"`
 }
 
@@ -119,7 +120,7 @@ func (m UserModel) Insert(ctx context.Context, user *User) error {
 }
 
 func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) {
-	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, isAdmin FROM users
+	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, alias, isAdmin FROM users
 	WHERE email = $1`
 	var user User
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -135,6 +136,7 @@ func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) 
 		&user.Activated,
 		&user.Version,
 		&user.PicNo,
+		&user.Alias,
 		&user.IsAdmin)
 
 	if err != nil {
@@ -151,7 +153,7 @@ func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) 
 // GetByFirebaseUID looks up the account a verified Firebase identity is bound
 // to. Returns ErrRecordNotFound if no account is linked to that uid yet.
 func (m UserModel) GetByFirebaseUID(ctx context.Context, uid string) (*User, error) {
-	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, isAdmin FROM users
+	query := ` SELECT id, created_at, first_name, last_name, date_of_birth, email, password_hash, activated, version, pic_no, alias, isAdmin FROM users
 	WHERE firebase_uid = $1`
 	var user User
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -159,7 +161,7 @@ func (m UserModel) GetByFirebaseUID(ctx context.Context, uid string) (*User, err
 	err := m.DB.QueryRowContext(ctx, query, uid).Scan(
 		&user.ID, &user.CreatedAt, &user.FirstName, &user.LastName, &user.Dob,
 		&user.Email, &user.Password.hash, &user.Activated, &user.Version,
-		&user.PicNo, &user.IsAdmin)
+		&user.PicNo, &user.Alias, &user.IsAdmin)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -198,6 +200,51 @@ func (m UserModel) LinkFirebaseUID(ctx context.Context, userID, uid string) erro
 	return nil
 }
 
+// UpdateAlias sets the user's onboarding display name ("What should we call
+// you?"). Kept separate from Update: it's a single-field write with no
+// optimistic-version semantics, callable from the client's fire-and-forget
+// name-step save.
+func (m UserModel) UpdateAlias(ctx context.Context, userID, alias string) error {
+	query := `UPDATE users SET alias = $1 WHERE id = $2`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	result, err := m.DB.ExecContext(ctx, query, alias, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
+// Delete removes the user row for the given id. Every table that references
+// users with ON DELETE CASCADE (tokens, tracked metrics, cycles, etc.) has its
+// dependent rows removed by Postgres in the same statement, so this is the only
+// write needed to erase a user's server-side data. Returns ErrRecordNotFound
+// when no row matched (already deleted / unknown id).
+func (m UserModel) Delete(ctx context.Context, id string) error {
+	query := `DELETE FROM users WHERE id = $1`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	result, err := m.DB.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
 func (m UserModel) Update(ctx context.Context, user *User) error {
 	query := ` UPDATE users SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5, date_of_birth = $6, pic_no = $7
 	WHERE id = $8 AND version = $9
@@ -223,7 +270,7 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 	// Set up the SQL query.
-	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.isAdmin 
+	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.alias, users.isAdmin 
 	FROM users
 	INNER JOIN tokens ON users.id = tokens.user_id
 	WHERE tokens.hash = $1
@@ -246,6 +293,7 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 		&user.Activated,
 		&user.Version,
 		&user.PicNo,
+		&user.Alias,
 		&user.IsAdmin)
 	if err != nil {
 		switch {
@@ -265,7 +313,7 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 // collide across users).
 func (m UserModel) GetForPasswordResetOTP(ctx context.Context, email, otp string) (*User, error) {
 	otpHash := sha256.Sum256([]byte(otp))
-	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.isAdmin
+	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.alias, users.isAdmin
 	FROM users
 	INNER JOIN tokens ON users.id = tokens.user_id
 	WHERE users.email = $1
@@ -288,6 +336,7 @@ func (m UserModel) GetForPasswordResetOTP(ctx context.Context, email, otp string
 		&user.Activated,
 		&user.Version,
 		&user.PicNo,
+		&user.Alias,
 		&user.IsAdmin)
 	if err != nil {
 		switch {
