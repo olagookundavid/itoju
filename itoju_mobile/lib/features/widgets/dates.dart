@@ -36,6 +36,16 @@ class DateFormatter {
     var newTime = DateFormat.jm().format(dateTime);
     return newTime;
   }
+
+  /// Short "13 Jul" style, matching the day/month format already used on the
+  /// metrics page headers (e.g. "Tue 14 Jul") — used to disambiguate which
+  /// calendar day a time belongs to (e.g. an overnight sleep session).
+  static String formatShortDayMonth(DateTime? date) {
+    if (date == null) {
+      return '--';
+    }
+    return DateFormat('d MMM').format(date);
+  }
 }
 
 String? timeOfDay() {

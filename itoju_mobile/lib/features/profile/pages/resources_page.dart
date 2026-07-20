@@ -129,7 +129,7 @@ class _ResourcesPageState extends ConsumerState<ResourcesPage> {
     }
 
     if (state.getStatus == Loader.error) {
-      return _buildError();
+      return _buildError(state.offline);
     }
 
     final resources = state.resourcesModel ?? const <ResourcesModel>[];
@@ -176,7 +176,7 @@ class _ResourcesPageState extends ConsumerState<ResourcesPage> {
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(bool offline) {
     return RefreshIndicator(
       color: AppColors.primaryColorPurple,
       onRefresh: _fetch,
@@ -189,7 +189,9 @@ class _ResourcesPageState extends ConsumerState<ResourcesPage> {
           16.ph,
           Center(
             child: CustomText(
-              "Couldn't load resources",
+              offline
+                  ? 'You need internet access to download resources'
+                  : "Couldn't load resources",
               fontSize: 15.sp,
               fontWeight: FontWeight.w600,
               color: AppColors.textGrey,
@@ -199,7 +201,10 @@ class _ResourcesPageState extends ConsumerState<ResourcesPage> {
           8.ph,
           Center(
             child: CustomText(
-              'Please check your connection and try again.',
+              offline
+                  ? "Once you're online, resources will download and stay "
+                      'saved on this device.'
+                  : 'Please check your connection and try again.',
               fontSize: 13.sp,
               color: AppColors.hintGrey,
               textAlign: TextAlign.center,

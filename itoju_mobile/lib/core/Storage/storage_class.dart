@@ -67,6 +67,12 @@ class HiveKeys {
   /// refreshed on every successful profile fetch, cleared on logout.
   static const profileCache = 'profileCache';
 
+  /// The user's chosen avatar index (1-based, matches asset/avatars/N.png).
+  /// Saved locally first so anonymous/offline users can pick an avatar without
+  /// an authenticated server round-trip; pushed to the server best-effort when
+  /// signed in.
+  static const avatarPicNo = 'avatarPicNo';
+
   /// Cloud-sync cadence prefs (catch-up-on-open scheduling).
   static const syncCadence = 'syncCadence'; // off | daily | weekly | monthly
   static const syncDailyHour = 'syncDailyHour'; // hour-of-day for daily (0-23)
@@ -74,11 +80,14 @@ class HiveKeys {
 }
 
 /// Values of [HiveKeys.onboardingStage] — the resumable first-launch flow:
-/// slides → auth choice → name step → done.
+/// slides → auth choice → name step → setup (track metrics + conditions) → done.
 class OnboardingStage {
   static const slides = 'slides'; // (or unset) still on the intro slides
   static const auth = 'auth'; // choosing sign up / log in / no account
   static const name = 'name'; // on the "What should we call you?" step
+  // Name entered; now choosing what to track + diagnosed conditions. The
+  // dashboard is reachable ONLY at [done], so a kill mid-setup resumes here.
+  static const setup = 'setup';
   static const done = 'done'; // flow complete — app routes to the dashboard
 
   static String current() =>

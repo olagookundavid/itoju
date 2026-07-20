@@ -29,7 +29,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   void initState() {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      pic_no = ref.watch(profileProvider).userModel?.pic_no ?? 0;
+      // Server value when signed in and loaded, else the locally-saved
+      // choice — so anonymous/offline users see their avatar too.
+      pic_no = ref.read(profileProvider.notifier).currentAvatar();
       setState(() {});
     });
     super.initState();
@@ -57,7 +59,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     500.pw,
                     InkWell(
                       onTap: () async {
-                        pic_no = await showModalBottomSheet(
+                        final selected = await showModalBottomSheet<int>(
                             isScrollControlled: true,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.vertical(
@@ -66,8 +68,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             ),
                             context: context,
                             builder: (ccontext) => const ProfilePicSheet());
-                        getAlert('Your profile avatar has been updated',
-                            isWarning: false);
+                        // Only report success when the user actually picked
+                        // an avatar (sheet dismissed without selection = null).
+                        if (selected != null) {
+                          pic_no = selected;
+                          getAlert('Your profile avatar has been updated',
+                              isWarning: false);
+                          setState(() {});
+                        }
                       },
                       child: pic_no == 0
                           ? Container(
@@ -276,17 +284,14 @@ class ProfilePicSheet extends ConsumerWidget {
                 itemBuilder: (BuildContext context, int index) {
                   return InkWell(
                     onTap: () async {
-                      final response = await ref
+                      // Local-first: always saves instantly, regardless of
+                      // network/auth state; server sync (when signed in) is
+                      // best-effort and happens in the background.
+                      await ref
                           .read(profileProvider.notifier)
                           .updateProfilePic(index + 1);
-                      if (response.successMessage.isNotEmpty) {
-                        // ignore: use_build_context_synchronously
-                        Navigator.pop(context, index + 1);
-                      } else if (response.responseMessage!.isNotEmpty) {
-                        getAlert(response.responseMessage!);
-                      } else {
-                        getAlert(response.errorMessage);
-                      }
+                      // ignore: use_build_context_synchronously
+                      Navigator.pop(context, index + 1);
                     },
                     child: Container(
                         decoration: BoxDecoration(

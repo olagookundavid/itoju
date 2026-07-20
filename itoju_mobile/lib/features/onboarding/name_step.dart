@@ -5,7 +5,7 @@ import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/auth/notifiers/profile_notifier.dart';
-import 'package:itoju_mobile/features/landing/landing_page.dart';
+import 'package:itoju_mobile/features/auth/pages/add_tracked_metrics.dart';
 import 'package:itoju_mobile/services/flush_bar_service.dart';
 
 /// The last onboarding step: "What should we call you?" — shown on every path.
@@ -72,11 +72,14 @@ class _NameStepState extends ConsumerState<NameStep> {
   }
 
   Future<void> _goToApp() async {
-    await OnboardingStage.set(OnboardingStage.done);
+    // Name is done — advance to the health setup steps (what to track, then
+    // diagnosed conditions). The dashboard is reached only once those finish,
+    // so a kill here resumes at the tracking step.
+    await OnboardingStage.set(OnboardingStage.setup);
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LandingPage()),
+      MaterialPageRoute(builder: (_) => const AddTrackedMetrics()),
       (route) => false,
     );
   }

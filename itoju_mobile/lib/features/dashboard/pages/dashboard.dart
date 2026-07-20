@@ -57,7 +57,17 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
 
   double getCountForSmileyId(
       List<SmileyModel> smileyList, int id, int totalCount) {
-    var firstSmiley = smileyList.firstWhere((element) => element.id == id);
+    // No `orElse` used to throw a StateError (crashing the whole dashboard
+    // build) whenever the smiley catalog was missing an id — e.g. right after
+    // a data wipe, before the seed/first sync settles. Missing id -> 0 count.
+    SmileyModel? firstSmiley;
+    for (final element in smileyList) {
+      if (element.id == id) {
+        firstSmiley = element;
+        break;
+      }
+    }
+    if (firstSmiley == null) return 0;
     var count = (firstSmiley.count ?? 0) / totalCount;
     return count.isNaN ? 0 : count;
   }
@@ -247,7 +257,8 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                           ? const AppLoader()
                           : trackedSymsState.status == Loader.error
                               ? const Text('error')
-                              : trackedSymsState.symsModel!.isEmpty
+                              : (trackedSymsState.symsModel ?? const [])
+                                      .isEmpty
                                   ? const Text("No Recently Tracked Symptoms")
                                   : GridView.builder(
                                       shrinkWrap: true,
@@ -261,15 +272,16 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                               crossAxisSpacing: 10.w,
                                               mainAxisSpacing: 20.h,
                                               childAspectRatio: (1 / .9)),
-                                      itemCount:
-                                          trackedSymsState.symsModel!.length,
+                                      itemCount: (trackedSymsState.symsModel ??
+                                              const [])
+                                          .length,
                                       itemBuilder: (context, index) {
-                                        final syms =
-                                            trackedSymsState.symsModel![index];
+                                        final syms = trackedSymsState
+                                            .symsModel![index];
                                         return ReoccurringSyms(
                                             'cough',
-                                            syms.name!,
-                                            (syms.count!).toString());
+                                            syms.name ?? '',
+                                            (syms.count ?? 0).toString());
                                       },
                                     ),
                       20.ph,
@@ -336,24 +348,29 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                     });
                                   },
                                 )
-                              : resourceState.resourcesModel!.isEmpty
+                              : (resourceState.resourcesModel ?? const [])
+                                      .isEmpty
                                   ? const Text('No Resources Available Yet')
                                   : Column(
                                       children: [
                                         CarouselSlider.builder(
-                                          itemCount: resourceState
-                                              .resourcesModel!.length,
+                                          itemCount: (resourceState
+                                                      .resourcesModel ??
+                                                  const [])
+                                              .length,
                                           itemBuilder:
                                               (context, index, realIndex) {
                                             final resource = resourceState
                                                 .resourcesModel![index];
                                             return InkWell(
                                               onTap: () {
+                                                final link = resource.link;
+                                                if (link == null) return;
                                                 Navigator.push(context,
                                                     MaterialPageRoute(
                                                   builder: (context) {
                                                     return ResourceWebView(
-                                                        url: resource.link!);
+                                                        url: link);
                                                   },
                                                 ));
                                               },
@@ -376,8 +393,9 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                                               Radius.circular(
                                                                   15.r)),
                                                       child: CachedImageHelper(
-                                                          url:
-                                                              resource.imgUrl!),
+                                                          url: resource
+                                                                  .imgUrl ??
+                                                              ''),
                                                     ),
                                                   ),
                                                   Positioned(
@@ -413,8 +431,10 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                         5.ph,
                                         AnimatedSmoothIndicator(
                                           activeIndex: activeIndex,
-                                          count: resourceState
-                                              .resourcesModel!.length,
+                                          count: (resourceState
+                                                      .resourcesModel ??
+                                                  const [])
+                                              .length,
                                           effect: JumpingDotEffect(
                                             dotWidth: 7.w,
                                             dotHeight: 7.h,

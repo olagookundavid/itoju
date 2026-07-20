@@ -12,8 +12,8 @@ import 'package:itoju_mobile/features/auth/pages/app_lock.dart';
 import 'package:itoju_mobile/features/auth/pages/auth_gate.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/firebase_options.dart';
+import 'package:itoju_mobile/sync/online_tasks.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
-import 'package:itoju_mobile/sync/sync_controller.dart';
 import 'package:itoju_mobile/sync/sync_scheduler.dart';
 import 'package:toastification/toastification.dart';
 
@@ -66,9 +66,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   void _triggerSync() {
-    // Fire-and-forget; runs only when the chosen cadence is due, and the engine
-    // still gates on entitlement and guards re-entry.
-    ref.read(syncControllerProvider).maybePeriodicSync();
+    // Fire-and-forget; runs the online-tasks registry (health sync, resources
+    // refresh, …) — each task applies its own gating/guards internally.
+    runOnlineTasks(ref.read);
   }
 
   @override

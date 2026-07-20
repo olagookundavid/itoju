@@ -362,8 +362,6 @@ class _UrineListState extends ConsumerState<UrineList> {
                             ref.watch(urineProvider).updateStatus ==
                                 Loader.loading),
                         onPressed: () async {
-                          debugPrint(widget.urineModel.id!.toString());
-
                           final response = await (widget.isNew
                               ? ref
                                   .read(urineProvider.notifier)
@@ -396,7 +394,8 @@ class _UrineListState extends ConsumerState<UrineList> {
                             });
 
                             getAlert(response.successMessage, isWarning: false);
-                          } else if (response.responseMessage!.isNotEmpty) {
+                          } else if (response.responseMessage?.isNotEmpty ==
+                              true) {
                             getAlert(response.responseMessage!);
                           } else {
                             getAlert(response.errorMessage);
@@ -423,7 +422,8 @@ class _UrineListState extends ConsumerState<UrineList> {
                                     .read(urineProvider.notifier)
                                     .getUrineList(widget.date);
                               });
-                            } else if (response.responseMessage!.isNotEmpty) {
+                            } else if (response.responseMessage?.isNotEmpty ==
+                                true) {
                               getAlert(response.responseMessage!);
                             } else {
                               getAlert(response.errorMessage);

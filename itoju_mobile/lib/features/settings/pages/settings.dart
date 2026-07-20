@@ -236,6 +236,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _cloudSyncSection(),
               SizedBox(height: 28.h),
               _dangerZoneSection(),
+              // Trailing breathing room so the last tile's subtitle isn't
+              // flush against the bottom of the scroll content.
+              SizedBox(height: 40.h),
             ],
           ),
         ),

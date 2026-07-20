@@ -5,9 +5,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
+import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
-import 'package:itoju_mobile/services/app_exception.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
 
 final profileProvider =
@@ -77,29 +77,47 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     }
   }
 
+  /// Saves the chosen avatar locally first (works fully offline/anonymous),
+  /// then best-effort pushes it to the server when signed in. A network
+  /// failure never blocks or errors the local change — the avatar has already
+  /// "saved" from the user's perspective.
   Future<ApiResponse> updateProfilePic(int picNo) async {
-    state = state.copyWith(status: Loader.loading);
-    final Response response;
-    try {
-      response = await dio.put('users/profile_pic', data: {"pic_no": picNo});
-      var body = response.data;
-      if (response.statusCode == 200) {
-        state = state.copyWith(pic_status: Loader.loaded);
-        return ApiResponse(successMessage: body['message']);
-      } else {
-        state = state.copyWith(pic_status: Loader.error);
-        return ApiResponse(
-            errorMessage: body['error'], statusCode: response.statusCode);
-      }
-    } on DioException catch (e) {
-      state = state.copyWith(pic_status: Loader.error, error: e.message);
-      return AppException.handleError(e);
-    } catch (e) {
+    await HiveStorage.put(HiveKeys.avatarPicNo, picNo);
+    final current = state.userModel;
+    if (current != null) {
       state = state.copyWith(
-          pic_status: Loader.error, error: 'An unexpected error occurred');
-      return ApiResponse(errorMessage: 'An error occurred');
+        userModel: UserModel(
+          id: current.id,
+          firstName: current.firstName,
+          lastName: current.lastName,
+          dob: current.dob,
+          email: current.email,
+          activated: current.activated,
+          isAdmin: current.isAdmin,
+          pic_no: picNo,
+          alias: current.alias,
+        ),
+        pic_status: Loader.loaded,
+      );
+    } else {
+      state = state.copyWith(pic_status: Loader.loaded);
     }
+
+    if (await Session.hasToken()) {
+      try {
+        await dio.put('users/profile_pic', data: {"pic_no": picNo});
+      } catch (_) {
+        // Offline or server error — the avatar is already saved locally; the
+        // next successful sync/profile fetch will reconcile the server copy.
+      }
+    }
+    return ApiResponse(successMessage: 'Avatar updated');
   }
+
+  /// The avatar to display: the account's server value when signed in and
+  /// loaded, otherwise the locally-saved choice (anonymous/offline users).
+  int currentAvatar() =>
+      state.userModel?.pic_no ?? (HiveStorage.get(HiveKeys.avatarPicNo) as int? ?? 0);
 }
 
 class ProfileState {

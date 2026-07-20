@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
@@ -34,9 +35,13 @@ class ResourcesNotifier extends StateNotifier<ResourcesState> {
     final cached = _readCache();
     if (cached != null && cached.isNotEmpty) {
       state = state.copyWith(
-          getStatus: Loader.loaded, resourcesModel: cached, syncing: true);
+          getStatus: Loader.loaded,
+          resourcesModel: cached,
+          syncing: true,
+          offline: false);
     } else {
-      state = state.copyWith(getStatus: Loader.loading, syncing: true);
+      state = state.copyWith(
+          getStatus: Loader.loading, syncing: true, offline: false);
     }
 
     // 2. Refresh from the server; keep the cache intact on any failure.
@@ -48,31 +53,43 @@ class ResourcesNotifier extends StateNotifier<ResourcesState> {
             body['resources'].map((e) => ResourcesModel.fromMap(e)));
         await _writeCache(fresh);
         state = state.copyWith(
-            getStatus: Loader.loaded, resourcesModel: fresh, syncing: false);
+            getStatus: Loader.loaded,
+            resourcesModel: fresh,
+            syncing: false,
+            offline: false);
         return true;
       }
-      state = _afterFailedRefresh(cached, body["error"]);
+      state = await _afterFailedRefresh(cached, body["error"]);
       return false;
     } on DioException catch (e) {
-      state = _afterFailedRefresh(cached, e.message);
+      state = await _afterFailedRefresh(cached, e.message);
       return false;
     } catch (_) {
-      state = _afterFailedRefresh(cached, 'An unexpected error occurred');
+      state = await _afterFailedRefresh(cached, 'An unexpected error occurred');
       return false;
     }
   }
 
   /// After a refresh fails: keep showing cached resources if we have any (so an
   /// offline user still sees the list); only fall back to the error screen when
-  /// the cache is empty.
-  ResourcesState _afterFailedRefresh(
-      List<ResourcesModel>? cached, String? error) {
+  /// the cache is empty — and in that case, tell the user plainly that they
+  /// need a connection rather than showing a generic server-error message.
+  Future<ResourcesState> _afterFailedRefresh(
+      List<ResourcesModel>? cached, String? error) async {
     if (cached != null && cached.isNotEmpty) {
       return state.copyWith(
-          getStatus: Loader.loaded, resourcesModel: cached, syncing: false);
+          getStatus: Loader.loaded,
+          resourcesModel: cached,
+          syncing: false,
+          offline: false);
     }
+    final connectivity = await Connectivity().checkConnectivity();
+    final offline = connectivity.every((r) => r == ConnectivityResult.none);
     return state.copyWith(
-        getStatus: Loader.error, error: error, syncing: false);
+        getStatus: Loader.error,
+        error: error,
+        syncing: false,
+        offline: offline);
   }
 
   List<ResourcesModel>? _readCache() {
@@ -198,12 +215,18 @@ class ResourcesState {
   /// on screen). Drives the spinner on the manual sync button.
   bool syncing;
 
+  /// True when the error state is because the device has no connectivity at
+  /// all (vs. a real server/fetch error while online) — lets the UI show
+  /// "you need internet" instead of a generic failure message.
+  bool offline;
+
   ResourcesState(
       {this.resourcesModel,
       this.getStatus = Loader.loading,
       this.postStatus = Loader.loaded,
       this.delStatus = Loader.loaded,
-      this.syncing = false});
+      this.syncing = false,
+      this.offline = false});
   factory ResourcesState.initial() {
     return ResourcesState();
   }
@@ -214,13 +237,15 @@ class ResourcesState {
       String? error,
       Loader? postStatus,
       Loader? delStatus,
-      bool? syncing}) {
+      bool? syncing,
+      bool? offline}) {
     return ResourcesState(
         resourcesModel: resourcesModel ?? this.resourcesModel,
         getStatus: getStatus ?? this.getStatus,
         postStatus: postStatus ?? this.postStatus,
         delStatus: delStatus ?? this.delStatus,
-        syncing: syncing ?? this.syncing);
+        syncing: syncing ?? this.syncing,
+        offline: offline ?? this.offline);
   }
 }
 

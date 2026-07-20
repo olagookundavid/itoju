@@ -71,6 +71,26 @@ class _SleepListState extends ConsumerState<SleepList> {
 
   bool isSaveVisible = false;
   String duration = "00h 00m";
+
+  /// A night session spans two calendar days, so its label needs both dates
+  /// to be unambiguous (e.g. "13 Jul 11:00 PM - 14 Jul 7:00 AM"). Daytime
+  /// sessions stay within the tracked day, so times alone are unambiguous.
+  String get _timeRangeLabel {
+    final timeSlept = widget.sleepModel.timeSlept;
+    final timeWokeUp = widget.sleepModel.timeWokeUp;
+    if (!widget.isNight) {
+      return '$timeSlept - $timeWokeUp';
+    }
+    final startDate = DateTime.tryParse(widget.date);
+    if (startDate == null) {
+      return '$timeSlept - $timeWokeUp';
+    }
+    final endDate = startDate.add(const Duration(days: 1));
+    final startLabel = DateFormatter.formatShortDayMonth(startDate);
+    final endLabel = DateFormatter.formatShortDayMonth(endDate);
+    return '$startLabel $timeSlept - $endLabel $timeWokeUp';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -108,7 +128,7 @@ class _SleepListState extends ConsumerState<SleepList> {
                     color: Colors.white,
                   ),
                   CustomText(
-                    '${widget.sleepModel.timeSlept} - ${widget.sleepModel.timeWokeUp} ',
+                    _timeRangeLabel,
                     fontSize: 10.sp,
                     color: Colors.white,
                     fontWeight: FontWeight.w400,

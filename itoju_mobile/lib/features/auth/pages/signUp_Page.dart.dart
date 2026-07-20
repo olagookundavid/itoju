@@ -566,10 +566,14 @@ class Terms extends StatelessWidget {
           Expanded(
             child: ListView(
               children: [
+                // Explicit `visible` (CustomText defaults to `ellipsis`) so
+                // the full document renders and scrolls once the real terms
+                // replace the current placeholder text, however long it is.
                 const CustomText(
                   TERMS_AND_CONDITIONS,
                   color: AppColors.primaryColorPurple,
                   fontSize: 14,
+                  overflow: TextOverflow.visible,
                 ),
                 verticalSpaceMedium,
               ],

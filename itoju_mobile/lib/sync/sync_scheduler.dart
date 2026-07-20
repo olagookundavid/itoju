@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'sync_controller.dart';
+import 'online_tasks.dart';
 
-/// Background sync trigger: kicks a sync whenever connectivity is (re)gained.
-/// Launch and app-foreground triggers live in main.dart; together they cover the
-/// common cases without a heavyweight background worker. Every trigger runs only
-/// when the configured cadence is due, and is a no-op unless the user is
-/// authenticated and holds the sync entitlement.
+/// Background online-tasks trigger: runs the [onlineTasks] registry (health
+/// sync, resources refresh, …) whenever connectivity is (re)gained. Launch
+/// and app-foreground triggers live in main.dart; together they cover the
+/// common cases without a heavyweight background worker. Each task in the
+/// registry applies its own gating (e.g. health sync only runs when the
+/// configured cadence is due and the user is authenticated/entitled).
 class SyncScheduler {
   SyncScheduler(this._ref);
   final Ref _ref;
@@ -19,7 +20,7 @@ class SyncScheduler {
     _sub ??= Connectivity().onConnectivityChanged.listen((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
       if (online) {
-        _ref.read(syncControllerProvider).maybePeriodicSync();
+        runOnlineTasks(_ref.read);
       }
     });
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/data/account_service.dart';
+import 'package:itoju_mobile/features/auth/pages/add_tracked_metrics.dart';
 import 'package:itoju_mobile/features/auth/pages/app_lock.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/onboarding/name_step.dart';
@@ -50,6 +51,8 @@ class _AuthGateState extends State<AuthGate> {
         dest = Session.isAppLockEnabled()
             ? const AppLockScreen(child: LandingPage())
             : const LandingPage();
+      case OnboardingStage.setup:
+        dest = const AddTrackedMetrics();
       case OnboardingStage.name:
         dest = const NameStep();
       case OnboardingStage.auth:

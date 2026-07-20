@@ -167,9 +167,13 @@ class _AddTrackedMetricsState extends ConsumerState<AddTrackedMetrics> {
                               metricsList.toList(), deleteList.toList());
                       if (response.successMessage.isNotEmpty) {
                         if (!mounted) return;
-                        bool setMetrics =
-                            HiveStorage.get(HiveKeys.setMetrics) ?? false;
-                        if (!setMetrics) {
+                        // During onboarding (stage not yet done), metrics is a
+                        // required step that leads into diagnosed conditions.
+                        // Opened from Settings/Home (done) it's a standalone
+                        // editor that just saves and stays.
+                        final onboarding = OnboardingStage.current() !=
+                            OnboardingStage.done;
+                        if (onboarding) {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(

@@ -289,10 +289,19 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                                   isWarning: false);
 
                               Timer(const Duration(seconds: 1), () {
+                                // Guard the deferred dialog itself — the page
+                                // could have been torn down within this 1s.
+                                if (!mounted) return;
                                 showDialog(
                                   barrierDismissible: false,
                                   context: context,
-                                  builder: (context) {
+                                  // Named distinctly from the outer page
+                                  // `context` on purpose: SignUpSuccess pops
+                                  // THIS dialog context before calling onTap,
+                                  // so the navigation below must use the
+                                  // page's own (still-mounted) context/state,
+                                  // not the now-popped dialog context.
+                                  builder: (dialogContext) {
                                     return SignUpSuccess(
                                       () async {
                                         // The social sign-up already stored a
@@ -304,7 +313,7 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                                           await OnboardingStage.set(
                                               OnboardingStage.name);
                                         }
-                                        if (!context.mounted) return;
+                                        if (!mounted) return;
                                         Navigator.pushAndRemoveUntil(
                                           context,
                                           MaterialPageRoute(

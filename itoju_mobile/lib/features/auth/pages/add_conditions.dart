@@ -45,6 +45,21 @@ class _AddConditionsState extends ConsumerState<AddConditions> {
     super.initState();
   }
 
+  /// Ends the onboarding setup flow (reached by saving conditions or skipping):
+  /// marks onboarding complete and replaces the stack with the dashboard.
+  Future<void> _finishSetup() async {
+    await OnboardingStage.set(OnboardingStage.done);
+    // Legacy flag kept in sync for backward-compat; the stage machine is now
+    // the source of truth for "onboarding done".
+    await HiveStorage.put(HiveKeys.setMetrics, true);
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LandingPage()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(getConditionsProvider);
@@ -172,20 +187,13 @@ class _AddConditionsState extends ConsumerState<AddConditions> {
                                 conditionsList.toList(), deleteList.toList());
                         if (response.successMessage.isNotEmpty) {
                           if (!mounted) return;
-                          bool setMetrics =
-                              HiveStorage.get(HiveKeys.setMetrics) ?? false;
-                          if (!setMetrics) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) {
-                                  return const LandingPage();
-                                },
-                              ),
-                              (route) => false,
-                            );
+                          // Conditions is the final setup step: during onboarding
+                          // (stage not yet done) completing it opens the dashboard.
+                          // From Settings (done) it just saves and stays.
+                          if (OnboardingStage.current() !=
+                              OnboardingStage.done) {
+                            await _finishSetup();
                           }
-                          await HiveStorage.put(HiveKeys.setMetrics, true);
                           getAlert(response.successMessage, isWarning: false);
                         } else if (response.responseMessage!.isNotEmpty) {
                           getAlert(response.responseMessage!);
@@ -194,6 +202,23 @@ class _AddConditionsState extends ConsumerState<AddConditions> {
                         }
                       },
                     ),
+                    // Conditions are optional — let the user skip straight to the
+                    // dashboard during onboarding (they can add them later in
+                    // Settings). Hidden once onboarding is complete.
+                    if (OnboardingStage.current() != OnboardingStage.done) ...[
+                      12.ph,
+                      Center(
+                        child: TextButton(
+                          onPressed: _finishSetup,
+                          child: CustomText(
+                            'Skip for now',
+                            color: AppColors.primaryColorPurple,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                     80.ph,
                   ],
                 ),
