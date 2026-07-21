@@ -176,7 +176,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         pushScreen(
                           context,
                           screen: const SettingsPage(),
-                          withNavBar: false,
+                          //withNavBar: true, //TODO
                           pageTransitionAnimation:
                               PageTransitionAnimation.cupertino,
                         );

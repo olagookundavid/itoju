@@ -238,7 +238,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _dangerZoneSection(),
               // Trailing breathing room so the last tile's subtitle isn't
               // flush against the bottom of the scroll content.
-              SizedBox(height: 40.h),
+              SizedBox(height: 60.h),
             ],
           ),
         ),
@@ -586,8 +586,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       : null,
                   child: Text(
                     'Delete',
-                    style: TextStyle(
-                        color: canDelete ? Colors.red : Colors.grey),
+                    style:
+                        TextStyle(color: canDelete ? Colors.red : Colors.grey),
                   ),
                 ),
               ],

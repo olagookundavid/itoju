@@ -127,7 +127,7 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                         pushScreen(
                           context,
                           screen: const SettingsPage(),
-                          withNavBar: false,
+                          // withNavBar: true, //TODO
                           pageTransitionAnimation:
                               PageTransitionAnimation.cupertino,
                         );
@@ -257,8 +257,7 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                           ? const AppLoader()
                           : trackedSymsState.status == Loader.error
                               ? const Text('error')
-                              : (trackedSymsState.symsModel ?? const [])
-                                      .isEmpty
+                              : (trackedSymsState.symsModel ?? const []).isEmpty
                                   ? const Text("No Recently Tracked Symptoms")
                                   : GridView.builder(
                                       shrinkWrap: true,
@@ -276,8 +275,8 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                               const [])
                                           .length,
                                       itemBuilder: (context, index) {
-                                        final syms = trackedSymsState
-                                            .symsModel![index];
+                                        final syms =
+                                            trackedSymsState.symsModel![index];
                                         return ReoccurringSyms(
                                             'cough',
                                             syms.name ?? '',
@@ -354,10 +353,10 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                   : Column(
                                       children: [
                                         CarouselSlider.builder(
-                                          itemCount: (resourceState
-                                                      .resourcesModel ??
-                                                  const [])
-                                              .length,
+                                          itemCount:
+                                              (resourceState.resourcesModel ??
+                                                      const [])
+                                                  .length,
                                           itemBuilder:
                                               (context, index, realIndex) {
                                             final resource = resourceState
@@ -393,9 +392,9 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                                               Radius.circular(
                                                                   15.r)),
                                                       child: CachedImageHelper(
-                                                          url: resource
-                                                                  .imgUrl ??
-                                                              ''),
+                                                          url:
+                                                              resource.imgUrl ??
+                                                                  ''),
                                                     ),
                                                   ),
                                                   Positioned(
@@ -431,10 +430,10 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                         5.ph,
                                         AnimatedSmoothIndicator(
                                           activeIndex: activeIndex,
-                                          count: (resourceState
-                                                      .resourcesModel ??
-                                                  const [])
-                                              .length,
+                                          count:
+                                              (resourceState.resourcesModel ??
+                                                      const [])
+                                                  .length,
                                           effect: JumpingDotEffect(
                                             dotWidth: 7.w,
                                             dotHeight: 7.h,
