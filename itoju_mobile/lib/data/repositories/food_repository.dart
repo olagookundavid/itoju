@@ -38,39 +38,50 @@ class FoodRepository {
     return row == null ? null : _toModel(row);
   }
 
+  /// Partial merge, NOT a blind overwrite: each meal-section widget (Meal,
+  /// Snack, Water) only ever passes the fields it owns and leaves every other
+  /// field `null` on [m] — that `null` means "untouched", not "clear this".
+  /// So a missing field always falls back to the existing row's value; only
+  /// an explicit (non-null) value — including an explicitly emptied string or
+  /// tag list — overwrites it. Without this, saving e.g. Water would wipe out
+  /// Breakfast/Lunch/Dinner/Snack for the day back to blank.
   Future<void> upsert(String date, FoodMetricModel m) async {
     final account = await _account.deterministicNamespaceId();
     final id = IdMinter.food(account, date);
     final now = DateTime.now();
-    final existed = await getForDate(date) != null;
+    final existing = await getForDate(date);
 
     await _db.into(_db.foodMetrics).insertOnConflictUpdate(
           FoodMetricsCompanion.insert(
             id: id,
             localUpdatedAt: now,
             date: date,
-            breakfastMeal: Value(m.breakfastMeal ?? ''),
-            lunchMeal: Value(m.lunchMeal ?? ''),
-            dinnerMeal: Value(m.dinnerMeal ?? ''),
-            breakfastExtra: Value(m.breakfastExtra ?? ''),
-            lunchExtra: Value(m.lunchExtra ?? ''),
-            dinnerExtra: Value(m.dinnerExtra ?? ''),
-            breakfastFruit: Value(m.breakfastFruit ?? ''),
-            lunchFruit: Value(m.lunchFruit ?? ''),
-            dinnerFruit: Value(m.dinnerFruit ?? ''),
-            breakfastTags: Value(_strList(m.breakfastTags)),
-            lunchTags: Value(_strList(m.lunchTags)),
-            dinnerTags: Value(_strList(m.dinnerTags)),
-            snackName: Value(m.snackName ?? ''),
-            snackTags: Value(_strList(m.snackTags)),
-            glassNo: Value(m.glassNo ?? 0),
+            breakfastMeal:
+                Value(m.breakfastMeal ?? existing?.breakfastMeal ?? ''),
+            lunchMeal: Value(m.lunchMeal ?? existing?.lunchMeal ?? ''),
+            dinnerMeal: Value(m.dinnerMeal ?? existing?.dinnerMeal ?? ''),
+            breakfastExtra:
+                Value(m.breakfastExtra ?? existing?.breakfastExtra ?? ''),
+            lunchExtra: Value(m.lunchExtra ?? existing?.lunchExtra ?? ''),
+            dinnerExtra: Value(m.dinnerExtra ?? existing?.dinnerExtra ?? ''),
+            breakfastFruit:
+                Value(m.breakfastFruit ?? existing?.breakfastFruit ?? ''),
+            lunchFruit: Value(m.lunchFruit ?? existing?.lunchFruit ?? ''),
+            dinnerFruit: Value(m.dinnerFruit ?? existing?.dinnerFruit ?? ''),
+            breakfastTags:
+                Value(_strList(m.breakfastTags ?? existing?.breakfastTags)),
+            lunchTags: Value(_strList(m.lunchTags ?? existing?.lunchTags)),
+            dinnerTags: Value(_strList(m.dinnerTags ?? existing?.dinnerTags)),
+            snackName: Value(m.snackName ?? existing?.snackName ?? ''),
+            snackTags: Value(_strList(m.snackTags ?? existing?.snackTags)),
+            glassNo: Value(m.glassNo ?? existing?.glassNo ?? 0),
             updatedAt: Value(now),
             deletedAt: const Value(null),
             syncState: const Value('pending'),
           ),
         );
 
-    if (!existed) {
+    if (existing == null) {
       await _db.into(_db.pointRecords).insert(PointRecordsCompanion.insert(
             id: IdMinter.v7(),
             localUpdatedAt: now,
