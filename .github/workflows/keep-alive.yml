@@ -1,0 +1,25 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    - cron: "*/50 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping healthcheck
+        run: |
+          url="https://assistant-marlene-davidoh-6e9342c7.koyeb.app/v1/healthcheck"
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$url")
+            if [ "$code" = "200" ]; then
+              echo "OK ($code) on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt got HTTP $code, retrying..."
+            sleep 5
+          done
+          echo "Healthcheck failed after 3 attempts"
+          exit 1
