@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto-Backup rules (Android < 12). The flutter_secure_storage prefs hold
+  values encrypted with a non-exportable Keystore key. Backing them up and
+  restoring on a fresh install (delete + reinstall) produces an undecryptable
+  store, which used to crash launch. Exclude them so a reinstall starts clean.
+  Everything else is still backed up.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
+</full-backup-content>

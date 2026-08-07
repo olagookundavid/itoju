@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup / device-transfer rules (Android 12+). Excludes the
+  flutter_secure_storage prefs from both cloud backup and device-to-device
+  transfer: their values are encrypted with a non-exportable Keystore key, so
+  restoring them onto a fresh install yields an undecryptable store that used
+  to crash launch. Everything else is still eligible.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
+    </device-transfer>
+</data-extraction-rules>

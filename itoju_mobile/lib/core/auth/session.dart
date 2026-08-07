@@ -8,9 +8,17 @@ import 'package:itoju_mobile/core/Storage/storage_class.dart';
 /// be used from the AuthGate, the dio 401 handler, and Settings alike.
 class Session {
   /// True when a session token is present in secure storage.
+  ///
+  /// Never throws: a secure-storage read can fail (e.g. an undecryptable store
+  /// after a reinstall). Many call sites gate sync/UI on this, so a failure
+  /// must read as "no token" (signed out) rather than crashing the flow.
   static Future<bool> hasToken() async {
-    final token = await SecureStore.read(SecureKeys.token);
-    return token != null && token.isNotEmpty;
+    try {
+      final token = await SecureStore.read(SecureKeys.token);
+      return token != null && token.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// App-lock is ON by default (health data is sensitive); users can disable it.

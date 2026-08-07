@@ -17,12 +17,37 @@ class AccountService {
   String? _cachedLocal;
 
   /// The anonymous local account id, minting and persisting it on first use.
+  ///
+  /// Hardened so a secure-storage failure can NEVER brick launch: on Android,
+  /// `flutter_secure_storage` can throw when its encrypted prefs were restored
+  /// by Auto-Backup but the matching Keystore key was not (the classic
+  /// delete-and-reinstall decrypt failure). Since the app is offline-first, we
+  /// recover in place — wipe the unreadable store and mint a fresh id — rather
+  /// than letting the exception propagate and hang the app on its splash.
   Future<String> localAccountId() async {
     if (_cachedLocal != null) return _cachedLocal!;
-    var id = await SecureStore.read(SecureKeys.localAccountId);
+
+    String? id;
+    try {
+      id = await SecureStore.read(SecureKeys.localAccountId);
+    } catch (_) {
+      // Store is unreadable (undecryptable after a reinstall). Best-effort
+      // reset so subsequent reads/writes start clean; ignore if even that
+      // fails — we still mint an in-memory id below so the app opens.
+      id = null;
+      try {
+        await SecureStore.clearAll();
+      } catch (_) {}
+    }
+
     if (id == null || id.isEmpty) {
       id = _uuid.v4();
-      await SecureStore.write(SecureKeys.localAccountId, id);
+      try {
+        await SecureStore.write(SecureKeys.localAccountId, id);
+      } catch (_) {
+        // Couldn't persist — use the in-memory id for this session so the app
+        // is still fully usable offline; it re-mints on the next launch.
+      }
     }
     _cachedLocal = id;
     return id;

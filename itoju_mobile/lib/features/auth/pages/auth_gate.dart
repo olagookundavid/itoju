@@ -32,35 +32,45 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _resolve() async {
     // Mint the anonymous local account on first launch so all local data has an
-    // owner and deterministic ids have a stable namespace.
-    await AccountService().localAccountId();
+    // owner and deterministic ids have a stable namespace. Best-effort only:
+    // this must NEVER gate entry — the app is offline-first, and
+    // localAccountId() already self-heals a broken secure store. Any failure
+    // here still falls through to routing so the app always opens.
+    try {
+      await AccountService().localAccountId();
+    } catch (_) {}
 
     // Legacy migration: installs from before the staged flow only have the
     // firstTime boolean — a completed old-style onboarding maps to `done` so
     // existing users go straight to the app and never see the new flow.
-    if (HiveStorage.get(HiveKeys.onboardingStage) == null &&
-        (HiveStorage.get(HiveKeys.firstTime) as bool? ?? true) == false) {
-      await OnboardingStage.set(OnboardingStage.done);
-    }
+    try {
+      if (HiveStorage.get(HiveKeys.onboardingStage) == null &&
+          (HiveStorage.get(HiveKeys.firstTime) as bool? ?? true) == false) {
+        await OnboardingStage.set(OnboardingStage.done);
+      }
+    } catch (_) {}
 
-    // Route by stage: the dashboard is reachable ONLY once the flow completed,
-    // so killing the app mid-onboarding resumes at the exact step.
-    final Widget dest;
+    if (mounted) setState(() => _destination = _destinationForStage());
+  }
+
+  /// The screen to show for the current onboarding stage. Depends only on Hive
+  /// (reliable), never on the network or secure storage — so it can always
+  /// produce a destination and the loading spinner is never permanent.
+  Widget _destinationForStage() {
     switch (OnboardingStage.current()) {
       case OnboardingStage.done:
-        dest = Session.isAppLockEnabled()
+        return Session.isAppLockEnabled()
             ? const AppLockScreen(child: LandingPage())
             : const LandingPage();
       case OnboardingStage.setup:
-        dest = const AddTrackedMetrics();
+        return const AddTrackedMetrics();
       case OnboardingStage.name:
-        dest = const NameStep();
+        return const NameStep();
       case OnboardingStage.auth:
-        dest = const WelcomePage();
+        return const WelcomePage();
       default: // OnboardingStage.slides / unset
-        dest = const OnBoarding();
+        return const OnBoarding();
     }
-    if (mounted) setState(() => _destination = dest);
   }
 
   @override
