@@ -1,7 +1,5 @@
 // ignore_for_file: library_private_types_in_public_api, constant_identifier_names
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -277,61 +275,39 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                                 }
                                 if (!mounted) return;
                               }
-                              final name = (data is Map ? data['name'] : data)
-                                      ?.toString() ??
-                                  '';
-                              // A returning account restores its history via
-                              // the background sync kicked off by sign-in.
+                              // The social sign-up already stored a session
+                              // token. Advance the onboarding stage and navigate
+                              // IMMEDIATELY — no deferred Timer/dialog to hinge
+                              // on. The previous flow only navigated from inside
+                              // a 1s-delayed success dialog's button, so any
+                              // interruption (rebuild, resume from the Google
+                              // picker, the page being torn down) left the user
+                              // on a blank/black screen. Navigating straight
+                              // away — and setting the stage first, so AuthGate
+                              // re-resolves to the same place on a restart —
+                              // makes this deterministic.
+                              if (!OnboardingStage.isDone) {
+                                await OnboardingStage.set(OnboardingStage.name);
+                              }
+                              if (!mounted) return;
+                              // A returning account restores its history via the
+                              // background sync kicked off by sign-in.
                               getAlert(
                                   'Welcome! If you had data backed up, it is '
                                   'downloading in the background and will '
                                   'appear shortly.',
                                   isWarning: false);
-
-                              Timer(const Duration(seconds: 1), () {
-                                // Guard the deferred dialog itself — the page
-                                // could have been torn down within this 1s.
-                                if (!mounted) return;
-                                showDialog(
-                                  barrierDismissible: false,
-                                  context: context,
-                                  // Named distinctly from the outer page
-                                  // `context` on purpose: SignUpSuccess pops
-                                  // THIS dialog context before calling onTap,
-                                  // so the navigation below must use the
-                                  // page's own (still-mounted) context/state,
-                                  // not the now-popped dialog context.
-                                  builder: (dialogContext) {
-                                    return SignUpSuccess(
-                                      () async {
-                                        // The social sign-up already stored a
-                                        // session token. During onboarding,
-                                        // continue to the name step (prefilled
-                                        // from the account); otherwise land in
-                                        // the app.
-                                        if (!OnboardingStage.isDone) {
-                                          await OnboardingStage.set(
-                                              OnboardingStage.name);
-                                        }
-                                        if (!mounted) return;
-                                        Navigator.pushAndRemoveUntil(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) {
-                                              return OnboardingStage.isDone
-                                                  ? const LandingPage()
-                                                  : const NameStep();
-                                            },
-                                          ),
-                                          (route) => false,
-                                        );
-                                      },
-                                      name: name,
-                                    );
-                                  },
-                                );
-                              });
-                            } else if (response.responseMessage!.isNotEmpty) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OnboardingStage.isDone
+                                      ? const LandingPage()
+                                      : const NameStep(),
+                                ),
+                                (route) => false,
+                              );
+                            } else if (response.responseMessage?.isNotEmpty ==
+                                true) {
                               getAlert(response.responseMessage!);
                             } else {
                               getAlert(response.errorMessage);
