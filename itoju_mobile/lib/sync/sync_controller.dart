@@ -4,6 +4,10 @@ import '../core/Storage/storage_class.dart';
 import 'sync_engine.dart';
 import 'sync_schedule.dart';
 
+// Re-export so callers that talk to the controller (e.g. Settings) can read
+// the outcome without reaching into the engine layer.
+export 'sync_engine.dart' show SyncOutcome;
+
 /// SyncController sits above the SyncEngine and applies the user's chosen sync
 /// cadence. It owns the (Hive-backed) prefs — cadence, daily hour, last-synced
 /// time — so the engine itself stays dependency-light and unit-testable.
@@ -34,15 +38,15 @@ class SyncController {
   }
 
   /// Run a sync now regardless of cadence (the manual "Back up now" action and
-  /// the first-sign-in flush). Returns whether it actually synced (false when
-  /// not signed in / not entitled); stamps lastSyncAt on success.
-  Future<bool> backupNow() async {
-    final did = await _ref.read(syncEngineProvider).syncNow();
-    if (did) {
+  /// the first-sign-in flush). Returns the [SyncOutcome] so the caller can tell
+  /// the user the real reason it didn't sync; stamps lastSyncAt only on success.
+  Future<SyncOutcome> backupNow() async {
+    final outcome = await _ref.read(syncEngineProvider).syncNow();
+    if (outcome == SyncOutcome.synced) {
       await HiveStorage.put(
           HiveKeys.lastSyncAt, DateTime.now().toIso8601String());
     }
-    return did;
+    return outcome;
   }
 
   /// Called from the app-open / resume / connectivity-regained triggers. Runs a

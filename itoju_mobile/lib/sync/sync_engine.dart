@@ -107,6 +107,29 @@ final syncApiProvider = Provider<SyncApi>((ref) => DioSyncApi(ref));
 
 final syncEngineProvider = Provider<SyncEngine>((ref) => SyncEngine(ref));
 
+/// Why a sync attempt ended — lets the UI tell the user the actual reason
+/// instead of a catch-all "couldn't back up".
+enum SyncOutcome {
+  /// Push + pull completed.
+  synced,
+
+  /// No session token — the user isn't signed in.
+  notSignedIn,
+
+  /// A different account is signed in than this device is bound to; sync is
+  /// refused until the switch is resolved (keep-or-erase at sign-in).
+  accountSwitchPending,
+
+  /// Couldn't reach the server (offline, timeout, or a server error).
+  offlineOrServerError,
+
+  /// A sync was already in progress; this trigger was a no-op.
+  busy,
+}
+
+/// Result of the pre-sync account binding check.
+enum _BindResult { ok, switchPending, unavailable }
+
 /// The client half of the offline-first sync protocol. Pushes locally-pending
 /// rows, then pulls the server delta, applying last-write-wins by updated_at.
 /// The SyncEngine is the ONLY thing that touches the network for health data;
@@ -120,28 +143,36 @@ class SyncEngine {
   AppDatabase get _db => _ref.read(appDatabaseProvider);
   SyncApi get _api => _ref.read(syncApiProvider);
 
-  /// Push then pull, once, guarded so overlapping triggers don't stack. No-ops
-  /// (returns false) unless the user is authenticated and holds the sync
-  /// entitlement; returns true only when a full push+pull completed, so callers
-  /// can record the last-synced time. Never throws — offline/server errors
-  /// surface as `false` so every trigger (manual, launch, resume, reconnect)
-  /// degrades to "didn't sync" instead of an unhandled async exception.
-  Future<bool> syncNow() async {
-    if (_running) return false;
-    if (!await _ref.read(entitlementServiceProvider).isSyncEnabled()) {
-      return false;
-    }
-    _running = true;
+  /// Push then pull, once, guarded so overlapping triggers don't stack. Returns
+  /// a [SyncOutcome] describing what happened, so callers (and the UI) can tell
+  /// "not signed in" from "offline" from "account switch pending" instead of a
+  /// bare success/fail. Never throws — every failure maps to an outcome, so
+  /// each trigger (manual, launch, resume, reconnect) degrades gracefully.
+  Future<SyncOutcome> syncNow() async {
+    if (_running) return SyncOutcome.busy;
     try {
-      if (!await _bindIfNeeded()) return false;
-      await push();
-      await pull();
-      return true;
+      if (!await _ref.read(entitlementServiceProvider).isSyncEnabled()) {
+        return SyncOutcome.notSignedIn;
+      }
+      _running = true;
+      try {
+        switch (await _bindIfNeeded()) {
+          case _BindResult.switchPending:
+            return SyncOutcome.accountSwitchPending;
+          case _BindResult.unavailable:
+            return SyncOutcome.offlineOrServerError;
+          case _BindResult.ok:
+            break;
+        }
+        await push();
+        await pull();
+        return SyncOutcome.synced;
+      } finally {
+        _running = false;
+      }
     } catch (e) {
       debugLog('sync failed: $e');
-      return false;
-    } finally {
-      _running = false;
+      return SyncOutcome.offlineOrServerError;
     }
   }
 
@@ -295,14 +326,15 @@ class SyncEngine {
   /// would upload user A's health data into user B's account and pulling would
   /// merge B's cloud data into A's local store. The switch must be resolved
   /// explicitly (keep-or-erase at sign-in) before sync resumes.
-  Future<bool> _bindIfNeeded() async {
+  Future<_BindResult> _bindIfNeeded() async {
     // boundServerUserId is written by the sign-in flow before the first sync. A
     // session from a build predating that flow won't have it — self-heal by
     // asking the server who the token belongs to.
     var serverUserId = await SecureStore.read(SecureKeys.boundServerUserId);
     if (serverUserId == null || serverUserId.isEmpty) {
       final fetched = await _fetchAuthedUserId();
-      if (fetched == null || fetched.isEmpty) return false;
+      // Couldn't confirm the token's owner — offline or the token was rejected.
+      if (fetched == null || fetched.isEmpty) return _BindResult.unavailable;
       serverUserId = fetched;
       await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
       await SecureStore.write(SecureKeys.currentServerUserId, serverUserId);
@@ -310,18 +342,18 @@ class SyncEngine {
     final current = await SecureStore.read(SecureKeys.currentServerUserId);
     if (current != null && current.isNotEmpty && current != serverUserId) {
       debugLog('sync refused: signed-in user differs from bound user');
-      return false;
+      return _BindResult.switchPending;
     }
     // Re-key exactly once, tracked separately from boundServerUserId (which is
     // set at login, before this runs).
-    if (await _meta('reKeyed') == 'true') return true;
+    if (await _meta('reKeyed') == 'true') return _BindResult.ok;
     final localAccount =
         await _ref.read(accountServiceProvider).localAccountId();
     if (localAccount != serverUserId) {
       await _rekeyDeterministicIds(localAccount, serverUserId);
     }
     await _setMeta('reKeyed', 'true');
-    return true;
+    return _BindResult.ok;
   }
 
   Future<void> _rekeyDeterministicIds(String from, String to) async {

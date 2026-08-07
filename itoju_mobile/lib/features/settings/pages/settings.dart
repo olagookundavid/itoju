@@ -382,19 +382,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _backupNow() async {
     setState(() => _backingUp = true);
-    bool did = false;
+    SyncOutcome outcome;
     try {
-      did = await ref.read(syncControllerProvider).backupNow();
+      outcome = await ref.read(syncControllerProvider).backupNow();
     } finally {
       if (mounted) setState(() => _backingUp = false);
     }
     if (!mounted) return;
+    final message = switch (outcome) {
+      SyncOutcome.synced => 'Backed up',
+      SyncOutcome.notSignedIn => 'Sign in to back up your data to the cloud',
+      SyncOutcome.accountSwitchPending =>
+        'A different account is signed in on this device. Resolve that before '
+            'backing up.',
+      SyncOutcome.offlineOrServerError =>
+        "Couldn't reach the server — check your connection and try again",
+      SyncOutcome.busy => 'A backup is already in progress',
+    };
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(did
-            ? 'Backed up'
-            : "Couldn't back up — make sure you're signed in and online"),
-      ),
+      SnackBar(content: Text(message)),
     );
   }
 
