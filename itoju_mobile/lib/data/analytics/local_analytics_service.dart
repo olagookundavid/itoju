@@ -90,9 +90,20 @@ class LocalAnalyticsService {
   double _round2(double v) => double.parse(v.toStringAsFixed(2));
 
   // ========================================================================
-  // SYMPTOMS: AVG over the bucket of (morning+afternoon+night)/3, filtered by
-  // symptoms_id. Sparse map (no backfill), matching the server. fromMap x10.
+  // SYMPTOMS: OCCURRENCE + SEVERITY per bucket, filtered by symptoms_id.
+  //
+  // A symptom is logged (a row exists) and rated (severity set) in separate
+  // steps, so many logged days have severity 0. The chart must still show those
+  // days — a symptom you logged happened, whether or not you rated it. So every
+  // bucket with >=1 row emits at least [kLoggedBaseline] (a short "logged" nub),
+  // and rated days rise above it by their severity. Per-row severity averages
+  // only the RATED (non-zero) periods, so rating a single period no longer gets
+  // deflated by dividing across all three. Sparse map (no backfill); fromMap x10.
   // ========================================================================
+
+  /// Floor for a logged-but-unrated day, on the 0..1 severity scale (the chart
+  /// multiplies by 10, so ~1.0 of a 10-tall axis) — a visible but minimal bar.
+  static const double kLoggedBaseline = 0.1;
 
   Future<Map<String, num>> _symsAggregate(
     int symsId,
@@ -104,19 +115,31 @@ class LocalAnalyticsService {
               t.deletedAt.isNull() & t.symptomsId.equals(symsId) & filter(t)))
         .get();
 
-    final sums = <int, double>{};
-    final counts = <int, int>{};
+    final ratedSums = <int, double>{}; // sum of rated rows' severity per bucket
+    final ratedCounts = <int, int>{}; // # rated rows per bucket
+    final logged = <int, int>{}; // # rows (occurrence) per bucket
     for (final r in rows) {
       final bucket = bucketOf(r.date);
-      final severity =
-          (r.morningSeverity + r.afternoonSeverity + r.nightSeverity) / 3;
-      sums[bucket] = (sums[bucket] ?? 0) + severity;
-      counts[bucket] = (counts[bucket] ?? 0) + 1;
+      logged[bucket] = (logged[bucket] ?? 0) + 1;
+      // Average only the periods that were actually rated (non-zero).
+      final periods = [r.morningSeverity, r.afternoonSeverity, r.nightSeverity]
+          .where((s) => s > 0)
+          .toList();
+      if (periods.isNotEmpty) {
+        final rowSeverity = periods.reduce((a, b) => a + b) / periods.length;
+        ratedSums[bucket] = (ratedSums[bucket] ?? 0) + rowSeverity;
+        ratedCounts[bucket] = (ratedCounts[bucket] ?? 0) + 1;
+      }
     }
 
     final out = <String, num>{};
-    sums.forEach((bucket, total) {
-      out['$bucket'] = _round2(total / counts[bucket]!);
+    logged.forEach((bucket, _) {
+      final ratedCount = ratedCounts[bucket] ?? 0;
+      final avgRated = ratedCount > 0 ? ratedSums[bucket]! / ratedCount : 0.0;
+      // Occurrence floor: logged days always show; rated days rise above it.
+      out['$bucket'] = _round2(avgRated > kLoggedBaseline
+          ? avgRated
+          : kLoggedBaseline);
     });
     return out;
   }
