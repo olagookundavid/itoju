@@ -119,7 +119,7 @@ class _Symptoms7DaysChartState extends ConsumerState<Symptoms7DaysChart> {
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                   axisNameWidget: CustomText(
-                                    'Pain level',
+                                    'Average Pain Level',
                                     fontSize: 10.sp,
                                     fontWeight: FontWeight.w500,
                                     color: AppColors.primaryColorPurple,
@@ -165,12 +165,6 @@ class _Symptoms7DaysChartState extends ConsumerState<Symptoms7DaysChart> {
                       ),
                     ),
                   ),
-        8.ph,
-        CustomText(
-          'A short bar means the symptom was logged but not rated.',
-          fontSize: 10.sp,
-          color: AppColors.hintGrey,
-        ),
       ],
     );
   }

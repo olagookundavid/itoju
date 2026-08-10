@@ -176,7 +176,7 @@ class _SymptomsWeekChartState extends ConsumerState<SymptomsWeekChart> {
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                   axisNameWidget: CustomText(
-                                    'Pain level',
+                                    'Average Pain Level',
                                     fontSize: 10.sp,
                                     fontWeight: FontWeight.w500,
                                     color: AppColors.primaryColorPurple,

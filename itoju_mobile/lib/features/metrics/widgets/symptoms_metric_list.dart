@@ -9,6 +9,7 @@ import 'package:itoju_mobile/features/metrics/notifiers/symptoms_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
+import 'package:itoju_mobile/features/widgets/dates.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 import 'package:itoju_mobile/services/flush_bar_service.dart';
 
@@ -25,22 +26,24 @@ class SymptomsList extends ConsumerStatefulWidget {
 }
 
 class _SymptomsListState extends ConsumerState<SymptomsList> {
-  // One overall severity (0..1). We keep the model's three period columns for
-  // the backend sync contract but drive them all from this single value, so a
-  // day is never left partially-rated (which the analytics used to deflate).
-  double severity = 0;
+  final List daysList = [
+    'Morning',
+    'Afternoon',
+    'Evening',
+  ];
+  double morningSev = 0;
+  double afternoonSev = 0;
+  double eveningSev = 0;
+
+  final Set dayTags = {timeOfDay()};
+  double serverity = 0;
   Set tester = {};
   @override
   void initState() {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      // Seed from the strongest recorded period so re-opening a rated symptom
-      // shows its level (new writes are uniform, so all three are equal).
-      severity = [
-        widget.symsMetric.morningSeverity ?? 0,
-        widget.symsMetric.afternoonSeverity ?? 0,
-        widget.symsMetric.nightSeverity ?? 0,
-      ].reduce((a, b) => a > b ? a : b);
-      setState(() {});
+      morningSev = widget.symsMetric.morningSeverity!;
+      afternoonSev = widget.symsMetric.afternoonSeverity!;
+      eveningSev = widget.symsMetric.nightSeverity!;
     });
     super.initState();
   }
@@ -48,6 +51,11 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
   bool isSaveVisible = false;
   @override
   Widget build(BuildContext context) {
+    serverity = (dayTags.first == 'Morning'
+        ? morningSev
+        : dayTags.first == 'Afternoon'
+            ? afternoonSev
+            : eveningSev);
     return Column(
       children: [
         10.ph,
@@ -119,21 +127,52 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
             width: double.infinity,
             child: Column(
               children: [
-                10.ph,
-                CustomText(
-                  'How bad is it?',
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryColorPurple,
+                7.ph,
+                Wrap(
+                  spacing: 8.w,
+                  runSpacing: 8.h,
+                  children: List.generate(daysList.length, (index) {
+                    final tag = daysList[index];
+                    return ActionChip(
+                      label: Text(tag),
+                      labelStyle: TextStyle(
+                          color: dayTags.contains(tag)
+                              ? Colors.white
+                              : Colors.black),
+                      backgroundColor: dayTags.contains(tag)
+                          ? AppColors.primaryColorPurple.withOpacity(.85)
+                          : null,
+                      onPressed: () {
+                        setState(() {
+                          if (dayTags.contains(tag)) {
+                            return;
+                          }
+                          dayTags.clear();
+                          dayTags.add(tag);
+                        });
+                      },
+                    );
+                  }),
                 ),
                 10.ph,
                 SliderAndValue(
                     onchanged: (value) {
                       isSaveVisible = true;
-                      severity = value;
+                      switch (dayTags.first) {
+                        case 'Morning':
+                          morningSev = value;
+                          break;
+                        case 'Afternoon':
+                          afternoonSev = value;
+                          break;
+                        case 'Evening':
+                          eveningSev = value;
+                          break;
+                        default:
+                      }
                       setState(() {});
                     },
-                    sev: severity),
+                    sev: serverity),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -141,13 +180,13 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
                       'Mild',
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      color: severity < .33 ? Colors.green : Colors.grey,
+                      color: serverity < .33 ? Colors.green : Colors.grey,
                     ),
                     CustomText(
                       'Moderate',
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      color: severity > .33 && severity < .67
+                      color: serverity > .33 && serverity < .67
                           ? Colors.amber
                           : Colors.grey,
                     ),
@@ -155,7 +194,7 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
                       'Severe',
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      color: severity > .67 ? Colors.red : Colors.grey,
+                      color: serverity > .67 ? Colors.red : Colors.grey,
                     ),
                   ],
                 ),
@@ -171,14 +210,14 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
                         loading: ref.watch(symsProvider).postSymsStatus ==
                             Loader.loading,
                         onPressed: () async {
-                          // One overall severity → all three period columns, so
-                          // the day is fully rated (analytics averages the
-                          // non-zero periods, giving exactly this value).
-                          final v = double.parse(severity.toStringAsFixed(1));
                           final response = await ref
                               .read(symsProvider.notifier)
                               .updateSymsMetric(
-                                  widget.symsMetric.id!, v, v, v, widget.date);
+                                  widget.symsMetric.id!,
+                                  double.parse(morningSev.toStringAsFixed(1)),
+                                  double.parse(afternoonSev.toStringAsFixed(1)),
+                                  double.parse(eveningSev.toStringAsFixed(1)),
+                                  widget.date);
 
                           if (response.successMessage.isNotEmpty) {
                             getAlert(response.successMessage, isWarning: false);
@@ -189,8 +228,7 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
                                   .read(symsProvider.notifier)
                                   .getSymMetric(widget.date);
                             });
-                          } else if (response.responseMessage?.isNotEmpty ==
-                              true) {
+                          } else if (response.responseMessage!.isNotEmpty) {
                             getAlert(response.responseMessage!);
                           } else {
                             getAlert(response.errorMessage);
@@ -215,8 +253,7 @@ class _SymptomsListState extends ConsumerState<SymptomsList> {
                                   .read(symsProvider.notifier)
                                   .getSymMetric(widget.date);
                             });
-                          } else if (response.responseMessage?.isNotEmpty ==
-                              true) {
+                          } else if (response.responseMessage!.isNotEmpty) {
                             getAlert(response.responseMessage!);
                           } else {
                             getAlert(response.errorMessage);
