@@ -36,20 +36,27 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
     try {
       final response = await dio.get('users/profile');
+      // This provider is autoDispose; a navigation away can dispose it while
+      // the request is in flight. Bail before touching `state` (which throws
+      // "used after dispose") if that happened.
+      if (!mounted) return;
       var body = response.data;
       if (response.statusCode == 200) {
         final userModel = UserModel.fromMap(body['user']);
         await HiveStorage.put(
             HiveKeys.profileCache, jsonEncode(body['user']));
+        if (!mounted) return;
         state = state.copyWith(status: Loader.loaded, userModel: userModel);
       } else if (cached == null) {
         state = state.copyWith(status: Loader.error, error: body["error"]);
       }
     } on DioException catch (e) {
+      if (!mounted) return;
       if (cached == null) {
         state = state.copyWith(status: Loader.error, error: e.message);
       }
     } catch (e) {
+      if (!mounted) return;
       if (cached == null) {
         state = state.copyWith(
             status: Loader.error, error: 'An unexpected error occurred');
@@ -83,24 +90,28 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   /// "saved" from the user's perspective.
   Future<ApiResponse> updateProfilePic(int picNo) async {
     await HiveStorage.put(HiveKeys.avatarPicNo, picNo);
-    final current = state.userModel;
-    if (current != null) {
-      state = state.copyWith(
-        userModel: UserModel(
-          id: current.id,
-          firstName: current.firstName,
-          lastName: current.lastName,
-          dob: current.dob,
-          email: current.email,
-          activated: current.activated,
-          isAdmin: current.isAdmin,
-          pic_no: picNo,
-          alias: current.alias,
-        ),
-        pic_status: Loader.loaded,
-      );
-    } else {
-      state = state.copyWith(pic_status: Loader.loaded);
+    // autoDispose: skip the state update if the provider was disposed during
+    // the await (the local Hive write above already persisted the choice).
+    if (mounted) {
+      final current = state.userModel;
+      if (current != null) {
+        state = state.copyWith(
+          userModel: UserModel(
+            id: current.id,
+            firstName: current.firstName,
+            lastName: current.lastName,
+            dob: current.dob,
+            email: current.email,
+            activated: current.activated,
+            isAdmin: current.isAdmin,
+            pic_no: picNo,
+            alias: current.alias,
+          ),
+          pic_status: Loader.loaded,
+        );
+      } else {
+        state = state.copyWith(pic_status: Loader.loaded);
+      }
     }
 
     if (await Session.hasToken()) {

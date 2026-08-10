@@ -52,6 +52,9 @@ class ResourcesNotifier extends StateNotifier<ResourcesState> {
         final fresh = List<ResourcesModel>.from(
             body['resources'].map((e) => ResourcesModel.fromMap(e)));
         await _writeCache(fresh);
+        // autoDispose: the page may have navigated away mid-request. Bail
+        // before touching `state` (which throws once disposed).
+        if (!mounted) return true;
         state = state.copyWith(
             getStatus: Loader.loaded,
             resourcesModel: fresh,
@@ -59,13 +62,16 @@ class ResourcesNotifier extends StateNotifier<ResourcesState> {
             offline: false);
         return true;
       }
-      state = await _afterFailedRefresh(cached, body["error"]);
+      final s = await _afterFailedRefresh(cached, body["error"]);
+      if (mounted) state = s;
       return false;
     } on DioException catch (e) {
-      state = await _afterFailedRefresh(cached, e.message);
+      final s = await _afterFailedRefresh(cached, e.message);
+      if (mounted) state = s;
       return false;
     } catch (_) {
-      state = await _afterFailedRefresh(cached, 'An unexpected error occurred');
+      final s = await _afterFailedRefresh(cached, 'An unexpected error occurred');
+      if (mounted) state = s;
       return false;
     }
   }

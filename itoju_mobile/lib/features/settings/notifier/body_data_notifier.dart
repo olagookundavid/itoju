@@ -20,9 +20,11 @@ class BodyDataNotifier extends StateNotifier<BodyDataState> {
     state = state.copyWith(getStatus: Loader.loading);
     try {
       final bodyDataModel = await repo.getBodyData();
+      if (!mounted) return;
       state = state.copyWith(
           getStatus: Loader.loaded, bodyDataModel: bodyDataModel);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           getStatus: Loader.error, error: 'An unexpected error occurred');
     }
@@ -32,11 +34,13 @@ class BodyDataNotifier extends StateNotifier<BodyDataState> {
     state = state.copyWith(postStatus: Loader.loading);
     try {
       await repo.updateBodyData(height, weight);
-      state = state.copyWith(postStatus: Loader.loaded);
+      if (mounted) state = state.copyWith(postStatus: Loader.loaded);
       return ApiResponse(successMessage: 'Successfully updated body data');
     } catch (e) {
-      state = state.copyWith(
-          postStatus: Loader.error, error: 'An unexpected error occurred');
+      if (mounted) {
+        state = state.copyWith(
+            postStatus: Loader.error, error: 'An unexpected error occurred');
+      }
       return ApiResponse(errorMessage: 'An error occurred');
     }
   }

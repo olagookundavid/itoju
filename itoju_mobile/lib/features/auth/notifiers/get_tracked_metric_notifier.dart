@@ -21,8 +21,10 @@ class MetricNotifier extends StateNotifier<MetricState> {
     state = state.copyWith(status: Loader.loading);
     try {
       final metricLists = await repo.getCatalog();
+      if (!mounted) return;
       state = state.copyWith(status: Loader.loaded, metricLists: metricLists);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
     }
@@ -32,9 +34,11 @@ class MetricNotifier extends StateNotifier<MetricState> {
     state = state.copyWith(status: Loader.loading);
     try {
       final userMetricLists = await repo.getSelected();
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.loaded, userMetricLists: userMetricLists);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
     }

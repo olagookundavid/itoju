@@ -22,9 +22,11 @@ class GetConditionsNotifier extends StateNotifier<GetConditionsState> {
     state = state.copyWith(status: Loader.loading);
     try {
       final conditionsLists = await repo.getCatalog();
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.loaded, conditionsLists: conditionsLists);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
     }
@@ -34,9 +36,11 @@ class GetConditionsNotifier extends StateNotifier<GetConditionsState> {
     state = state.copyWith(status: Loader.loading);
     try {
       final userConditionsLists = await repo.getSelected();
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.loaded, userConditionsLists: userConditionsLists);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
     }

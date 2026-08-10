@@ -22,8 +22,10 @@ class GetTrackedSymsNotifier extends StateNotifier<GetTrackedSymsState> {
     state = state.copyWith(status: Loader.loading);
     try {
       final symsModels = await repository.getTopSyms();
+      if (!mounted) return;
       state = state.copyWith(status: Loader.loaded, symsModel: symsModels);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
           status: Loader.error, error: 'An unexpected error occurred');
     }
