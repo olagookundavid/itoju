@@ -41,8 +41,9 @@ type UserPeriodModel struct {
 // The day layout is derived from the lengths:
 //
 //	[0, periodLen)              -> period days
-//	[periodLen, periodLen+9)    -> regular days
-//	[periodLen+9, cycleLen)     -> ovulation days
+//	ovulationWindow(...)        -> fertile-window days (ovulation ≈ 14 days before
+//	                               the next period, plus the 5 days leading to it)
+//	everything else             -> regular days
 //
 // It returns the new cycle id, or ErrRecordAlreadyExist if a cycle already
 // exists for that start date. (Callers are expected to bound the lengths.)
@@ -63,6 +64,29 @@ func (m *UserPeriodModel) CreateCycle(ctx context.Context, userID string, startD
 	return cycleID, nil
 }
 
+// ovulationWindow returns the 0-based, inclusive day indexes of the fertile
+// window: ovulation falls about 14 days before the next period starts (the luteal
+// phase is fairly constant), i.e. at index cycleLen-15, and sperm survive ~5 days,
+// so the window is those 5 days plus the ovulation day (6 days). It never overlaps
+// the period itself. ok is false when the cycle leaves no room after the period.
+//
+// Must stay identical to ovulationWindow in itoju_mobile/lib/data/cycle_math.dart
+// (both are tested against the same vectors).
+func ovulationWindow(periodLen, cycleLen int) (start, end int, ok bool) {
+	ov := cycleLen - 15
+	if ov < periodLen {
+		ov = periodLen
+	}
+	if ov >= cycleLen {
+		return 0, 0, false
+	}
+	start = ov - 5
+	if start < periodLen {
+		start = periodLen
+	}
+	return start, ov, true
+}
+
 // buildCycleDays materialises the per-day rows for a cycle. Each day defaults to
 // empty tags and CMQ, matching the previous per-row construction.
 func buildCycleDays(cycleID, userID string, startDate time.Time, cycleLen, periodLen int) []CycleDay {
@@ -73,14 +97,11 @@ func buildCycleDays(cycleID, userID string, startDate time.Time, cycleLen, perio
 			Date: startDate.AddDate(0, 0, i), CMQ: "", Tags: []string{},
 		})
 	}
-	for i := 0; i < periodLen; i++ {
-		add(i, true, false)
-	}
-	for i := periodLen; i < periodLen+9; i++ {
-		add(i, false, false)
-	}
-	for i := periodLen + 9; i < cycleLen; i++ {
-		add(i, false, true)
+	winStart, winEnd, hasWindow := ovulationWindow(periodLen, cycleLen)
+	for i := 0; i < cycleLen; i++ {
+		isPeriod := i < periodLen
+		isFertile := hasWindow && i >= winStart && i <= winEnd
+		add(i, isPeriod, isFertile)
 	}
 	return days
 }

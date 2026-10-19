@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../account_service.dart';
 import '../db/app_database.dart';
 import '../limits.dart';
+import '../cycle_math.dart';
 import '../ids.dart';
 import '../models/period_model.dart';
 import '../providers.dart';
@@ -20,8 +21,8 @@ final mensesRepositoryProvider = Provider<MensesRepository>(
 /// A cycle's id is deterministic (account + start date); its day rows are minted
 /// v7 and generated from the cycle/period lengths, mirroring the backend layout:
 ///   [0, periodLen)            -> period days
-///   [periodLen, periodLen+9)  -> regular days
-///   [periodLen+9, cycleLen)   -> ovulation days
+///   ovulationWindow(...)      -> fertile-window days (see cycle_math.dart)
+///   everything else           -> regular days
 class MensesRepository {
   MensesRepository(this._db, this._account);
   final AppDatabase _db;
@@ -116,6 +117,7 @@ class MensesRepository {
           ));
 
       final start = DateTime.parse(startDate);
+      final window = ovulationWindow(periodLen, cycleLen);
       for (var i = 0; i < cycleLen; i++) {
         final ds = DateFormat('yyyy-MM-dd').format(start.add(Duration(days: i)));
         // Deterministic per (account, cycle, date) so a second device — or the
@@ -128,7 +130,9 @@ class MensesRepository {
                 cycleId: cycleId,
                 date: ds,
                 isPeriod: Value(i < periodLen),
-                isOvulation: Value(i >= periodLen + 9 && i < cycleLen),
+                isOvulation: Value(window != null &&
+                    i >= window.start &&
+                    i <= window.end),
                 updatedAt: Value(now),
               ),
               mode: InsertMode.insertOrReplace,

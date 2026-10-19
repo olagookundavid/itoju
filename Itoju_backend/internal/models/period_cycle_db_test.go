@@ -67,7 +67,8 @@ func TestCreateCycleDB(t *testing.T) {
 	if n := scalarInt(t, db, `SELECT count(*) FROM cycles_days WHERE cycle_id = $1 AND is_period`, cycleID); n != periodLen {
 		t.Fatalf("period days: want %d, got %d", periodLen, n)
 	}
-	wantOvu := cycleLen - periodLen - 9
+	ws, we, _ := ovulationWindow(periodLen, cycleLen)
+	wantOvu := we - ws + 1
 	if n := scalarInt(t, db, `SELECT count(*) FROM cycles_days WHERE cycle_id = $1 AND is_ovulation`, cycleID); n != wantOvu {
 		t.Fatalf("ovulation days: want %d, got %d", wantOvu, n)
 	}
