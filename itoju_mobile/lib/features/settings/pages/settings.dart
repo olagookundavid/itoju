@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/core/helpers/app_reset.dart';
 import 'package:itoju_mobile/core/helpers/biometric_helper.dart';
@@ -31,8 +30,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool switchValueAuth = false;
-  bool switchValueFingerPrint =
-      HiveStorage.get(HiveKeys.showBiometrics) ?? false;
   bool switchValueAppLock = Session.isAppLockEnabled();
   bool _loggedIn = false;
   bool _backingUp = false;
@@ -197,28 +194,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         },
                       ));
                     }),
-              Row(
-                children: [
-                  Text(
-                    'Enable Biometrics',
-                    style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryColorPurple),
-                  ),
-                  const Spacer(),
-                  Switch.adaptive(
-                      inactiveTrackColor: Colors.grey.withOpacity(.5),
-                      activeColor: AppColors.primaryColorPurple,
-                      value: switchValueFingerPrint,
-                      onChanged: (e) async {
-                        switchValueFingerPrint = !switchValueFingerPrint;
-                        await HiveStorage.put(
-                            HiveKeys.showBiometrics, switchValueFingerPrint);
-                        setState(() {});
-                      }),
-                ],
-              ),
               Row(
                 children: [
                   Text(

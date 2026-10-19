@@ -38,6 +38,19 @@ class Session {
     await HiveStorage.delete(HiveKeys.profileCache);
   }
 
+  /// Removes secrets that older versions kept on the device. The app used to
+  /// store the user's plaintext password (for a biometric "re-login"); it no
+  /// longer stores one, and this clears any copy left by an earlier install.
+  /// Never throws.
+  static Future<void> purgeLegacySecrets() async {
+    try {
+      await SecureStore.delete(SecureKeys.password);
+    } catch (_) {}
+    try {
+      await HiveStorage.delete(HiveKeys.showBiometrics);
+    } catch (_) {}
+  }
+
   /// Best-effort sign-out of the Firebase/Google provider sessions.
   static Future<void> signOutProviders() async {
     try {

@@ -44,6 +44,9 @@ class _AuthGateState extends State<AuthGate> {
           .localAccountId();
     } catch (_) {}
 
+    // Older versions stored the plaintext password on the device; purge it.
+    await Session.purgeLegacySecrets();
+
     // Legacy migration: installs from before the staged flow only have the
     // firstTime boolean — a completed old-style onboarding maps to `done` so
     // existing users go straight to the app and never see the new flow.

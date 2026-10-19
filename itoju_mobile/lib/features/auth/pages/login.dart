@@ -18,7 +18,6 @@ import 'package:itoju_mobile/features/widgets/margins.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 import 'package:itoju_mobile/services/flush_bar_service.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
-import 'package:itoju_mobile/core/Storage/secure_store.dart';
 import 'package:itoju_mobile/features/widgets/click_text.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
@@ -90,7 +89,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   bool firstObscure = true;
   bool? rememberMe;
-  bool showBiometrics = HiveStorage.get(HiveKeys.showBiometrics) ?? false;
 
   @override
   void initState() {
@@ -100,17 +98,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   Future<void> _loadStoredCredentials() async {
-    // Password lives in the OS-encrypted secure store now, so load it async.
-    password = await SecureStore.read(SecureKeys.password) ?? '';
+    // "Remember me" remembers the EMAIL only — the password is never stored.
     if ((rememberMe ?? false) && mounted) {
       emailController.text = initialEmail;
-      passwordController.text = password;
       setState(() {});
     }
   }
 
   String initialEmail = HiveStorage.get(HiveKeys.userName) ?? '';
-  String password = '';
 
   @override
   Widget build(BuildContext context) {
@@ -249,63 +244,6 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   );
                 }),
                 30.ph,
-                Center(
-                    child: InkWell(
-                  onTap: () async {
-                    if (!showBiometrics) {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: Text('Biometrics not enabled',
-                                style: TextStyle(fontSize: 20.sp)),
-                            content: Text(
-                              'You have to login and enable Biometrics Authentication.',
-                              style: TextStyle(fontSize: 15.sp),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                child: Text(
-                                  'OK',
-                                  style: TextStyle(fontSize: 15.sp),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                      return;
-                    }
-                    final response =
-                        await model.loginWithBioMetric(initialEmail, password);
-                    if (response.successMessage.isNotEmpty) {
-                      await _completeLogin(response);
-                    } else if (response.responseMessage!.isNotEmpty) {
-                      getAlert(response.responseMessage!);
-                    } else {
-                      getAlert(response.errorMessage);
-                    }
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.fingerprint,
-                        size: 25.r,
-                      ),
-                      Text(
-                        'Login With Biometrics',
-                        style: TextStyle(
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blueGrey),
-                      ),
-                    ],
-                  ),
-                )),
                 20.ph,
                 CustomText(
                   "Or Login using your",

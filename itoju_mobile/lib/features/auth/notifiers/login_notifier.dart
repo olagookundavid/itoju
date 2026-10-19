@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:itoju_mobile/core/helpers/biometric_helper.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
 import 'package:itoju_mobile/features/auth/notifiers/signup_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
@@ -32,10 +31,9 @@ class LoginNotifier extends StateNotifier<LoginState> {
       final response = await dio.post('login', data: formData);
       var body = response.data;
       if (response.statusCode == 200) {
-        // Session token and password (for biometric quick-login) go into the
-        // OS-encrypted secure store, never the plaintext Hive box.
+        // The session token goes into the OS-encrypted secure store. The password
+        // is deliberately NOT stored anywhere.
         await SecureStore.write(SecureKeys.token, body['data']['token']);
-        await SecureStore.write(SecureKeys.password, password);
         await HiveStorage.put(HiveKeys.userName, email);
         final switchPending = await _activateSync(body['user_id'] as String?);
         state = state.copyWith(
@@ -156,16 +154,6 @@ class LoginNotifier extends StateNotifier<LoginState> {
     final m = dob.month.toString().padLeft(2, '0');
     final d = dob.day.toString().padLeft(2, '0');
     return '${dob.year}-$m-$d';
-  }
-
-  Future<ApiResponse> loginWithBioMetric(String email, String password) async {
-    final isAuthenticated = await LocalAuthApi.authenticate();
-    if (isAuthenticated == "success") {
-      final response = await login(email, password);
-      return response;
-    } else {
-      return ApiResponse(errorMessage: isAuthenticated);
-    }
   }
 
   Future<ApiResponse> signInWithGoogle() async {
