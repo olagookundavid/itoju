@@ -31,6 +31,20 @@ class SymptomsRepository {
     return rows.map((r) => SymptomsModel(r.id, r.name)).toList();
   }
 
+  /// The symptom the user has logged on the most distinct days (live entries
+  /// only), or null if they haven't logged any. Ties go to the lower catalog id so
+  /// the answer is stable.
+  Future<SymptomsModel?> mostLogged() async {
+    final rows = await _db.customSelect(
+      'SELECT s.id AS id, s.name AS name, COUNT(*) AS n '
+      'FROM symptom_metrics m JOIN symptoms s ON s.id = m.symptoms_id '
+      'WHERE m.deleted_at IS NULL '
+      'GROUP BY s.id, s.name ORDER BY n DESC, s.id ASC LIMIT 1',
+    ).get();
+    if (rows.isEmpty) return null;
+    return SymptomsModel(rows.first.read<int>('id'), rows.first.read<String>('name'));
+  }
+
   Future<List<SymptomsMetricModel>> getForDate(String date) async {
     final query = _db.select(_db.symptomMetrics).join([
       innerJoin(_db.symptoms,

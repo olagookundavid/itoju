@@ -32,6 +32,7 @@ import 'package:itoju_mobile/features/analytics/notifiers/week_charts_notifier/s
 import 'package:itoju_mobile/features/analytics/widgets/helper_funcs.dart';
 import 'package:itoju_mobile/features/analytics/widgets/tabs.dart';
 import 'package:itoju_mobile/features/analytics/week_chart_screen.dart';
+import 'package:itoju_mobile/data/repositories/symptoms_repository.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 
@@ -71,8 +72,26 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   @override
   void initState() {
     super.initState();
-    SchedulerBinding.instance
-        .addPostFrameCallback((_) => _loadTab(tabValue));
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
+      await _useMostLoggedSymptomIfDefault();
+      if (mounted) _loadTab(tabValue);
+    });
+  }
+
+  /// The symptom charts default to Headache, which shows an empty chart for
+  /// anyone who never logs it. If the user hasn't picked one yet, start from the
+  /// symptom they actually log most. Never overrides an explicit choice.
+  Future<void> _useMostLoggedSymptomIfDefault() async {
+    final current = ref.read(symsIdProvider);
+    if (current.id != kDefaultSymptomId) return;
+    try {
+      final top = await ref.read(symptomsRepositoryProvider).mostLogged();
+      if (top != null && mounted) {
+        ref.read(symsIdProvider.notifier).state = top;
+      }
+    } catch (_) {
+      // Keep the default; the chart just stays on Headache.
+    }
   }
 
   void refreshDayAnalytics() {

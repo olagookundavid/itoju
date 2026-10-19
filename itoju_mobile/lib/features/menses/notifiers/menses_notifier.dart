@@ -51,9 +51,13 @@ class PeriodNotifier extends StateNotifier<PeriodState> {
       final merged = Map<String, List<PeriodModel>>.from(state.period ?? {});
       merged.removeWhere((date, _) =>
           date.compareTo(fromIso) >= 0 && date.compareTo(toIso) <= 0);
+      // Overlapping cycles give one date several day rows; the calendar shows one.
+      final fresh = <String, PeriodModel>{};
       for (final d in days) {
-        merged[d.date] = [d];
+        final existing = fresh[d.date];
+        fresh[d.date] = existing == null ? d : _moreInformative(existing, d);
       }
+      fresh.forEach((date, d) => merged[date] = [d]);
       state = state.copyWith(status: Loader.loaded, period: merged);
     } catch (e) {
       if (firstLoad) {
@@ -62,6 +66,21 @@ class PeriodNotifier extends StateNotifier<PeriodState> {
       }
       // On later loads keep showing what's already on screen.
     }
+  }
+
+  /// Of two day rows for the same date (overlapping cycles), the one worth
+  /// showing: anything the user actually logged first, then period days, so an
+  /// empty generated day never hides real data.
+  static PeriodModel _moreInformative(PeriodModel a, PeriodModel b) {
+    int score(PeriodModel d) {
+      final logged = d.flow > 0 ||
+          d.pain > 0 ||
+          d.cmq.isNotEmpty ||
+          d.tags.isNotEmpty;
+      return (logged ? 2 : 0) + (d.isPeriod ? 1 : 0);
+    }
+
+    return score(b) > score(a) ? b : a;
   }
 
   Future<ApiResponse> createPeriodMetric(

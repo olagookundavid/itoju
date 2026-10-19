@@ -173,3 +173,13 @@ Base dir: `itoju_mobile/`. Verify: `fvm flutter pub get && fvm flutter analyze &
 5. ~~Notifier coverage~~ **CLOSED (2026-07 audit):** every health-data feature verified repository/local-service-backed; dead diagnosis notifiers and the stray Dio dependency removed.
 
 **Suggested audit partition (one agent each):** (A) §2A+2B sync/entitlements, (B) §2C schema migrations vs plan B1, (C) §2D+2E auth security & tx atomicity, (D) §3A+3B offline core & sync invariant, (E) §3C+3D+3E onboarding/lock/settings, (F) §4 gaps — E2E & config. Each verifies its checklist boxes against the referenced files and reports discrepancies.
+
+## Retiring the legacy REST endpoints
+
+The offline-first app only calls auth, profile, resources, sync, entitlements and
+logout. Everything else (per-metric CRUD, analytics, points, period, settings,
+catalogs) exists for old installed builds. Don't delete it blind: the backend
+counts hits on those routes in the admin-only `/v1/debug/vars` under
+`legacy_requests` (keys like `GET /v1/user/symsMetric`). Once those counters stop
+moving across a release or two, the legacy handlers, routes and models can be
+removed. `legacyRouteKey` in `cmd/api/middleware.go` defines what counts as legacy.

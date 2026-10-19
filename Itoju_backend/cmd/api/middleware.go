@@ -161,18 +161,62 @@ func (app *Application) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
+// expvarInt / expvarMap return the named expvar, creating it on first use. (The
+// plain expvar.NewInt panics on a duplicate name, which broke any process that
+// builds the middleware twice, e.g. tests.)
+func expvarInt(name string) *expvar.Int {
+	if v, ok := expvar.Get(name).(*expvar.Int); ok {
+		return v
+	}
+	return expvar.NewInt(name)
+}
+
+func expvarMap(name string) *expvar.Map {
+	if v, ok := expvar.Get(name).(*expvar.Map); ok {
+		return v
+	}
+	return expvar.NewMap(name)
+}
+
+// legacyRouteKey reports whether a request targets one of the old REST endpoints
+// that the offline-first app no longer calls (per-metric CRUD, analytics, points,
+// period, settings, catalogs), and returns a low-cardinality key for it
+// ("METHOD /v1/user/<resource>"; ids and dates are dropped). The app now talks to
+// auth, profile, resources, sync, entitlements and logout only.
+func legacyRouteKey(method, path string) (string, bool) {
+	parts := strings.Split(strings.Trim(path, "/"), "/") // v1, user, symsMetric, ...
+	if len(parts) < 2 || parts[0] != "v1" {
+		return "", false
+	}
+	switch {
+	case parts[1] == "user" && len(parts) >= 3 && parts[2] != "entitlements":
+		return method + " /v1/user/" + parts[2], true
+	case parts[1] == "allmetrics", parts[1] == "allsmileys",
+		parts[1] == "allsymptoms", parts[1] == "allconditions":
+		return method + " /v1/" + parts[1], true
+	}
+	return "", false
+}
+
 func (app *Application) Metrics(next http.Handler) http.Handler {
 	var (
-		totalRequestsReceived           = expvar.NewInt("total_requests_received")
-		totalResponsesSent              = expvar.NewInt("total_responses_sent")
-		totalProcessingTimeMicroseconds = expvar.NewInt("total_processing_time_μs")
-		totalResponsesSentByStatus      = expvar.NewMap("total_responses_sent_by_status")
+		totalRequestsReceived           = expvarInt("total_requests_received")
+		totalResponsesSent              = expvarInt("total_responses_sent")
+		totalProcessingTimeMicroseconds = expvarInt("total_processing_time_μs")
+		totalResponsesSentByStatus      = expvarMap("total_responses_sent_by_status")
+		// Hits on endpoints the current app doesn't use. Watch this (admin-only
+		// /v1/debug/vars) over a release or two: when it flatlines, the legacy
+		// handlers are safe to delete.
+		legacyRequests = expvarMap("legacy_requests")
 	)
 	// The following code will be run for every request...
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Record the time that we started to process the request.
 		start := time.Now()
-		totalRequestsReceived.Add(1) // Call the next handler in the chain.
+		totalRequestsReceived.Add(1)
+		if key, ok := legacyRouteKey(r.Method, r.URL.Path); ok {
+			legacyRequests.Add(key, 1)
+		}
 		mw := &metricsResponseWriter{wrapped: w}
 		next.ServeHTTP(mw, r)
 		totalResponsesSent.Add(1)

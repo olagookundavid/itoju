@@ -13,8 +13,12 @@ import 'package:itoju_mobile/features/widgets/custom_text.dart';
 import 'package:itoju_mobile/features/widgets/error_con.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 
+/// Catalog id of "Headache", the chart's starting symptom until the user (or the
+/// analytics screen, from what they actually log) picks another.
+const int kDefaultSymptomId = 21;
+
 final symsIdProvider = StateProvider<SymptomsModel>((ref) {
-  return SymptomsModel(21, "Headache");
+  return SymptomsModel(kDefaultSymptomId, "Headache");
 });
 
 class Symptoms7DaysChart extends ConsumerStatefulWidget {
