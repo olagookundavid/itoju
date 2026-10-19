@@ -7,9 +7,14 @@ library;
 enum ColKind { text, number, boolean, date, tags, timestamp }
 
 class SyncCol {
+  /// Column name in the sync payload / backend table.
   final String name;
   final ColKind kind;
-  const SyncCol(this.name, this.kind);
+
+  /// Column name in the local SQLite table when it differs from [name]
+  /// (e.g. the backend's `conditions_id` is the local `condition_id`).
+  final String local;
+  const SyncCol(this.name, this.kind, {String? local}) : local = local ?? name;
 }
 
 class SyncTableSpec {
@@ -98,6 +103,28 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('pain', ColKind.number),
     SyncCol('tags', ColKind.tags),
     SyncCol('cmq', ColKind.text),
+  ]),
+  // --- selections and settings ---
+  // Tracked metrics / conditions are one row per selection with a deterministic
+  // id; a deselect syncs as a tombstone.
+  SyncTableSpec('user_trackedmetric', 'user_tracked_metrics', [
+    SyncCol('metric_id', ColKind.number),
+    SyncCol('granted_at', ColKind.timestamp),
+  ]),
+  SyncTableSpec('user_conditions', 'user_conditions', [
+    SyncCol('conditions_id', ColKind.number, local: 'condition_id'),
+  ]),
+  // The device keeps ONE local settings row; the backend stores it as two tables
+  // (menstruation, bodymeasure) that share that row's id. Two specs, one client
+  // table — each carries only its own columns. See SyncEngine for how the shared
+  // pending flag is kept safe.
+  SyncTableSpec('menstruation', 'user_settings', [
+    SyncCol('period_len', ColKind.number),
+    SyncCol('cycle_len', ColKind.number),
+  ]),
+  SyncTableSpec('bodymeasure', 'user_settings', [
+    SyncCol('height', ColKind.number),
+    SyncCol('weight', ColKind.number),
   ]),
   SyncTableSpec('user_smiley', 'smiley_entries', [
     SyncCol('smiley_id', ColKind.number),

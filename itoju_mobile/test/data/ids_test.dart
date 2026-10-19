@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 /// fails, the client and server would mint different ids for the same row and
 /// sync would duplicate data.
 void main() {
+  selectionVectors();
   const user = '00000000-0000-0000-0000-000000000001';
   const date = '2026-05-10';
 
@@ -42,5 +43,16 @@ void main() {
     final b = IdMinter.v7();
     expect(a, isNot(b));
     expect(a.length, 36);
+  });
+}
+
+void selectionVectors() {
+  // Golden vectors from SYNC_ID_SPEC.md — the Go/SQL side asserts the same ones
+  // (internal/models/sync_selections_db_test.go).
+  const user = '00000000-0000-0000-0000-000000000001';
+  test('selection + settings deterministic ids match backend golden vectors', () {
+    expect(IdMinter.trackedMetric(user, 3), '00eab78b-ee0b-59d8-9e07-3782c64789fd');
+    expect(IdMinter.condition(user, 5), '39678ede-24d4-5239-b247-74dbd24cbc39');
+    expect(IdMinter.settings(user), '930a21fa-7f84-5cfd-b659-88f739d0a3f9');
   });
 }

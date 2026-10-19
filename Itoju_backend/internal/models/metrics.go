@@ -26,7 +26,7 @@ func (m MetricsModel) SetUserMetricsBatch(ctx context.Context, userID string, me
 	}
 	query := `INSERT INTO user_trackedmetric (user_id, metric_id)
 	          SELECT $1, unnest($2::int[])
-	          ON CONFLICT DO NOTHING`
+	          ON CONFLICT (user_id, metric_id) DO UPDATE SET deleted_at = NULL`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {
@@ -65,7 +65,7 @@ func (m MetricsModel) GetUserMetrics(ctx context.Context, userID string) ([]*Met
 
 	query := ` SELECT trackedmetrics.id , trackedmetrics.name FROM trackedmetrics
 	JOIN user_trackedmetric ON trackedmetrics.id = user_trackedmetric.metric_id
-	WHERE user_trackedmetric.user_id = $1; `
+	WHERE user_trackedmetric.user_id = $1 AND user_trackedmetric.deleted_at IS NULL; `
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
@@ -94,7 +94,8 @@ func (m MetricsModel) DeleteUserMetricsBatch(ctx context.Context, userID string,
 	if len(metricIDs) == 0 {
 		return nil
 	}
-	query := `DELETE FROM user_trackedmetric WHERE user_id = $1 AND metric_id = ANY($2)`
+	// Soft delete: a tombstone is what lets other devices learn of the removal.
+	query := `UPDATE user_trackedmetric SET deleted_at = now() WHERE user_id = $1 AND metric_id = ANY($2) AND deleted_at IS NULL`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(metricIDs)); err != nil {

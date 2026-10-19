@@ -54,13 +54,17 @@ type syncSpec struct {
 	idCol   string
 	cols    []syncCol
 	healKey []string
+	// singleton marks a one-row-per-user table (settings): its natural key is just
+	// user_id, so an id collision heals onto that user's one live row.
+	singleton bool
 }
 
 const dateLayout = "2006-01-02"
 
-// syncSpecs is the v1 sync scope: all client-logged health data. Singleton
-// settings (menstruation, bodymeasure) and selection sets (user_symptoms,
-// user_conditions) are re-asserted by the client and land in a follow-up.
+// syncSpecs is the sync scope: all client-logged health data, plus the user's
+// selections (tracked metrics, conditions) and settings (menstruation, body
+// measurements). Points are deliberately NOT synced — they are derived from the
+// entries, which the client re-awards from after a restore.
 var syncSpecs = map[string]syncSpec{
 	"user_symptoms_metric": {table: "user_symptoms_metric", idCol: "id", cols: []syncCol{
 		{"symptoms_id", kNum}, {"date", kDate},
@@ -100,6 +104,18 @@ var syncSpecs = map[string]syncSpec{
 		{"cycle_id", kText}, {"date", kDate}, {"is_period", kBool}, {"is_ovulation", kBool},
 		{"flow", kNum}, {"pain", kNum}, {"tags", kTags}, {"cmq", kText},
 	}},
+	"user_trackedmetric": {table: "user_trackedmetric", idCol: "id", cols: []syncCol{
+		{"metric_id", kNum}, {"granted_at", kTs},
+	}, healKey: []string{"metric_id"}},
+	"user_conditions": {table: "user_conditions", idCol: "id", cols: []syncCol{
+		{"conditions_id", kNum},
+	}, healKey: []string{"conditions_id"}},
+	"menstruation": {table: "menstruation", idCol: "id", cols: []syncCol{
+		{"period_len", kNum}, {"cycle_len", kNum},
+	}, singleton: true},
+	"bodymeasure": {table: "bodymeasure", idCol: "id", cols: []syncCol{
+		{"height", kNum}, {"weight", kNum},
+	}, singleton: true},
 	"user_smiley": {table: "user_smiley", idCol: "id", cols: []syncCol{
 		{"smiley_id", kNum}, {"tags", kTags}, {"granted_at", kTs},
 	}},
@@ -312,7 +328,7 @@ func (s syncSpec) upsertRow(ctx context.Context, tx *sql.Tx, userID string, row 
 // Tables without a healKey (list tables) reject the row rather than poisoning
 // the batch — a uniqueness conflict there means a misbehaving client.
 func (s syncSpec) healRow(ctx context.Context, tx *sql.Tx, userID string, row parsedSyncRow) (PushResult, error) {
-	if len(s.healKey) == 0 {
+	if len(s.healKey) == 0 && !s.singleton {
 		return PushResult{ID: row.id, Status: "rejected"}, nil
 	}
 

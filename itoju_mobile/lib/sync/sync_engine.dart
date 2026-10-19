@@ -199,7 +199,7 @@ class SyncEngine {
           final d = r.data;
           final m = <String, dynamic>{'id': d['id']};
           for (final c in spec.cols) {
-            m[c.name] = _toJson(c.kind, d[c.name]);
+            m[c.name] = _toJson(c.kind, d[c.local]);
           }
           m['updated_at'] = _tsToIso(
               (d['updated_at'] as int?) ?? (d['local_updated_at'] as int));
@@ -304,15 +304,23 @@ class SyncEngine {
     final cols = <String>['id'];
     final vals = <dynamic>[id];
     for (final c in spec.cols) {
-      cols.add(c.name);
+      cols.add(c.local);
       vals.add(_toDb(c.kind, row[c.name]));
     }
+    // When two backend tables share one local row (settings), applying one
+    // table's newer remote values must not mark the OTHER table's unsent local
+    // edit as synced — keep the row pending so it is pushed next round.
+    final sharesLocalRow =
+        kSyncTables.where((t) => t.client == spec.client).length > 1;
+    final keepPending = sharesLocalRow &&
+        local != null &&
+        local.data['sync_state'] == 'pending';
     cols.addAll(['updated_at', 'deleted_at', 'sync_state', 'local_updated_at']);
     vals.add(_isoToTs(row['updated_at'] as String));
     vals.add(row['deleted_at'] == null
         ? null
         : _isoToTs(row['deleted_at'] as String));
-    vals.add('synced');
+    vals.add(keepPending ? 'pending' : 'synced');
     vals.add(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
     final placeholders = List.filled(cols.length, '?').join(', ');
@@ -410,6 +418,21 @@ class SyncEngine {
             r.data['id'] as String,
             IdMinter.cycleDay(
                 to, r.data['cycle_id'] as String, r.data['date'] as String));
+      }
+      // tracked-metric / condition selections (id = v5(account, key))
+      final tms = await _db
+          .customSelect('SELECT id, metric_id FROM user_tracked_metrics')
+          .get();
+      for (final r in tms) {
+        await _reid('user_tracked_metrics', r.data['id'] as String,
+            IdMinter.trackedMetric(to, r.data['metric_id'] as int));
+      }
+      final cds = await _db
+          .customSelect('SELECT id, condition_id FROM user_conditions')
+          .get();
+      for (final r in cds) {
+        await _reid('user_conditions', r.data['id'] as String,
+            IdMinter.condition(to, r.data['condition_id'] as int));
       }
       // settings (single row)
       await _reid(

@@ -48,7 +48,7 @@ func (m ConditionsModel) GetUserConditions(ctx context.Context, userID string) (
 
 	query := ` SELECT conditions.id , conditions.name FROM Conditions
 	JOIN user_conditions ON conditions.id = user_conditions.conditions_id
-	WHERE user_conditions.user_id = $1; `
+	WHERE user_conditions.user_id = $1 AND user_conditions.deleted_at IS NULL; `
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	rows, err := m.DB.QueryContext(ctx, query, userID)
@@ -77,7 +77,7 @@ func (m ConditionsModel) SetUserConditionsBatch(ctx context.Context, userID stri
 	}
 	query := `INSERT INTO user_conditions (user_id, conditions_id)
 	          SELECT $1, unnest($2::int[])
-	          ON CONFLICT DO NOTHING`
+	          ON CONFLICT (user_id, conditions_id) DO UPDATE SET deleted_at = NULL`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(conditionIDs)); err != nil {
@@ -90,7 +90,8 @@ func (m ConditionsModel) DeleteUserConditionsBatch(ctx context.Context, userID s
 	if len(conditionIDs) == 0 {
 		return nil
 	}
-	query := `DELETE FROM user_conditions WHERE user_id = $1 AND conditions_id = ANY($2)`
+	// Soft delete so the removal syncs to other devices.
+	query := `UPDATE user_conditions SET deleted_at = now() WHERE user_id = $1 AND conditions_id = ANY($2) AND deleted_at IS NULL`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := m.DB.ExecContext(ctx, query, userID, pq.Array(conditionIDs)); err != nil {
