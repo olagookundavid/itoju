@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../account_service.dart';
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/symptoms_model.dart';
 import '../providers.dart';
@@ -92,9 +93,9 @@ class SymptomsRepository {
     await (_db.update(_db.symptomMetrics)
           ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
         .write(SymptomMetricsCompanion(
-      morningSeverity: Value(morning),
-      afternoonSeverity: Value(afternoon),
-      nightSeverity: Value(night),
+      morningSeverity: Value(clampUnit(morning)),
+      afternoonSeverity: Value(clampUnit(afternoon)),
+      nightSeverity: Value(clampUnit(night)),
       updatedAt: Value(now),
       localUpdatedAt: Value(now),
       syncState: const Value('pending'),

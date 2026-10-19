@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/data/account_service.dart';
@@ -37,7 +38,10 @@ class _AuthGateState extends State<AuthGate> {
     // localAccountId() already self-heals a broken secure store. Any failure
     // here still falls through to routing so the app always opens.
     try {
-      await AccountService().localAccountId();
+      // DB-backed instance, so a restored phone recovers its identity here.
+      await ProviderScope.containerOf(context)
+          .read(accountServiceProvider)
+          .localAccountId();
     } catch (_) {}
 
     // Legacy migration: installs from before the staged flow only have the

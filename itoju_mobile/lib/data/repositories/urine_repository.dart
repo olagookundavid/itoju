@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/urine_model.dart';
 import '../providers.dart';
@@ -35,10 +36,10 @@ class UrineRepository {
           localUpdatedAt: now,
           date: date,
           type: Value(m.type),
-          pain: Value(m.pain),
-          time: Value(m.time ?? ''),
+          pain: Value(clampUnit(m.pain)),
+          time: Value(clipText(m.time, kMaxShortText)),
           tags: Value(List<String>.from(m.tags)),
-          quantity: Value(m.quantity),
+          quantity: Value(clampQuantity(m.quantity)),
           updatedAt: Value(now),
         ));
     await _awardPoints(date, 2, 'Urine');
@@ -49,10 +50,10 @@ class UrineRepository {
     await (_db.update(_db.urineMetrics)..where((t) => t.id.equals(m.id!))).write(
       UrineMetricsCompanion(
         type: Value(m.type),
-        pain: Value(m.pain),
-        time: Value(m.time ?? ''),
+        pain: Value(clampUnit(m.pain)),
+        time: Value(clipText(m.time, kMaxShortText)),
         tags: Value(List<String>.from(m.tags)),
-        quantity: Value(m.quantity),
+        quantity: Value(clampQuantity(m.quantity)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),
         syncState: const Value('pending'),

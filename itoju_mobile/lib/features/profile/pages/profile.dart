@@ -32,6 +32,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       // Server value when signed in and loaded, else the locally-saved
       // choice — so anonymous/offline users see their avatar too.
       pic_no = ref.read(profileProvider.notifier).currentAvatar();
+      ref.read(pointProvider.notifier).getPoint();
       setState(() {});
     });
     super.initState();

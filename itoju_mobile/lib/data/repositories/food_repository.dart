@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../account_service.dart';
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/food_model.dart';
 import '../providers.dart';
@@ -57,24 +58,24 @@ class FoodRepository {
             localUpdatedAt: now,
             date: date,
             breakfastMeal:
-                Value(m.breakfastMeal ?? existing?.breakfastMeal ?? ''),
-            lunchMeal: Value(m.lunchMeal ?? existing?.lunchMeal ?? ''),
-            dinnerMeal: Value(m.dinnerMeal ?? existing?.dinnerMeal ?? ''),
+                Value(clipText(m.breakfastMeal ?? existing?.breakfastMeal ?? '', kMaxText)),
+            lunchMeal: Value(clipText(m.lunchMeal ?? existing?.lunchMeal ?? '', kMaxText)),
+            dinnerMeal: Value(clipText(m.dinnerMeal ?? existing?.dinnerMeal ?? '', kMaxText)),
             breakfastExtra:
-                Value(m.breakfastExtra ?? existing?.breakfastExtra ?? ''),
-            lunchExtra: Value(m.lunchExtra ?? existing?.lunchExtra ?? ''),
-            dinnerExtra: Value(m.dinnerExtra ?? existing?.dinnerExtra ?? ''),
+                Value(clipText(m.breakfastExtra ?? existing?.breakfastExtra ?? '', kMaxText)),
+            lunchExtra: Value(clipText(m.lunchExtra ?? existing?.lunchExtra ?? '', kMaxText)),
+            dinnerExtra: Value(clipText(m.dinnerExtra ?? existing?.dinnerExtra ?? '', kMaxText)),
             breakfastFruit:
-                Value(m.breakfastFruit ?? existing?.breakfastFruit ?? ''),
-            lunchFruit: Value(m.lunchFruit ?? existing?.lunchFruit ?? ''),
-            dinnerFruit: Value(m.dinnerFruit ?? existing?.dinnerFruit ?? ''),
+                Value(clipText(m.breakfastFruit ?? existing?.breakfastFruit ?? '', kMaxText)),
+            lunchFruit: Value(clipText(m.lunchFruit ?? existing?.lunchFruit ?? '', kMaxText)),
+            dinnerFruit: Value(clipText(m.dinnerFruit ?? existing?.dinnerFruit ?? '', kMaxText)),
             breakfastTags:
                 Value(_strList(m.breakfastTags ?? existing?.breakfastTags)),
             lunchTags: Value(_strList(m.lunchTags ?? existing?.lunchTags)),
             dinnerTags: Value(_strList(m.dinnerTags ?? existing?.dinnerTags)),
-            snackName: Value(m.snackName ?? existing?.snackName ?? ''),
+            snackName: Value(clipText(m.snackName ?? existing?.snackName ?? '', kMaxText)),
             snackTags: Value(_strList(m.snackTags ?? existing?.snackTags)),
-            glassNo: Value(m.glassNo ?? existing?.glassNo ?? 0),
+            glassNo: Value(clampSmallInt(m.glassNo ?? existing?.glassNo ?? 0)),
             updatedAt: Value(now),
             deletedAt: const Value(null),
             syncState: const Value('pending'),

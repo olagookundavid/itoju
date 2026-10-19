@@ -10,6 +10,7 @@ import 'package:itoju_mobile/services/app_exception.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/Storage/secure_store.dart';
+import 'package:itoju_mobile/data/account_service.dart';
 import 'package:itoju_mobile/data/providers.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
 import 'package:itoju_mobile/sync/sync_controller.dart';
@@ -112,11 +113,12 @@ class LoginNotifier extends StateNotifier<LoginState> {
   Future<bool> _activateSync(String? serverUserId) async {
     if (serverUserId == null || serverUserId.isEmpty) return false;
     await SecureStore.write(SecureKeys.currentServerUserId, serverUserId);
-    final bound = await SecureStore.read(SecureKeys.boundServerUserId);
-    if (bound != null && bound.isNotEmpty && bound != serverUserId) {
+    final account = ref.read(accountServiceProvider);
+    final bound = await account.boundServerUserId();
+    if (bound != null && bound != serverUserId) {
       return true; // switch pending — do not bind, engine refuses to sync
     }
-    await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+    await account.setBoundServerUserId(serverUserId);
     // Bind RevenueCat purchases to the server user (no-op unless IAP is
     // configured); the webhook re-binds the subscription server-side.
     await ref.read(purchaseServiceProvider).bindTo(serverUserId);
@@ -142,8 +144,9 @@ class LoginNotifier extends StateNotifier<LoginState> {
     await HiveStorage.delete(HiveKeys.localName);
     await HiveStorage.delete(HiveKeys.userName);
     // Fresh local identity for the new user; nothing left to re-key.
-    await SecureStore.write(SecureKeys.localAccountId, null);
-    await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+    final account = ref.read(accountServiceProvider);
+    await account.resetLocalIdentity();
+    await account.setBoundServerUserId(serverUserId);
     await ref.read(purchaseServiceProvider).bindTo(serverUserId);
     await ref.read(entitlementServiceProvider).refreshFromServer();
     unawaited(ref.read(syncControllerProvider).backupNow());

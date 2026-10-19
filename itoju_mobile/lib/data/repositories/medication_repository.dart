@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/medication_model.dart';
 import '../providers.dart';
@@ -37,10 +38,10 @@ class MedicationRepository {
           localUpdatedAt: now,
           date: date,
           name: Value(m.name),
-          dosage: Value(m.dosage),
+          dosage: Value(clampSmallInt(m.dosage)),
           metric: Value(m.metric),
-          quantity: Value(m.quantity),
-          time: Value(m.time),
+          quantity: Value(clampSmallInt(m.quantity)),
+          time: Value(clipText(m.time, kMaxShortText)),
           updatedAt: Value(now),
         ));
     await _awardPoints(date, 2, 'Medication');
@@ -52,10 +53,10 @@ class MedicationRepository {
         .write(
       MedicationMetricsCompanion(
         name: Value(m.name),
-        dosage: Value(m.dosage),
+        dosage: Value(clampSmallInt(m.dosage)),
         metric: Value(m.metric),
-        quantity: Value(m.quantity),
-        time: Value(m.time),
+        quantity: Value(clampSmallInt(m.quantity)),
+        time: Value(clipText(m.time, kMaxShortText)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),
         syncState: const Value('pending'),

@@ -42,9 +42,9 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
       ref.read(profileProvider.notifier).getProfile();
       ref.read(getSmileyProvider.notifier).getGetSmiley();
       ref.read(getTrackedSymsProvider.notifier).getGetTrackedSyms();
+      ref.read(pointProvider.notifier).getPoint();
       Timer(const Duration(seconds: 2), () {
         ref.read(resourcesProvider.notifier).getResources();
-        ref.read(pointProvider.notifier).getPoint();
       });
     });
   }

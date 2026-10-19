@@ -82,8 +82,7 @@ class DioSyncApi implements SyncApi {
   final Ref _ref;
 
   @override
-  Future<Map<String, dynamic>> push(
-      List<Map<String, dynamic>> changes) async {
+  Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes) async {
     final dio = _ref.read(dioProvider);
     final res = await dio.post('sync/push', data: {'changes': changes});
     return Map<String, dynamic>.from(res.data as Map);
@@ -202,7 +201,8 @@ class SyncEngine {
           for (final c in spec.cols) {
             m[c.name] = _toJson(c.kind, d[c.name]);
           }
-          m['updated_at'] = _tsToIso(d['updated_at'] as int);
+          m['updated_at'] = _tsToIso(
+              (d['updated_at'] as int?) ?? (d['local_updated_at'] as int));
           m['deleted_at'] =
               d['deleted_at'] == null ? null : _tsToIso(d['deleted_at'] as int);
           return m;
@@ -213,7 +213,10 @@ class SyncEngine {
 
       final resp = await _api.push(changes);
       final results = (resp['results'] as Map?) ?? {};
-      var acked = 0;
+      // Rows that changed state this round (acked or quarantined). Rows the server
+      // asked us to `retry` stay pending and don't count, so a round of only
+      // retries ends the loop instead of spinning.
+      var progressed = 0;
       await _db.transaction(() async {
         for (final spec in kSyncTables) {
           final list = (results[spec.backend] as List?) ?? [];
@@ -224,7 +227,7 @@ class SyncEngine {
                 'UPDATE ${spec.client} SET sync_state = ? WHERE id = ?',
                 ['synced', r['id']],
               );
-              acked++;
+              progressed++;
             } else if (status == 'rejected') {
               // Quarantine: a rejected row (foreign id) will never be accepted —
               // stop re-sending it every sync. It stays local-only.
@@ -232,12 +235,15 @@ class SyncEngine {
                 'UPDATE ${spec.client} SET sync_state = ? WHERE id = ?',
                 ['rejected', r['id']],
               );
+              progressed++;
             }
+            // 'retry' (e.g. a cycle day whose cycle hasn't landed yet) and any
+            // unknown status: leave the row pending for the next sync.
           }
         }
       });
-      // Nothing was acked this round: don't spin on rows the server won't take.
-      if (acked == 0) return;
+      // Nothing moved this round: don't spin on rows the server won't take yet.
+      if (progressed == 0) return;
     }
   }
 
@@ -275,18 +281,22 @@ class SyncEngine {
     }
   }
 
-  Future<void> _applyRemote(SyncTableSpec spec, Map<String, dynamic> row) async {
+  Future<void> _applyRemote(
+      SyncTableSpec spec, Map<String, dynamic> row) async {
     final id = row['id'] as String;
     final remoteUpdated = DateTime.parse(row['updated_at'] as String).toUtc();
 
     final local = await _db.customSelect(
-      'SELECT updated_at, sync_state FROM ${spec.client} WHERE id = ?1',
+      'SELECT updated_at, local_updated_at, sync_state FROM ${spec.client} WHERE id = ?1',
       variables: [Variable<String>(id)],
     ).getSingleOrNull();
     if (local != null && local.data['sync_state'] == 'pending') {
-      final localUpdated = DateTime.fromMillisecondsSinceEpoch(
-          (local.data['updated_at'] as int) * 1000,
-          isUtc: true);
+      // updated_at can be NULL on rows never stamped by a repository; the local
+      // edit time is the next-best LWW comparator.
+      final localSeconds = (local.data['updated_at'] as int?) ??
+          (local.data['local_updated_at'] as int);
+      final localUpdated =
+          DateTime.fromMillisecondsSinceEpoch(localSeconds * 1000, isUtc: true);
       // Keep the local unsynced edit unless the server's is strictly newer.
       if (!remoteUpdated.isAfter(localUpdated)) return;
     }
@@ -330,13 +340,14 @@ class SyncEngine {
     // boundServerUserId is written by the sign-in flow before the first sync. A
     // session from a build predating that flow won't have it — self-heal by
     // asking the server who the token belongs to.
-    var serverUserId = await SecureStore.read(SecureKeys.boundServerUserId);
+    final account = _ref.read(accountServiceProvider);
+    var serverUserId = await account.boundServerUserId();
     if (serverUserId == null || serverUserId.isEmpty) {
       final fetched = await _fetchAuthedUserId();
       // Couldn't confirm the token's owner — offline or the token was rejected.
       if (fetched == null || fetched.isEmpty) return _BindResult.unavailable;
       serverUserId = fetched;
-      await SecureStore.write(SecureKeys.boundServerUserId, serverUserId);
+      await account.setBoundServerUserId(serverUserId);
       await SecureStore.write(SecureKeys.currentServerUserId, serverUserId);
     }
     final current = await SecureStore.read(SecureKeys.currentServerUserId);
@@ -347,8 +358,7 @@ class SyncEngine {
     // Re-key exactly once, tracked separately from boundServerUserId (which is
     // set at login, before this runs).
     if (await _meta('reKeyed') == 'true') return _BindResult.ok;
-    final localAccount =
-        await _ref.read(accountServiceProvider).localAccountId();
+    final localAccount = await account.localAccountId();
     if (localAccount != serverUserId) {
       await _rekeyDeterministicIds(localAccount, serverUserId);
     }
@@ -363,8 +373,8 @@ class SyncEngine {
           await _db.customSelect('SELECT id, date FROM food_metrics').get();
       for (final r in foods) {
         final date = r.data['date'] as String;
-        await _reid('food_metrics', r.data['id'] as String,
-            IdMinter.food(to, date));
+        await _reid(
+            'food_metrics', r.data['id'] as String, IdMinter.food(to, date));
       }
       // symptoms (id = v5(account, symptomsId, date))
       final syms = await _db
@@ -398,12 +408,12 @@ class SyncEngine {
         await _reid(
             'cycle_days',
             r.data['id'] as String,
-            IdMinter.cycleDay(to, r.data['cycle_id'] as String,
-                r.data['date'] as String));
+            IdMinter.cycleDay(
+                to, r.data['cycle_id'] as String, r.data['date'] as String));
       }
       // settings (single row)
-      await _reid('user_settings', IdMinter.settings(from),
-          IdMinter.settings(to));
+      await _reid(
+          'user_settings', IdMinter.settings(from), IdMinter.settings(to));
     });
     // From now on deterministic ids derive from the server user id.
   }
@@ -428,11 +438,9 @@ class SyncEngine {
       final oldTs = (old.data['updated_at'] as int?) ?? 0;
       final newTs = (clash.data['updated_at'] as int?) ?? 0;
       if (oldTs > newTs) {
-        await _db.customStatement(
-            'DELETE FROM $table WHERE id = ?', [newId]);
+        await _db.customStatement('DELETE FROM $table WHERE id = ?', [newId]);
       } else {
-        await _db.customStatement(
-            'DELETE FROM $table WHERE id = ?', [oldId]);
+        await _db.customStatement('DELETE FROM $table WHERE id = ?', [oldId]);
         return;
       }
     }

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/bowel_model.dart';
 import '../providers.dart';
@@ -35,8 +36,8 @@ class BowelRepository {
           localUpdatedAt: now,
           date: date,
           type: Value(m.type),
-          pain: Value(m.pain),
-          time: Value(m.time ?? ''),
+          pain: Value(clampUnit(m.pain)),
+          time: Value(clipText(m.time, kMaxShortText)),
           tags: Value(List<String>.from(m.tags)),
           updatedAt: Value(now),
         ));
@@ -48,8 +49,8 @@ class BowelRepository {
     await (_db.update(_db.bowelMetrics)..where((t) => t.id.equals(m.id!))).write(
       BowelMetricsCompanion(
         type: Value(m.type),
-        pain: Value(m.pain),
-        time: Value(m.time ?? ''),
+        pain: Value(clampUnit(m.pain)),
+        time: Value(clipText(m.time, kMaxShortText)),
         tags: Value(List<String>.from(m.tags)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),

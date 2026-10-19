@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/data/repositories/points_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
@@ -12,19 +14,35 @@ final pointProvider = StateNotifierProvider<PointNotifier, PointState>((ref) {
 });
 
 class PointNotifier extends StateNotifier<PointState> {
-  PointNotifier(this.ref, this.repository) : super(PointState.initial());
+  PointNotifier(this.ref, this.repository) : super(PointState.initial()) {
+    _subscribe();
+  }
   Ref ref;
   PointsRepository repository;
+  StreamSubscription<PointModel>? _sub;
+
+  void _subscribe() {
+    _sub = repository.watchPoints().listen((model) {
+      state = state.copyWith(getStatus: Loader.loaded, pointModel: model);
+    });
+    getPoint();
+  }
 
   Future<void> getPoint() async {
-    state = state.copyWith(getStatus: Loader.loading);
     try {
+      await repository.ensureBackfill();
       final pointModel = await repository.getPoints();
       state = state.copyWith(getStatus: Loader.loaded, pointModel: pointModel);
     } catch (e) {
       state = state.copyWith(
           getStatus: Loader.error, error: 'An unexpected error occurred');
     }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 }
 

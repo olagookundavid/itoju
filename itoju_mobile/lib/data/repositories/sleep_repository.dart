@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/sleep_model.dart';
 import '../providers.dart';
@@ -35,10 +36,10 @@ class SleepRepository {
           localUpdatedAt: now,
           date: date,
           isNight: m.isNight ?? false,
-          timeSlept: Value(m.timeSlept ?? ''),
-          timeWokeUp: Value(m.timeWokeUp ?? ''),
+          timeSlept: Value(clipText(m.timeSlept, kMaxShortText)),
+          timeWokeUp: Value(clipText(m.timeWokeUp, kMaxShortText)),
           tags: Value(List<String>.from(m.tags)),
-          severity: Value(m.severity),
+          severity: Value(clampUnit(m.severity)),
           updatedAt: Value(now),
         ));
     await _awardPoints(date, 2, 'Sleep');
@@ -49,10 +50,10 @@ class SleepRepository {
     await (_db.update(_db.sleepMetrics)..where((t) => t.id.equals(m.id!)))
         .write(
       SleepMetricsCompanion(
-        timeSlept: Value(m.timeSlept ?? ''),
-        timeWokeUp: Value(m.timeWokeUp ?? ''),
+        timeSlept: Value(clipText(m.timeSlept, kMaxShortText)),
+        timeWokeUp: Value(clipText(m.timeWokeUp, kMaxShortText)),
         tags: Value(List<String>.from(m.tags)),
-        severity: Value(m.severity),
+        severity: Value(clampUnit(m.severity)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),
         syncState: const Value('pending'),

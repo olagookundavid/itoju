@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart' as drift;
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,8 +55,7 @@ void main() {
   });
 
   test('push serializes a pending bowel row to the backend contract', () async {
-    await container.read(bowelRepositoryProvider).create(
-        '2026-05-01',
+    await container.read(bowelRepositoryProvider).create('2026-05-01',
         BowelModel(time: '08:00', tags: const ['am'], type: 3, pain: 0.4));
 
     api.pushResponse = {
@@ -71,14 +72,16 @@ void main() {
     await container.read(syncEngineProvider).push();
 
     // the payload carried exactly one bowel change with the right shape
-    final change = api.lastPush!.firstWhere((c) => c['table'] == 'user_bowel_metric');
+    final change =
+        api.lastPush!.firstWhere((c) => c['table'] == 'user_bowel_metric');
     final row = (change['rows'] as List).single as Map;
     expect(row['id'], rowBefore.id);
     expect(row['date'], '2026-05-01');
     expect(row['type'], 3);
     expect(row['pain'], 0.4);
     expect(row['time'], '08:00');
-    expect(row['tags'], ['am']); // tags serialized as a JSON array, not a string
+    expect(
+        row['tags'], ['am']); // tags serialized as a JSON array, not a string
     expect(row['updated_at'], isA<String>());
     expect(row['deleted_at'], isNull);
     expect(row.containsKey('sync_state'), isFalse); // bookkeeping not sent
@@ -144,8 +147,7 @@ void main() {
   test('pull keeps a newer local pending edit over an older remote (LWW)',
       () async {
     // local pending row, edited "now"
-    await container.read(bowelRepositoryProvider).create(
-        '2026-07-01',
+    await container.read(bowelRepositoryProvider).create('2026-07-01',
         BowelModel(time: 'local', tags: const [], type: 9, pain: 0.5));
     final local = await db.select(db.bowelMetrics).getSingle();
 
@@ -218,13 +220,15 @@ void main() {
 
     expect(call, 2, reason: '620 rows at 500/chunk should take 2 requests');
     expect(ackingApi.rowCounts, [500, 120]);
-    final pending = await db.customSelect(
-        "SELECT count(*) AS c FROM bowel_metrics WHERE sync_state = 'pending'")
+    final pending = await db
+        .customSelect(
+            "SELECT count(*) AS c FROM bowel_metrics WHERE sync_state = 'pending'")
         .getSingle();
     expect(pending.data['c'], 0, reason: 'everything must end up synced');
   });
 
-  test('pull follows per-table cursors across pages and only then advances the watermark',
+  test(
+      'pull follows per-table cursors across pages and only then advances the watermark',
       () async {
     Map<String, dynamic> row(String id, String date) => {
           'id': id,
@@ -240,7 +244,10 @@ void main() {
     api.pullPages.addAll([
       {
         'changes': {
-          'user_bowel_metric': [row('p1', '2026-06-01'), row('p2', '2026-06-01')]
+          'user_bowel_metric': [
+            row('p1', '2026-06-01'),
+            row('p2', '2026-06-01')
+          ]
         },
         'watermark': w,
         'has_more': true,
@@ -276,6 +283,89 @@ void main() {
         .getSingleOrNull();
     expect(wm?.value, w);
   });
+
+  Map<String, dynamic> remoteBowel(String id, String updatedAt, int type) => {
+        'id': id,
+        'date': '2026-06-01',
+        'type': type,
+        'pain': 0.5,
+        'time': '10:00',
+        'tags': <String>[],
+        'updated_at': updatedAt,
+        'deleted_at': null,
+      };
+
+  Future<void> insertPendingBowelWithoutUpdatedAt(String id) =>
+      db.into(db.bowelMetrics).insert(BowelMetricsCompanion.insert(
+            id: id,
+            localUpdatedAt: DateTime.now().toUtc(), // updated_at stays NULL
+            date: '2026-06-01',
+            type: const Value(1),
+          ));
+
+  test('pull tolerates a pending local row that has no updated_at', () async {
+    // Rows written without an explicit updatedAt (older builds / direct inserts)
+    // have a NULL updated_at; conflict resolution must fall back to the local
+    // edit time instead of crashing the whole pull.
+    await insertPendingBowelWithoutUpdatedAt('r1');
+    api.pullResponse = {
+      'changes': {
+        'user_bowel_metric': [remoteBowel('r1', '2000-01-01T00:00:00Z', 9)]
+      },
+      'watermark': '2026-06-02T12:00:00Z',
+      'has_more': false,
+    };
+    await container.read(syncEngineProvider).pull(); // must not throw
+    final row = await db.select(db.bowelMetrics).getSingle();
+    expect(row.type, 1,
+        reason: 'older remote must not clobber the pending edit');
+    expect(row.syncState, 'pending');
+  });
+
+  test('a strictly newer remote row wins over a pending local one', () async {
+    await insertPendingBowelWithoutUpdatedAt('r2');
+    api.pullResponse = {
+      'changes': {
+        'user_bowel_metric': [remoteBowel('r2', '2099-01-01T00:00:00Z', 9)]
+      },
+      'watermark': '2026-06-02T12:00:00Z',
+      'has_more': false,
+    };
+    await container.read(syncEngineProvider).pull();
+    final row = await db.select(db.bowelMetrics).getSingle();
+    expect(row.type, 9);
+    expect(row.syncState, 'synced');
+  });
+
+  test('push: rejected rows are quarantined, retry rows stay pending',
+      () async {
+    final repo = container.read(bowelRepositoryProvider);
+    for (final t in [1, 2, 3]) {
+      await repo.create('2026-05-0$t',
+          BowelModel(time: '', tags: const [], type: t, pain: 0));
+    }
+    final rows = await (db.select(db.bowelMetrics)
+          ..orderBy([(t) => drift.OrderingTerm(expression: t.date)]))
+        .get();
+    api.pushResponse = {
+      'results': {
+        'user_bowel_metric': [
+          {'id': rows[0].id, 'status': 'applied'},
+          {'id': rows[1].id, 'status': 'rejected'},
+          {'id': rows[2].id, 'status': 'retry'},
+        ]
+      }
+    };
+    await container.read(syncEngineProvider).push();
+    final after = {
+      for (final r in await db.select(db.bowelMetrics).get()) r.id: r.syncState
+    };
+    expect(after[rows[0].id], 'synced');
+    expect(after[rows[1].id], 'rejected',
+        reason: 'permanent failure: stop resending');
+    expect(after[rows[2].id], 'pending',
+        reason: 'transient: try again next sync');
+  });
 }
 
 class _AckingSyncApi implements SyncApi {
@@ -285,8 +375,8 @@ class _AckingSyncApi implements SyncApi {
 
   @override
   Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes) async {
-    rowCounts.add(changes.fold<int>(
-        0, (sum, c) => sum + (c['rows'] as List).length));
+    rowCounts.add(
+        changes.fold<int>(0, (sum, c) => sum + (c['rows'] as List).length));
     return onPush(changes);
   }
 

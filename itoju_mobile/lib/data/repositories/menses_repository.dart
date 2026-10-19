@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../account_service.dart';
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/period_model.dart';
 import '../providers.dart';
@@ -25,6 +26,21 @@ class MensesRepository {
   MensesRepository(this._db, this._account);
   final AppDatabase _db;
   final AccountService _account;
+
+  /// Cycle days whose date falls within [fromIso, toIso] inclusive (both
+  /// 'yyyy-MM-dd' strings). Powers the calendar's lazy, per-visible-month load:
+  /// instead of only ever showing the 3 most recent cycles, the page queries
+  /// just the range it's displaying as the user pages through months.
+  Future<List<PeriodModel>> getDaysInRange(String fromIso, String toIso) async {
+    final days = await (_db.select(_db.cycleDays)
+          ..where((t) =>
+              t.deletedAt.isNull() &
+              t.date.isBiggerOrEqualValue(fromIso) &
+              t.date.isSmallerOrEqualValue(toIso))
+          ..orderBy([(t) => OrderingTerm(expression: t.date)]))
+        .get();
+    return days.map(_toModel).toList();
+  }
 
   /// Days of the 3 most recent cycles (mirrors GetRecentCycleDays).
   Future<List<PeriodModel>> getRecentDays() async {
@@ -49,6 +65,15 @@ class MensesRepository {
   /// for that start date; revives a tombstoned one (keeping its days) instead of
   /// regenerating.
   Future<bool> createCycle(String startDate, int cycleLen, int periodLen) async {
+    // One row is generated per day of the cycle, so bound it. The UI validates
+    // first and shows a message; this is the backstop for any other caller.
+    if (cycleLen < 1 ||
+        cycleLen > kMaxCycleLength ||
+        periodLen < 1 ||
+        periodLen > cycleLen) {
+      throw ArgumentError(
+          'invalid cycle: length=$cycleLen period=$periodLen (period must be 1..cycle, cycle at most $kMaxCycleLength)');
+    }
     final account = await _account.deterministicNamespaceId();
     final cycleId = IdMinter.cycle(account, startDate);
     final now = DateTime.now();
@@ -120,8 +145,8 @@ class MensesRepository {
         .write(CycleDaysCompanion(
       isPeriod: Value(m.isPeriod),
       isOvulation: Value(m.isOvulation),
-      flow: Value(m.flow.toDouble()),
-      pain: Value(m.pain.toDouble()),
+      flow: Value(clampUnit(m.flow.toDouble())),
+      pain: Value(clampUnit(m.pain.toDouble())),
       cmq: Value(m.cmq),
       tags: Value(List<String>.from(m.tags)),
       updatedAt: Value(now),

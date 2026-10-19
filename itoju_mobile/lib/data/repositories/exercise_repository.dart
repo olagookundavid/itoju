@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/exercise_model.dart';
 import '../providers.dart';
@@ -35,10 +36,10 @@ class ExerciseRepository {
           localUpdatedAt: now,
           date: date,
           name: Value(m.name ?? ''),
-          started: Value(m.started ?? ''),
-          ended: Value(m.ended ?? ''),
+          started: Value(clipText(m.started, kMaxShortText)),
+          ended: Value(clipText(m.ended, kMaxShortText)),
           tags: Value(List<String>.from(m.tags ?? const [])),
-          noOfTimes: Value(m.noOfTimes ?? 0),
+          noOfTimes: Value(clampSmallInt(m.noOfTimes ?? 0)),
           updatedAt: Value(now),
         ));
     await _awardPoints(date, 2, 'Exercise');
@@ -49,10 +50,10 @@ class ExerciseRepository {
     await (_db.update(_db.exerciseMetrics)..where((t) => t.id.equals(m.id!)))
         .write(
       ExerciseMetricsCompanion(
-        started: Value(m.started ?? ''),
-        ended: Value(m.ended ?? ''),
+        started: Value(clipText(m.started, kMaxShortText)),
+        ended: Value(clipText(m.ended, kMaxShortText)),
         tags: Value(List<String>.from(m.tags ?? const [])),
-        noOfTimes: Value(m.noOfTimes ?? 0),
+        noOfTimes: Value(clampSmallInt(m.noOfTimes ?? 0)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),
         syncState: const Value('pending'),

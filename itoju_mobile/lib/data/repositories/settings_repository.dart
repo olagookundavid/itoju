@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../account_service.dart';
 import '../db/app_database.dart';
+import '../limits.dart';
 import '../ids.dart';
 import '../models/settings_model.dart';
 import '../providers.dart';
@@ -26,8 +27,9 @@ class SettingsRepository {
     return MensesModel(periodLen: r?.periodLen ?? 0, cycleLen: r?.cycleLen ?? 0);
   }
 
-  Future<void> updateMenses(int periodLen, int cycleLen) =>
-      _upsert(periodLen: periodLen, cycleLen: cycleLen);
+  Future<void> updateMenses(int periodLen, int cycleLen) => _upsert(
+      periodLen: periodLen.clamp(0, kMaxPeriodLength),
+      cycleLen: cycleLen.clamp(0, kMaxCycleLength));
 
   Future<BodyDataModel> getBodyData() async {
     final r = await _row();
