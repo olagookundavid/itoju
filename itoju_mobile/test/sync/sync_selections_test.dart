@@ -38,7 +38,9 @@ class _Api implements SyncApi {
 
   @override
   Future<Map<String, dynamic>> pull(String since, int limit,
-          {String? until, Map<String, dynamic> cursors = const {}}) async =>
+          {String? until,
+          Map<String, dynamic> cursors = const {},
+          List<String>? tables}) async =>
       pullResponse;
 }
 

@@ -34,6 +34,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? driftDatabase(name: 'itoju'));
 
+  /// Bump when the seeded catalogs (symptoms, conditions, tracked metrics,
+  /// smileys) change, so existing installs pick up the new rows on next launch.
+  /// Ids are positional (they match the server's SERIAL ids): only ever APPEND to
+  /// the seed lists, never reorder or remove.
+  static const int catalogSeedVersion = 1;
+
+  /// Bump when a table/column changes, and add the matching step in [onUpgrade].
   @override
   int get schemaVersion => 1;
 
@@ -43,7 +50,26 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedCatalogs();
         },
+        // Schema upgrades go here, in order, each guarded by `from`:
+        //   if (from < 2) { await m.addColumn(someTable, someTable.newColumn); }
+        //   if (from < 3) { await m.createTable(newTable); }
+        // (Add a test that opens a database at the old version.) Nothing yet:
+        // the schema is still at version 1.
+        onUpgrade: (m, from, to) async {},
+        beforeOpen: (details) async {
+          // A fresh create just seeded; for existing installs, top up the
+          // catalogs if this app version carries a newer one.
+          if (!details.wasCreated) await _ensureCatalogsCurrent();
+        },
       );
+
+  Future<void> _ensureCatalogsCurrent() async {
+    final row = await (select(syncMeta)
+          ..where((t) => t.key.equals('catalogSeedVersion')))
+        .getSingleOrNull();
+    final installed = int.tryParse(row?.value ?? '') ?? 0;
+    if (installed < catalogSeedVersion) await _seedCatalogs();
+  }
 
   /// Erases every row of user data (health records, points, selections,
   /// settings, and all sync bookkeeping), keeping only the seeded catalogs.
@@ -74,7 +100,7 @@ class AppDatabase extends _$AppDatabase {
       // Re-record the catalog seed so the seeding guard stays meaningful.
       await into(syncMeta).insertOnConflictUpdate(
         SyncMetaCompanion.insert(
-            key: 'catalogSeedVersion', value: const Value('1')),
+            key: 'catalogSeedVersion', value: Value('$catalogSeedVersion')),
       );
     });
   }
@@ -102,7 +128,7 @@ class AppDatabase extends _$AppDatabase {
       }
     });
     await into(syncMeta).insertOnConflictUpdate(
-      SyncMetaCompanion.insert(key: 'catalogSeedVersion', value: const Value('1')),
+      SyncMetaCompanion.insert(key: 'catalogSeedVersion', value: Value('$catalogSeedVersion')),
     );
   }
 }

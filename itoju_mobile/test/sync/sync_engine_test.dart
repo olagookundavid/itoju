@@ -29,8 +29,11 @@ class FakeSyncApi implements SyncApi {
 
   @override
   Future<Map<String, dynamic>> pull(String since, int limit,
-      {String? until, Map<String, dynamic> cursors = const {}}) async {
-    pullCalls.add({'since': since, 'until': until, 'cursors': cursors});
+      {String? until,
+      Map<String, dynamic> cursors = const {},
+      List<String>? tables}) async {
+    pullCalls.add(
+        {'since': since, 'until': until, 'cursors': cursors, 'tables': tables});
     if (pullPages.isNotEmpty) return pullPages.removeAt(0);
     return pullResponse;
   }
@@ -270,6 +273,10 @@ void main() {
     // Page 2 resumed with the sweep's watermark and page 1's cursor.
     expect(api.pullCalls.length, 2);
     expect(api.pullCalls[1]['until'], w);
+    // First page asks for every table; the follow-up asks ONLY for the table that
+    // still has rows (finished tables must not be re-sent and re-applied).
+    expect(api.pullCalls[0]['tables'], isNull);
+    expect(api.pullCalls[1]['tables'], ['user_bowel_metric']);
     expect(
         (api.pullCalls[1]['cursors'] as Map)['user_bowel_metric']['id'], 'p2');
 
@@ -382,6 +389,8 @@ class _AckingSyncApi implements SyncApi {
 
   @override
   Future<Map<String, dynamic>> pull(String since, int limit,
-          {String? until, Map<String, dynamic> cursors = const {}}) async =>
+          {String? until,
+          Map<String, dynamic> cursors = const {},
+          List<String>? tables}) async =>
       {'changes': {}, 'has_more': false};
 }

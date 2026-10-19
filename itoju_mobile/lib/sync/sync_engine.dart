@@ -73,7 +73,7 @@ final entitlementServiceProvider = Provider<EntitlementService>(
 abstract class SyncApi {
   Future<Map<String, dynamic>> push(List<Map<String, dynamic>> changes);
   Future<Map<String, dynamic>> pull(String since, int limit,
-      {String? until, Map<String, dynamic> cursors});
+      {String? until, Map<String, dynamic> cursors, List<String>? tables});
 }
 
 /// The real transport over the authed Dio.
@@ -90,13 +90,16 @@ class DioSyncApi implements SyncApi {
 
   @override
   Future<Map<String, dynamic>> pull(String since, int limit,
-      {String? until, Map<String, dynamic> cursors = const {}}) async {
+      {String? until,
+      Map<String, dynamic> cursors = const {},
+      List<String>? tables}) async {
     final dio = _ref.read(dioProvider);
     final res = await dio.post('sync/pull', data: {
       'since': since,
       'limit': limit,
       if (until != null) 'until': until,
       if (cursors.isNotEmpty) 'cursors': cursors,
+      if (tables != null) 'tables': tables,
     });
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -259,10 +262,15 @@ class SyncEngine {
     final since = await _meta('pullWatermark') ?? '';
     String? until;
     var cursors = <String, dynamic>{};
+    // null = every table (first page). After that, only the tables that still
+    // have a cursor: a table that already finished must not be re-sent and
+    // re-applied on every follow-up page.
+    List<String>? tables;
     var hasMore = true;
     var guard = 0;
     while (hasMore && guard++ < 1000) {
-      final resp = await _api.pull(since, 500, until: until, cursors: cursors);
+      final resp = await _api.pull(since, 500,
+          until: until, cursors: cursors, tables: tables);
       final changes = (resp['changes'] as Map?) ?? {};
       await _db.transaction(() async {
         for (final spec in kSyncTables) {
@@ -274,6 +282,7 @@ class SyncEngine {
       });
       until = (resp['watermark'] as String?) ?? until;
       cursors = Map<String, dynamic>.from(resp['cursors'] as Map? ?? {});
+      tables = cursors.keys.toList();
       hasMore = (resp['has_more'] as bool?) ?? false;
     }
     if (until != null && !hasMore) {
