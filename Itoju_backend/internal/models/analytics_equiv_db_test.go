@@ -135,18 +135,153 @@ func TestAnalyticsSnapshotDB(t *testing.T) {
 	}
 
 	// All 15 calls (12 methods; tag with and without a filter) must be JSON-
-	// marshalable and produce a result for every one. The full canonical JSON is
-	// emitted under -v (between SNAPSHOT markers) for golden diffing during
-	// refactors; day/year buckets depend on CURRENT_DATE so it isn't a static
-	// fixture.
+	// marshalable and produce a result for every one.
 	if len(out) != 15 {
 		t.Fatalf("expected 15 analytics results, got %d", len(out))
 	}
+
+	// The seed is date-relative, so there is no static golden file. But we know
+	// exactly what we seeded, so we can compute what each window must contain and
+	// assert it. (Expectations use the database's own CURRENT_DATE, not Go's clock,
+	// to avoid timezone skew at midnight.)
+	var today time.Time
+	if err := db.QueryRow(`SELECT CURRENT_DATE`).Scan(&today); err != nil {
+		t.Fatalf("current_date: %v", err)
+	}
+	inMonth, inYear := 0, 0
+	exMonth, exYear := 0, 0
+	for i, off := range offsets {
+		d := today.AddDate(0, 0, -off)
+		weight := (i % 2) + 1 // seeded no_of_times
+		if d.Year() == today.Year() {
+			inYear++
+			exYear += weight
+			if d.Month() == today.Month() {
+				inMonth++
+				exMonth += weight
+			}
+		}
+	}
+	exAll := 0
+	for i := range offsets {
+		exAll += (i % 2) + 1
+	}
+
+	type want struct {
+		name string
+		got  float64
+		want float64
+	}
+	checks := []want{
+		// every seeded row falls inside the wide "days" window
+		{"day_bowel", sumValues(out["day_bowel"]), float64(len(offsets))},
+		{"day_exercise", sumValues(out["day_exercise"]), float64(exAll)},
+		{"month_bowel", sumValues(out["month_bowel"]), float64(inMonth)},
+		{"month_exercise", sumValues(out["month_exercise"]), float64(exMonth)},
+		{"year_bowel", sumValues(out["year_bowel"]), float64(inYear)},
+		{"year_exercise", sumValues(out["year_exercise"]), float64(exYear)},
+		// each food row carries 5 tag entries, 2 of them "apple"
+		{"day_tag_all", sumValues(out["day_tag_all"]), float64(5 * len(offsets))},
+		{"day_tag_apple", sumValues(out["day_tag_apple"]), float64(2 * len(offsets))},
+		{"month_tag_all", sumValues(out["month_tag_all"]), float64(5 * inMonth)},
+		{"month_tag_apple", sumValues(out["month_tag_apple"]), float64(2 * inMonth)},
+		{"year_tag_all", sumValues(out["year_tag_all"]), float64(5 * inYear)},
+		{"year_tag_apple", sumValues(out["year_tag_apple"]), float64(2 * inYear)},
+	}
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s: total = %v, want %v (a window is including/excluding the wrong rows)", c.name, c.got, c.want)
+		}
+	}
+
+	// Symptom results are averages: sparse, and always within the seeded range.
+	for _, name := range []string{"day_symptom", "month_symptom", "year_symptom"} {
+		vals := collectNumbers(out[name])
+		wantAny := name == "day_symptom" ||
+			(name == "month_symptom" && inMonth > 0) ||
+			(name == "year_symptom" && inYear > 0)
+		if wantAny && len(vals) == 0 {
+			t.Errorf("%s: expected at least one bucket", name)
+		}
+		for _, v := range vals {
+			if v < 0.2-1e-9 || v > 0.8+1e-9 {
+				t.Errorf("%s: average %v outside the seeded severity range [0.2, 0.8]", name, v)
+			}
+		}
+	}
+
+	// Week-of-month buckets must stay within 1..5 (the 6th calendar week folds in).
+	for _, name := range []string{"month_symptom", "month_bowel", "month_exercise", "month_tag_all"} {
+		b, _ := json.Marshal(out[name])
+		var m map[string]any
+		if json.Unmarshal(b, &m) == nil {
+			for k := range m {
+				if k < "1" || k > "5" {
+					t.Errorf("%s: bucket %q outside 1..5", name, k)
+				}
+			}
+		}
+	}
+
 	b, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 	t.Logf("\nSNAPSHOT_BEGIN\n%s\nSNAPSHOT_END\n", string(b))
+}
+
+// sumValues adds up every counted quantity in an analytics result: the "value" of
+// each {key, value} entry, and any bare number (exercise totals).
+func sumValues(v any) float64 {
+	var total float64
+	var walk func(x any)
+	walk = func(x any) {
+		switch t := x.(type) {
+		case float64:
+			total += t
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			if val, ok := t["value"]; ok {
+				walk(val)
+				return
+			}
+			for _, e := range t {
+				walk(e)
+			}
+		}
+	}
+	b, _ := json.Marshal(v)
+	var generic any
+	_ = json.Unmarshal(b, &generic)
+	walk(generic)
+	return total
+}
+
+func collectNumbers(v any) []float64 {
+	var out []float64
+	var walk func(x any)
+	walk = func(x any) {
+		switch t := x.(type) {
+		case float64:
+			out = append(out, t)
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			for _, e := range t {
+				walk(e)
+			}
+		}
+	}
+	b, _ := json.Marshal(v)
+	var generic any
+	_ = json.Unmarshal(b, &generic)
+	walk(generic)
+	return out
 }
 
 func mustExec(t *testing.T, db *sql.DB, q string, args ...any) {
