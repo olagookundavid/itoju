@@ -18,6 +18,25 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Real Postgres so the DB-backed tests (password-reset brute-force cap,
+    # session revocation, sync quarantine, analytics equivalence, …) actually
+    # run in CI instead of being skipped.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: itoju
+          POSTGRES_PASSWORD: itoju
+          POSTGRES_DB: itoju
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itoju"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ITOJU_TEST_DB: postgres://itoju:itoju@localhost:5432/itoju?sslmode=disable
     steps:
       - uses: actions/checkout@v4
 
@@ -33,4 +52,4 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./...
+        run: go test -race ./...

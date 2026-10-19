@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base32"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -103,6 +104,18 @@ func (m TokenModel) ReplacePasswordResetOTP(ctx context.Context, userID string, 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	err = withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		// Cooldown: a burned or still-live code issued moments ago blocks a new one.
+		// Without it, requesting a fresh code resets the per-code guess budget, so an
+		// attacker could farm unlimited guesses against one account.
+		var recent bool
+		if err := tx.QueryRowContext(ctx,
+			`SELECT EXISTS (SELECT 1 FROM tokens WHERE user_id = $1 AND scope = $2 AND created_at > now() - $3 * interval '1 second')`,
+			userID, ScopePasswordReset, int(ResetOTPCooldown.Seconds())).Scan(&recent); err != nil {
+			return err
+		}
+		if recent {
+			return ErrResetTooSoon
+		}
 		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM tokens WHERE scope = $1 AND user_id = $2`,
 			ScopePasswordReset, userID); err != nil {
@@ -121,6 +134,15 @@ func (m TokenModel) ReplacePasswordResetOTP(ctx context.Context, userID string, 
 	return token.Plaintext, nil
 }
 
+// ResetOTPCooldown is the minimum gap between password-reset code requests for
+// one account.
+const ResetOTPCooldown = 60 * time.Second
+
+// ErrResetTooSoon means a reset code was issued for the account within
+// ResetOTPCooldown. Callers should respond exactly as for a successful request
+// (no enumeration signal) but send nothing.
+var ErrResetTooSoon = errors.New("reset code requested too soon")
+
 // Insert() adds the data for a specific token to the tokens table.
 func (m TokenModel) Insert(ctx context.Context, token *Token) error {
 	query := ` INSERT INTO tokens (hash, user_id, expiry, scope) VALUES ($1, $2, $3, $4)`
@@ -137,6 +159,17 @@ func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID s
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, scope, userID)
+	return err
+}
+
+// DeleteAllForUserExcept revokes every token of the scope for the user EXCEPT the
+// one whose sha256 hash is keepHash — used on password change to sign out all
+// other devices while keeping the caller's own session alive.
+func (m TokenModel) DeleteAllForUserExcept(ctx context.Context, scope string, userID string, keepHash []byte) error {
+	query := ` DELETE FROM tokens WHERE scope = $1 AND user_id = $2 AND hash <> $3`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	_, err := m.DB.ExecContext(ctx, query, scope, userID, keepHash)
 	return err
 }
 

@@ -178,6 +178,12 @@ func (app *Application) CreatePasswordResetTokenHandler(w http.ResponseWriter, r
 	// concurrent requests can't leave two live codes.
 	otp, err := app.Models.Tokens.ReplacePasswordResetOTP(r.Context(), user.ID, 15*time.Minute)
 	if err != nil {
+		if errors.Is(err, models.ErrResetTooSoon) {
+			// Requested again inside the cooldown: same generic reply, no new code, no
+			// email (stops code-farming and inbox-spamming a victim).
+			app.respond(w, r, http.StatusOK, env)
+			return
+		}
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -217,7 +223,7 @@ func (app *Application) VerifyPasswordResetOTPHandler(w http.ResponseWriter, r *
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	_, err = app.Models.Users.GetForPasswordResetOTP(r.Context(), input.Email, input.Otp)
+	err = app.Models.Users.VerifyPasswordResetOTP(r.Context(), input.Email, input.Otp)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):

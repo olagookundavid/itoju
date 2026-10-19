@@ -28,11 +28,20 @@ type Config struct {
 		MaxIdleTime  string
 	}
 	Limiter struct {
-		Rps     float64
-		Burst   int
-		Enabled bool
+		// Rps/Burst: per-IP flood guard (before auth) — generous, since carrier NAT
+		// puts many phones behind one address. UserRps/UserBurst: per account.
+		Rps       float64
+		Burst     int
+		UserRps   float64
+		UserBurst int
+		Enabled   bool
 	}
-	Cors struct {
+	// ClientIPHeader names a header set by a TRUSTED edge proxy (e.g. Cloudflare's
+	// "CF-Connecting-IP") that carries the true client address. The edge overwrites
+	// it, so clients can't forge it. When empty/absent we fall back to
+	// X-Forwarded-For parsing, which a client CAN spoof if no proxy rewrites it.
+	ClientIPHeader string
+	Cors           struct {
 		TrustedOrigins []string
 	}
 	Resend struct {

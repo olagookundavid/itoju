@@ -59,6 +59,11 @@ func TestResetFlowDB(t *testing.T) {
 	if len(otp1) != 6 {
 		t.Fatalf("otp not 6 digits: %q", otp1)
 	}
+	// A second request inside the cooldown is refused; backdate to simulate waiting.
+	if _, err := m.Tokens.ReplacePasswordResetOTP(ctx, user.ID, 15*time.Minute); !errors.Is(err, ErrResetTooSoon) {
+		t.Fatalf("immediate re-request should hit the cooldown, got %v", err)
+	}
+	backdateResetTokens(t, m, user.ID)
 	otp2, err := m.Tokens.ReplacePasswordResetOTP(ctx, user.ID, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("replace otp #2: %v", err)

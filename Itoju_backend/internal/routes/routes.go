@@ -139,7 +139,6 @@ func Routes(app *api.Application) http.Handler {
 
 	//User Points
 	router.Handler(http.MethodGet, "/v1/user/point", app.RequireActivatedAndAuthedUser((app.GetUserTotalPoints)))
-	router.Handler(http.MethodPost, "/v1/user/point", app.RequireActivatedAndAuthedUser((app.AddUserTotalPoints)))
 
 	//Period
 	router.Handler(http.MethodPost, "/v1/user/period", app.RequireActivatedAndAuthedUser((app.AddMenstrualCycle)))
@@ -161,5 +160,5 @@ func Routes(app *api.Application) http.Handler {
 	router.Handler(http.MethodGet, "/v1/debug/vars", app.RequireAdminUser(expvar.Handler().ServeHTTP))
 
 	//Middlewares
-	return app.RecoverPanic(app.RateLimit(app.SecureHeaders(app.Metrics(app.Authenticate(router)))))
+	return app.RecoverPanic(app.RateLimit(app.SecureHeaders(app.Metrics(app.Authenticate(app.RateLimitUser(router))))))
 }

@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"errors"
 	"time"
@@ -306,79 +307,94 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 	return &user, nil
 }
 
-// GetForPasswordResetOTP returns the user only when the supplied 6-digit OTP
-// matches an unexpired password-reset token belonging to that exact email.
-// Binding the lookup to the email prevents one user's OTP from matching another
-// user's token (6-digit codes have a small space, so a hash-only lookup could
-// collide across users).
-func (m UserModel) GetForPasswordResetOTP(ctx context.Context, email, otp string) (*User, error) {
-	otpHash := sha256.Sum256([]byte(otp))
-	query := ` SELECT users.id, users.created_at, users.first_name, users.last_name, users.date_of_birth, users.email, users.password_hash, users.activated, users.version, users.pic_no, users.alias, users.isAdmin
-	FROM users
-	INNER JOIN tokens ON users.id = tokens.user_id
-	WHERE users.email = $1
-	AND tokens.hash = $2
-	AND tokens.scope = $3
-	AND tokens.expiry > $4`
+// maxResetOTPAttempts is how many wrong guesses a single reset code tolerates
+// before it is burned. A 6-digit code has only 1,000,000 values, so without a
+// per-code cap an attacker could simply enumerate it within the 15-minute life.
+const maxResetOTPAttempts = 5
 
-	args := []any{email, otpHash[:], ScopePasswordReset, time.Now()}
-	var user User
+// checkResetOTP validates an emailed reset code inside tx, counting failures.
+// It returns the owning user id and ok=true only when the code is live, has
+// attempts left, and matches. A wrong guess increments the code's attempt
+// counter (burning it once the cap is hit); the caller must COMMIT the tx even
+// when ok is false so that increment persists. The token row is locked
+// (FOR UPDATE) so concurrent guesses serialise and can't race the counter, and
+// concurrent redemptions of a valid code can't both succeed.
+func checkResetOTP(ctx context.Context, tx *sql.Tx, email, otp string) (userID string, ok bool, err error) {
+	var (
+		stored   []byte
+		attempts int
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT users.id, tokens.hash, tokens.attempts
+		FROM users
+		INNER JOIN tokens ON users.id = tokens.user_id
+		WHERE users.email = $1
+		AND tokens.scope = $2
+		AND tokens.expiry > $3
+		ORDER BY tokens.expiry DESC
+		LIMIT 1
+		FOR UPDATE OF tokens`,
+		email, ScopePasswordReset, time.Now()).Scan(&userID, &stored, &attempts)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if attempts >= maxResetOTPAttempts {
+		return "", false, nil // burned: a new code must be requested
+	}
+	given := sha256.Sum256([]byte(otp))
+	if subtle.ConstantTimeCompare(stored, given[:]) != 1 {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE tokens SET attempts = attempts + 1 WHERE user_id = $1 AND scope = $2`,
+			userID, ScopePasswordReset); err != nil {
+			return "", false, err
+		}
+		return "", false, nil
+	}
+	return userID, true, nil
+}
+
+// VerifyPasswordResetOTP reports whether the emailed code is currently valid for
+// that exact email, without consuming it (used for the "enter code" screen).
+// Wrong guesses count against the code's attempt cap. Returns ErrRecordNotFound
+// for any failure so callers can't tell "no such user" from "wrong code".
+func (m UserModel) VerifyPasswordResetOTP(ctx context.Context, email, otp string) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
-		&user.ID,
-		&user.CreatedAt,
-		&user.FirstName,
-		&user.LastName,
-		&user.Dob,
-		&user.Email,
-		&user.Password.hash,
-		&user.Activated,
-		&user.Version,
-		&user.PicNo,
-		&user.Alias,
-		&user.IsAdmin)
+	valid := false
+	err := withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		_, ok, err := checkResetOTP(ctx, tx, email, otp)
+		valid = ok
+		return err // nil on a wrong guess so the attempt increment commits
+	})
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrRecordNotFound
-		default:
-			return nil, err
-		}
+		return err
 	}
-	return &user, nil
+	if !valid {
+		return ErrRecordNotFound
+	}
+	return nil
 }
 
 // ResetPasswordWithOTP atomically completes a password reset: within one
-// transaction it verifies the OTP is still valid for the given email, sets the
-// new password hash (bumping the optimistic-lock version), and consumes every
-// password-reset token for that user. Doing all three in a single tx closes the
-// reuse window the previous three-separate-statements flow had — if any step
-// failed after the password update, the OTP used to stay valid and replayable.
-// A locking read (FOR UPDATE OF users) also serialises concurrent reset attempts
-// so the same code can't be redeemed twice. Returns ErrRecordNotFound when the
-// email/OTP pair doesn't match an unexpired reset token.
+// transaction it verifies the OTP (counting failures), sets the new password
+// hash (bumping the optimistic-lock version), consumes every password-reset
+// token, and REVOKES every existing session — so whoever knew the old password
+// (or held a stolen token) is signed out. Returns ErrRecordNotFound when the
+// email/code pair is invalid, expired, or burned.
 func (m UserModel) ResetPasswordWithOTP(ctx context.Context, email, otp string, newHash []byte) error {
-	otpHash := sha256.Sum256([]byte(otp))
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	return withTx(ctx, m.DB, func(tx *sql.Tx) error {
-		var userID string
-		err := tx.QueryRowContext(ctx, `
-			SELECT users.id
-			FROM users
-			INNER JOIN tokens ON users.id = tokens.user_id
-			WHERE users.email = $1
-			AND tokens.hash = $2
-			AND tokens.scope = $3
-			AND tokens.expiry > $4
-			FOR UPDATE OF users`,
-			email, otpHash[:], ScopePasswordReset, time.Now()).Scan(&userID)
+	valid := false
+	err := withTx(ctx, m.DB, func(tx *sql.Tx) error {
+		userID, ok, err := checkResetOTP(ctx, tx, email, otp)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrRecordNotFound
-			}
 			return err
+		}
+		if !ok {
+			return nil // commit the attempt counter, report failure below
 		}
 		if _, err := tx.ExecContext(ctx,
 			`UPDATE users SET password_hash = $1, version = version + 1 WHERE id = $2`,
@@ -386,10 +402,18 @@ func (m UserModel) ResetPasswordWithOTP(ctx context.Context, email, otp string, 
 			return err
 		}
 		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM tokens WHERE user_id = $1 AND scope = $2`,
-			userID, ScopePasswordReset); err != nil {
+			`DELETE FROM tokens WHERE user_id = $1 AND scope IN ($2, $3)`,
+			userID, ScopePasswordReset, ScopeAuthentication); err != nil {
 			return err
 		}
+		valid = true
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return ErrRecordNotFound
+	}
+	return nil
 }

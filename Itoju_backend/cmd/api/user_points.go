@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -36,30 +35,6 @@ func (app *Application) GetUserTotalPoints(w http.ResponseWriter, r *http.Reques
 	env := envelope{
 		"message":    "Retrieved User Total Points",
 		"user_point": userPointResponse}
-
-	app.respond(w, r, http.StatusOK, env)
-}
-
-func (app *Application) AddUserTotalPoints(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Point int64 `json:"point"`
-	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-	user := app.contextGetUser(r)
-	err = app.Models.UserPoint.InsertPoint(r.Context(), user.ID, "", input.Point)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	pointMsg := fmt.Sprintf("Added %d Points to User", input.Point)
-	env := envelope{
-		"message": pointMsg,
-	}
 
 	app.respond(w, r, http.StatusOK, env)
 }

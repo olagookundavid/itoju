@@ -114,10 +114,11 @@ func SyncableTables() []string {
 	return out
 }
 
-// PushResult is the per-row outcome returned to the client.
+// PushResult is the per-row outcome returned to the client. Status is one of
+// applied | stale | rejected (permanent: quarantine) | retry (transient: keep pending).
 type PushResult struct {
 	ID              string    `json:"id"`
-	Status          string    `json:"status"` // applied | stale | rejected
+	Status          string    `json:"status"`
 	ServerUpdatedAt time.Time `json:"server_updated_at"`
 }
 
@@ -160,6 +161,16 @@ func (m SyncModel) Push(ctx context.Context, userID, table string, rows []json.R
 				}
 				res, err = spec.healRow(ctx, tx, userID, row)
 			}
+			if status, bad := rowRejectable(err); bad {
+				// The database refused this one row's VALUES (out of range, too long,
+				// NOT NULL/CHECK, …). Roll back just this row and report it, instead of
+				// failing the whole batch — otherwise one bad row would be resent and
+				// fail forever, silently halting that user's cloud backup.
+				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp); rerr != nil {
+					return rerr
+				}
+				res, err = PushResult{ID: row.id, Status: status}, nil
+			}
 			if err != nil {
 				return err
 			}
@@ -171,6 +182,28 @@ func (m SyncModel) Push(ctx context.Context, userID, table string, rows []json.R
 		return nil, err
 	}
 	return results, nil
+}
+
+// rowRejectable classifies a per-row database error. Data exceptions (SQLSTATE
+// class 22: numeric out of range, string too long, bad text representation) and
+// integrity violations (class 23: NOT NULL, CHECK, a unique the heal path can't
+// fix) are properties of that row, so it is "rejected" and the batch continues.
+// A foreign-key violation (23503) is usually ordering — e.g. a cycle day whose
+// parent cycle hasn't synced yet — so it is "retry": the client leaves the row
+// pending and sends it again next round. Anything else (connection loss,
+// deadlock, …) is a genuine server fault and still fails the request.
+func rowRejectable(err error) (status string, ok bool) {
+	var pqErr *pq.Error
+	if err == nil || !errors.As(err, &pqErr) {
+		return "", false
+	}
+	switch {
+	case pqErr.Code == pgForeignKeyViolation:
+		return "retry", true
+	case pqErr.Code.Class() == "22", pqErr.Code.Class() == "23":
+		return "rejected", true
+	}
+	return "", false
 }
 
 func (s syncSpec) upsertSQL() string {

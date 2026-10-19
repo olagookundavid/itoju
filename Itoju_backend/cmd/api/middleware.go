@@ -4,16 +4,15 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/olagookundavid/itoju/internal/models"
 	"github.com/olagookundavid/itoju/internal/validator"
 	"github.com/tomasen/realip"
-	"golang.org/x/time/rate"
 )
 
 func (app *Application) RecoverPanic(next http.Handler) http.Handler {
@@ -31,102 +30,17 @@ func (app *Application) RecoverPanic(next http.Handler) http.Handler {
 	})
 }
 
-func (app *Application) RateLimit(next http.Handler) http.Handler {
-	type client struct {
-		limiter  *rate.Limiter
-		lastSeen time.Time
-	}
-	var (
-		mu      sync.Mutex
-		clients = make(map[string]*client)
-	)
-	go func() {
-		for {
-			time.Sleep(time.Minute)
-			mu.Lock()
-			for ip, client := range clients {
-				if time.Since(client.lastSeen) > 3*time.Minute {
-					delete(clients, ip)
-				}
-			}
-			mu.Unlock()
-		}
-	}()
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// When the limiter is disabled, pass the request straight through.
-		// (Previously the disabled branch fell through without calling next,
-		// which would have silently dropped every request now that this is
-		// wired into the global middleware chain.)
-		if !app.Config.Limiter.Enabled {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		ip := realip.FromRequest(r)
-		mu.Lock()
-		if _, found := clients[ip]; !found {
-			clients[ip] = &client{
-				limiter: rate.NewLimiter(
-					rate.Limit(app.Config.Limiter.Rps),
-					app.Config.Limiter.Burst),
-			}
-		}
-		clients[ip].lastSeen = time.Now()
-		if !clients[ip].limiter.Allow() {
-			mu.Unlock()
-			app.rateLimitExceededResponse(w, r)
-			return
-		}
-		mu.Unlock()
-		next.ServeHTTP(w, r)
-	})
-}
-
-// newAuthRateLimiter returns a wrapper that throttles sensitive auth endpoints
-// (login, register, password reset) per client IP to slow down brute-force and
-// credential-stuffing attempts, without affecting the app's data endpoints.
-func (app *Application) NewAuthRateLimiter() func(http.HandlerFunc) http.HandlerFunc {
-	type client struct {
-		limiter  *rate.Limiter
-		lastSeen time.Time
-	}
-	var (
-		mu      sync.Mutex
-		clients = make(map[string]*client)
-	)
-	go func() {
-		for {
-			time.Sleep(time.Minute)
-			mu.Lock()
-			for ip, c := range clients {
-				if time.Since(c.lastSeen) > 3*time.Minute {
-					delete(clients, ip)
-				}
-			}
-			mu.Unlock()
-		}
-	}()
-
-	return func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			ip := realip.FromRequest(r)
-			mu.Lock()
-			if _, found := clients[ip]; !found {
-				// ~1 request/sec sustained, burst of 5.
-				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(1), 5)}
-			}
-			clients[ip].lastSeen = time.Now()
-			if !clients[ip].limiter.Allow() {
-				mu.Unlock()
-				app.rateLimitExceededResponse(w, r)
-				return
-			}
-			mu.Unlock()
-			next(w, r)
+// clientIP returns the address to key rate limits on. It prefers the header a
+// trusted edge proxy sets (Config.ClientIPHeader — Cloudflare overwrites
+// CF-Connecting-IP, so it can't be forged through the edge) and otherwise falls
+// back to realip's X-Forwarded-For handling.
+func (app *Application) clientIP(r *http.Request) string {
+	if h := app.Config.ClientIPHeader; h != "" {
+		if ip := net.ParseIP(strings.TrimSpace(r.Header.Get(h))); ip != nil {
+			return ip.String()
 		}
 	}
+	return realip.FromRequest(r)
 }
 
 // RequireAdminUser only allows activated, authenticated users whose account is

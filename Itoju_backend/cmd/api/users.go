@@ -167,6 +167,14 @@ func (app *Application) ChangeUserPasswordHandler(w http.ResponseWriter, r *http
 		}
 		return
 	}
+	// Sign out every OTHER session (a stolen/lost device keeps working otherwise);
+	// the caller's own token stays valid so the app doesn't bounce them to login.
+	if keep, ok := app.currentTokenHash(r); ok {
+		if err := app.Models.Tokens.DeleteAllForUserExcept(r.Context(), models.ScopeAuthentication, user.ID, keep); err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
 	// Send the user a confirmation message.
 	env := envelope{"message": "your password was successfully changed"}
 	app.respond(w, r, http.StatusOK, env)

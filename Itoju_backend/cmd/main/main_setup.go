@@ -182,16 +182,20 @@ func flagSetup(dbUrl string) *api.Config {
 
 	//env and port (env-var driven so the container/platform can configure them)
 	flag.IntVar(&cfg.Port, "port", envInt("PORT", 8080), "API server port")
-	flag.StringVar(&cfg.Env, "env", envStr("APP_ENV", "development"), "Environment (development|staging|production)")
+	flag.StringVar(&cfg.Env, "env", envStr("APP_ENV", "production"), "Environment (development|staging|production); anything but production exposes raw error details")
 	//db
 	flag.StringVar(&cfg.Db.Dsn, "db-dsn", dbUrl, "PostgreSQL DSN")
 	flag.IntVar(&cfg.Db.MaxOpenConns, "db-max-open-conns", 15, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.Db.MaxIdleConns, "db-max-idle-conns", 12, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.Db.MaxIdleTime, "db-max-idle-time", "1m", "PostgreSQL max connection idle time")
 	//limiters
-	flag.Float64Var(&cfg.Limiter.Rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
-	flag.IntVar(&cfg.Limiter.Burst, "limiter-burst", 4, "Rate limiter maximum burst")
+	flag.Float64Var(&cfg.Limiter.Rps, "limiter-rps", 20, "Per-IP flood guard: sustained requests per second (generous; many phones share a carrier IP)")
+	flag.IntVar(&cfg.Limiter.Burst, "limiter-burst", 60, "Per-IP flood guard: burst")
+	flag.Float64Var(&cfg.Limiter.UserRps, "limiter-user-rps", 10, "Per-account limiter: sustained requests per second")
+	flag.IntVar(&cfg.Limiter.UserBurst, "limiter-user-burst", 30, "Per-account limiter: burst")
 	flag.BoolVar(&cfg.Limiter.Enabled, "limiter-enabled", true, "Enable rate limiter")
+	//trusted edge proxy header carrying the real client IP (production is behind Cloudflare)
+	flag.StringVar(&cfg.ClientIPHeader, "client-ip-header", envStr("CLIENT_IP_HEADER", "CF-Connecting-IP"), "Header set by the trusted edge proxy with the real client IP (empty = use X-Forwarded-For)")
 	//resend (transactional email)
 	flag.StringVar(&cfg.Resend.ApiKey, "resend-api-key", os.Getenv("RESEND_API_KEY"), "Resend API key")
 	flag.StringVar(&cfg.Resend.From, "resend-from", os.Getenv("RESEND_FROM_EMAIL"), "Resend verified sender email (e.g. Itoju <noreply@yourdomain.com>)")

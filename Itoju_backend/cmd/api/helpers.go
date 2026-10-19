@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -229,4 +230,16 @@ func (app *Application) AwardPoints(userID, scope string, points int64) {
 func (app *Application) ShutdownBackground(ctx context.Context) {
 	app.Points.Shutdown(ctx)
 	app.Pool.Shutdown(ctx)
+}
+
+// currentTokenHash returns the sha256 of the request's bearer token (the form
+// stored in the tokens table), so a handler can single out the caller's own
+// session. ok is false when no well-formed bearer token is present.
+func (app *Application) currentTokenHash(r *http.Request) ([]byte, bool) {
+	parts := strings.Split(r.Header.Get("Authorization"), " ")
+	if len(parts) != 2 || parts[0] != "Bearer" || parts[1] == "" {
+		return nil, false
+	}
+	h := sha256.Sum256([]byte(parts[1]))
+	return h[:], true
 }

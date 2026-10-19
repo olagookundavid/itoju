@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -99,56 +98,6 @@ func (m UserPointModel) GetUserPointsSummary(ctx context.Context, userID string)
 	defer cancel()
 	err = m.DB.QueryRowContext(ctx, query, userID).Scan(&total, &today, &week)
 	return total, today, week, err
-}
-
-func (m UserPointModel) InsertPoint(ctx context.Context, userId, scope string, point int64) error {
-
-	tx, err := m.DB.Begin()
-	if err != nil {
-		return errors.New("couldn't add user point")
-	}
-
-	// Ensure to rollback the transaction in case of an error
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-	query := `
-	INSERT INTO user_point (user_id, tot_point)
-	VALUES ($1, $2)
-	ON CONFLICT (user_id)
-	DO UPDATE SET
-    tot_point = user_point.tot_point + EXCLUDED.tot_point;
-`
-	userRecordQuery := `
-	INSERT INTO user_point_record (user_id, point, scope)
-	VALUES ($1, $2, $3);
-`
-
-	args := []any{userId, point}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	_, err = tx.ExecContext(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	args = append(args, scope)
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	_, err = tx.ExecContext(ctx, userRecordQuery, args...)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return errors.New("couldn't add user point")
-	}
-	return nil
 }
 
 func (m UserPointModel) DeletePointRecordMoreThanWeek() error {
