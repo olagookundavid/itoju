@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/olagookundavid/itoju/internal/jsonlog"
 )
@@ -21,7 +20,12 @@ type Pool struct {
 	jobs   chan func()
 	wg     sync.WaitGroup
 	logger *jsonlog.Logger
-	closed atomic.Bool
+
+	// mu makes "is the pool still open?" and the channel send one atomic step, so a
+	// Submit can never race Shutdown's close(jobs) into a send-on-closed-channel
+	// panic or a WaitGroup reuse. Submit holds the read lock; Shutdown the write lock.
+	mu     sync.RWMutex
+	closed bool
 }
 
 // NewPool starts `workers` goroutines draining a queue of `queueSize`.
@@ -59,30 +63,38 @@ func (p *Pool) run(fn func()) {
 
 // Submit enqueues a job. It never blocks the caller: if the queue is full it
 // runs the job in an overflow goroutine so work is neither dropped nor allowed
-// to stall the request path. Jobs submitted after Shutdown run detached.
+// to stall the request path. Jobs submitted after Shutdown still run (detached,
+// not drained) rather than being dropped or panicking.
 func (p *Pool) Submit(fn func()) {
-	if p.closed.Load() {
-		p.wg.Add(1)
-		go func() { defer p.wg.Done(); p.run(fn) }()
+	p.mu.RLock()
+	if p.closed {
+		p.mu.RUnlock()
+		go p.run(fn)
 		return
 	}
 	select {
 	case p.jobs <- fn:
 	default:
-		// Queue saturated — overflow rather than block or drop.
+		// Queue saturated — overflow rather than block or drop. Counted under the
+		// read lock so it is registered before Shutdown can start waiting.
 		p.logger.PrintInfo("worker pool queue saturated; running job in overflow goroutine", nil)
 		p.wg.Add(1)
 		go func() { defer p.wg.Done(); p.run(fn) }()
 	}
+	p.mu.RUnlock()
 }
 
 // Shutdown stops accepting new queued jobs and waits for in-flight and queued
 // jobs to finish, bounded by ctx.
 func (p *Pool) Shutdown(ctx context.Context) {
-	if p.closed.Swap(true) {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
 		return
 	}
+	p.closed = true
 	close(p.jobs)
+	p.mu.Unlock()
 	done := make(chan struct{})
 	go func() {
 		p.wg.Wait()

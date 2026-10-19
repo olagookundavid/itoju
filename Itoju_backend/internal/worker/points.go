@@ -26,8 +26,11 @@ type PointsBatcher struct {
 	interval time.Duration
 	logger   *jsonlog.Logger
 	wg       sync.WaitGroup
-	closed   chan struct{}
-	once     sync.Once
+
+	// mu makes "is the batcher still open?" and the channel send one atomic step
+	// (see Pool.mu). Add holds the read lock; Shutdown the write lock.
+	mu     sync.RWMutex
+	closed bool
 }
 
 // NewPointsBatcher starts the aggregation loop. Events are flushed when either
@@ -49,7 +52,6 @@ func NewPointsBatcher(flush func([]PointEvent) error, maxBatch, buffer int, inte
 		maxBatch: maxBatch,
 		interval: interval,
 		logger:   logger,
-		closed:   make(chan struct{}),
 	}
 	b.wg.Add(1)
 	go b.loop()
@@ -58,16 +60,22 @@ func NewPointsBatcher(flush func([]PointEvent) error, maxBatch, buffer int, inte
 
 // Add enqueues a point award. Non-blocking: if the buffer is full it flushes the
 // single event in an overflow goroutine so no points are lost and the request
-// path never stalls.
+// path never stalls. After Shutdown the event is flushed inline (still not lost,
+// and nothing is sent on the closed channel).
 func (b *PointsBatcher) Add(e PointEvent) {
+	b.mu.RLock()
+	if b.closed {
+		b.mu.RUnlock()
+		b.safeFlush([]PointEvent{e})
+		return
+	}
 	select {
-	case <-b.closed:
-		b.overflow([]PointEvent{e})
 	case b.events <- e:
 	default:
 		b.logger.PrintInfo("points batcher buffer full; flushing single event via overflow", nil)
 		b.overflow([]PointEvent{e})
 	}
+	b.mu.RUnlock()
 }
 
 func (b *PointsBatcher) overflow(batch []PointEvent) {
@@ -122,7 +130,12 @@ func (b *PointsBatcher) safeFlush(batch []PointEvent) {
 
 // Shutdown stops intake and flushes any buffered events, bounded by ctx.
 func (b *PointsBatcher) Shutdown(ctx context.Context) {
-	b.once.Do(func() { close(b.closed); close(b.events) })
+	b.mu.Lock()
+	if !b.closed {
+		b.closed = true
+		close(b.events)
+	}
+	b.mu.Unlock()
 	done := make(chan struct{})
 	go func() {
 		b.wg.Wait()

@@ -69,3 +69,78 @@ func TestPointsBatcherFlushesAll(t *testing.T) {
 		t.Fatalf("expected %d flushed events, got %d", n, len(got))
 	}
 }
+
+// Work arriving while (or after) the server shuts down must never panic: a late
+// request handler finishing during drain would otherwise take the process down
+// with "send on closed channel" instead of exiting cleanly.
+func TestPoolSubmitDuringShutdownNeverPanics(t *testing.T) {
+	for iter := 0; iter < 60; iter++ {
+		p := NewPool(2, 4, testLogger())
+		var wg sync.WaitGroup
+		stop := make(chan struct{})
+		for g := 0; g < 8; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						p.Submit(func() {})
+					}
+				}
+			}()
+		}
+		time.Sleep(time.Millisecond)
+		p.Shutdown(context.Background())
+		time.Sleep(time.Millisecond) // submitters keep going AFTER shutdown too
+		close(stop)
+		wg.Wait()
+	}
+}
+
+func TestPointsBatcherAddDuringShutdownNeverPanicsAndLosesNothing(t *testing.T) {
+	for iter := 0; iter < 60; iter++ {
+		var mu sync.Mutex
+		flushed := 0
+		b := NewPointsBatcher(func(ev []PointEvent) error {
+			mu.Lock()
+			flushed += len(ev)
+			mu.Unlock()
+			return nil
+		}, 5, 8, 5*time.Millisecond, testLogger())
+
+		var wg sync.WaitGroup
+		var added int64
+		stop := make(chan struct{})
+		for g := 0; g < 8; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						b.Add(PointEvent{UserID: "u", Scope: "s", Points: 1})
+						atomic.AddInt64(&added, 1)
+					}
+				}
+			}()
+		}
+		time.Sleep(time.Millisecond)
+		b.Shutdown(context.Background())
+		time.Sleep(time.Millisecond)
+		close(stop)
+		wg.Wait()
+		// Anything added once the batcher is closed is flushed inline, so after the
+		// submitters stop, every single event has been written.
+		mu.Lock()
+		got := flushed
+		mu.Unlock()
+		if int64(got) != atomic.LoadInt64(&added) {
+			t.Fatalf("iter %d: added %d events but only %d were flushed", iter, added, got)
+		}
+	}
+}

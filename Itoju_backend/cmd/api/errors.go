@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sort"
 )
 
 func (app *Application) logError(r *http.Request, err error) {
@@ -49,14 +50,19 @@ func (app *Application) MethodNotAllowedResponse(w http.ResponseWriter, r *http.
 func (app *Application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
+
+// failedValidationResponse reports ONE validation failure (the client shows a
+// single message). Field names are sorted so the same bad input always yields the
+// same message — Go randomises map iteration, which used to make it flap.
 func (app *Application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) {
-
 	var errorMsg string
-
-	// Iterate over the map
-	for key, value := range errors {
-		errorMsg = key + " " + value
-		break // Exit the loop after getting the first value
+	if len(errors) > 0 {
+		keys := make([]string, 0, len(errors))
+		for k := range errors {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		errorMsg = keys[0] + " " + errors[keys[0]]
 	}
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errorMsg)
 }
