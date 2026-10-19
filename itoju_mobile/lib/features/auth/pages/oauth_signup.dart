@@ -11,6 +11,7 @@ import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/onboarding/name_step.dart';
+import 'package:itoju_mobile/core/auth/provider_reset.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/date_pick_widget.dart';
 import 'package:itoju_mobile/features/widgets/dates.dart';
@@ -297,15 +298,23 @@ class _OauthSignUpPageState extends State<OauthSignUpPage> {
                                   'downloading in the background and will '
                                   'appear shortly.',
                                   isWarning: false);
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => OnboardingStage.isDone
-                                      ? const LandingPage()
-                                      : const NameStep(),
-                                ),
-                                (route) => false,
-                              );
+                              // New session: drop anything cached for a previous account.
+                              resetUserScopedProviders(ref.invalidate);
+
+                              if (OnboardingStage.isDone) {
+                                Navigator.of(context, rootNavigator: true)
+                                    .pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                      builder: (_) => const LandingPage()),
+                                  (route) => false,
+                                );
+                              } else {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const NameStep()),
+                                  (route) => false,
+                                );
+                              }
                             } else if (response.responseMessage?.isNotEmpty ==
                                 true) {
                               getAlert(response.responseMessage!);

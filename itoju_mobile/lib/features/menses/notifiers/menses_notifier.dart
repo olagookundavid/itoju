@@ -37,6 +37,33 @@ class PeriodNotifier extends StateNotifier<PeriodState> {
     }
   }
 
+  /// Loads the cycle days for a visible calendar range and MERGES them into the
+  /// event map, so paging through months accumulates data instead of replacing
+  /// it. Re-querying a range first drops its existing keys, so edits and deletes
+  /// within it are reflected (a deleted day disappears; an edited day updates).
+  /// Only the first-ever load flips to the full-screen loader — later loads keep
+  /// the calendar on screen so paging doesn't flicker.
+  Future<void> loadRange(String fromIso, String toIso) async {
+    final firstLoad = state.period == null;
+    if (firstLoad) state = state.copyWith(status: Loader.loading);
+    try {
+      final days = await repo.getDaysInRange(fromIso, toIso);
+      final merged = Map<String, List<PeriodModel>>.from(state.period ?? {});
+      merged.removeWhere((date, _) =>
+          date.compareTo(fromIso) >= 0 && date.compareTo(toIso) <= 0);
+      for (final d in days) {
+        merged[d.date] = [d];
+      }
+      state = state.copyWith(status: Loader.loaded, period: merged);
+    } catch (e) {
+      if (firstLoad) {
+        state = state.copyWith(
+            status: Loader.error, error: 'An unexpected error occurred');
+      }
+      // On later loads keep showing what's already on screen.
+    }
+  }
+
   Future<ApiResponse> createPeriodMetric(
       String date, int cycleLen, int periodLen) async {
     state = state.copyWith(postStatus: Loader.loading);
@@ -72,7 +99,6 @@ class PeriodNotifier extends StateNotifier<PeriodState> {
     try {
       await repo.deleteCycle(id);
       state = state.copyWith(delStatus: Loader.loaded);
-      getPeriodList();
       return ApiResponse(successMessage: 'Successfully deleted cycle');
     } catch (e) {
       state = state.copyWith(

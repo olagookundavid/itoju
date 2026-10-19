@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:itoju_mobile/data/limits.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -121,9 +122,11 @@ class _SetMensesState extends ConsumerState<SetMenses> {
                                   isAdd: true,
                                   onTap: () {
                                     setState(() {
-                                      periodCtrl.text =
-                                          ((int.tryParse(periodCtrl.text)!) + 1)
-                                              .toString();
+                                      final next =
+                                          (int.tryParse(periodCtrl.text) ?? 0) +
+                                              1;
+                                      if (next > kMaxPeriodLength) return;
+                                      periodCtrl.text = next.toString();
                                     });
                                   },
                                 )
@@ -173,10 +176,11 @@ class _SetMensesState extends ConsumerState<SetMenses> {
                                   isAdd: true,
                                   onTap: () {
                                     setState(() {
-                                      cycleCtrl.text =
-                                          ((int.tryParse(cycleCtrl.text) ?? 0) +
-                                                  1)
-                                              .toString();
+                                      final next =
+                                          (int.tryParse(cycleCtrl.text) ?? 0) +
+                                              1;
+                                      if (next > kMaxCycleLength) return;
+                                      cycleCtrl.text = next.toString();
                                     });
                                   },
                                 )
@@ -191,8 +195,8 @@ class _SetMensesState extends ConsumerState<SetMenses> {
                                 Loader.loading,
                             onPressed: () async {
                               if (int.tryParse(periodCtrl.text) == null ||
-                                  int.tryParse(periodCtrl.text) == null) {
-                                getAlert('Both field\'s must be integers');
+                                  int.tryParse(cycleCtrl.text) == null) {
+                                getAlert('Both fields must be integers');
                                 return;
                               }
                               final response = await ref

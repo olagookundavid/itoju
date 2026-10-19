@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:itoju_mobile/data/limits.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -164,6 +165,7 @@ class _MealListState extends ConsumerState<MealList> {
                 3.ph,
                 CustomTextField(
                   controller: mealCtrl,
+                  maxLength: kMaxText,
                   onChanged: (p0) {
                     setState(() {
                       isSaveVisible = true;
@@ -179,6 +181,7 @@ class _MealListState extends ConsumerState<MealList> {
                 3.ph,
                 CustomTextField(
                   controller: fruitCtrl,
+                  maxLength: kMaxText,
                   onChanged: (p0) {
                     setState(() {
                       isSaveVisible = true;
@@ -194,6 +197,7 @@ class _MealListState extends ConsumerState<MealList> {
                 3.ph,
                 CustomTextField(
                   controller: extraCtrl,
+                  maxLength: kMaxText,
                   onChanged: (p0) {
                     setState(() {
                       isSaveVisible = true;
@@ -426,6 +430,7 @@ class _SnackListState extends ConsumerState<SnackList> {
                 3.ph,
                 CustomTextField(
                   controller: snackCtrl,
+                  maxLength: kMaxText,
                   onChanged: (p0) {
                     setState(() {
                       isSaveVisible = true;

@@ -260,6 +260,7 @@ class _UrineListState extends ConsumerState<UrineList> {
                 CustomTextField(
                   controller: quantityCtrl,
                   inputType: TextInputType.number,
+                  maxLength: 3, // server column holds at most 999.99
                   onChanged: (val) {
                     quantity = (int.tryParse(val) ?? 0).toDouble();
                     setState(() {

@@ -11,6 +11,7 @@ import 'package:itoju_mobile/features/auth/pages/signUp_Page.dart.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/onboarding/name_step.dart';
+import 'package:itoju_mobile/core/auth/provider_reset.dart';
 import 'package:itoju_mobile/features/widgets/coming_soon_dialog.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/margins.dart';
@@ -22,7 +23,6 @@ import 'package:itoju_mobile/features/widgets/click_text.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
 import 'package:itoju_mobile/features/widgets/custom_text_field.dart';
-import 'package:persistent_bottom_nav_bar_v2/persistent_bottom_nav_bar_v2.dart';
 
 class SignInPage extends ConsumerStatefulWidget {
   const SignInPage({Key? key}) : super(key: key);
@@ -47,7 +47,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         return;
       }
     }
+
     if (!mounted) return;
+    // Fresh account => drop anything cached for the previous one.
+    resetUserScopedProviders(ref.invalidate);
     // Signing in DURING onboarding continues to the name step (prefilled from
     // the account); signing in later (e.g. Settings → sync) goes to the app.
     if (!OnboardingStage.isDone) {
@@ -59,10 +62,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
         (route) => false,
       );
     } else {
-      pushScreen(
-        context,
-        screen: const LandingPage(),
-        pageTransitionAnimation: PageTransitionAnimation.cupertino,
+      // Root navigator (the tab navigator would leave a blank nested page) and
+      // straight to the app — AuthGate would re-prompt for the app lock the user
+      // just passed.
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LandingPage()),
+        (route) => false,
       );
     }
     // The first sync after sign-in downloads the account's history in the

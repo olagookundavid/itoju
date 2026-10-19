@@ -6,6 +6,7 @@ import 'package:itoju_mobile/features/widgets/margins.dart';
 
 import 'custom_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomTextField extends StatefulWidget {
   final String? title, hintText, initialValue;
@@ -17,6 +18,10 @@ class CustomTextField extends StatefulWidget {
   final FormFieldValidator<String?>? valdator;
   final double titleFontSize;
   final double width;
+
+  /// Hard cap on typed characters (silently stops accepting input; no counter,
+  /// so the fixed-height field layout is unaffected).
+  final int? maxLength;
   const CustomTextField(
       {Key? key,
       this.title,
@@ -29,6 +34,7 @@ class CustomTextField extends StatefulWidget {
       this.titleFontSize = 16,
       this.initialValue,
       this.width = double.infinity,
+      this.maxLength,
       this.onChanged})
       : super(key: key);
 
@@ -72,6 +78,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 obscureText: !isPasswordVisible && widget.obscure,
                 validator: widget.valdator,
                 onChanged: widget.onChanged,
+                inputFormatters: widget.maxLength == null
+                    ? null
+                    : [LengthLimitingTextInputFormatter(widget.maxLength)],
                 decoration: InputDecoration(
                   filled: widget.filled,
                   fillColor: AppColors.primaryColorPurple.withOpacity(0.1),

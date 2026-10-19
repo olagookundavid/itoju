@@ -32,7 +32,8 @@ class MensesNotifier extends StateNotifier<MensesState> {
     state = state.copyWith(postStatus: Loader.loading);
     try {
       await repo.updateMenses(periodLen, cycleLen);
-      state = state.copyWith(postStatus: Loader.loaded);
+      final updatedModel = MensesModel(periodLen: periodLen, cycleLen: cycleLen);
+      state = state.copyWith(postStatus: Loader.loaded, mensesModel: updatedModel);
       return ApiResponse(successMessage: 'Successfully updated cycle settings');
     } catch (e) {
       state = state.copyWith(

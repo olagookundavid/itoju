@@ -9,6 +9,7 @@ import 'package:itoju_mobile/features/menses/del_menses_popup.dart';
 import 'package:itoju_mobile/features/menses/notifiers/menses_notifier.dart';
 import 'package:itoju_mobile/features/settings/notifier/menses_notifier.dart';
 import 'package:itoju_mobile/features/widgets/app_loader.dart';
+import 'package:itoju_mobile/data/limits.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
@@ -86,10 +87,40 @@ class _MensesPageState extends ConsumerState<MensesPage> {
     'Bloating'
   ];
 
+  /// Null when the typed lengths are acceptable, else a message for the user.
+  String? _cycleInputProblem(int? cycleLen, int? periodLen) {
+    if (cycleLen == null || periodLen == null) {
+      return 'Cycle length and period length must be whole numbers';
+    }
+    if (cycleLen < 1 || cycleLen > kMaxCycleLength) {
+      return 'Cycle length must be between 1 and $kMaxCycleLength days';
+    }
+    if (periodLen < 1 || periodLen > kMaxPeriodLength) {
+      return 'Period length must be between 1 and $kMaxPeriodLength days';
+    }
+    if (periodLen > cycleLen) {
+      return 'Period length can\'t be longer than the cycle';
+    }
+    return null;
+  }
+
   Future<void> _handleRefresh() async {
-    SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      ref.read(periodProvider.notifier).getPeriodList();
-    });
+    SchedulerBinding.instance
+        .addPostFrameCallback((_) => _reloadVisible());
+  }
+
+  /// Loads the cycle days for the currently-visible month (± a week of padding
+  /// for the leading/trailing calendar cells) and merges them into the event
+  /// map. Called on open, on month change, and after add/edit/delete — so the
+  /// calendar fills in as you page through months instead of only ever showing
+  /// the 3 most recent cycles.
+  void _reloadVisible() {
+    final firstOfMonth = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final lastOfMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    final fmt = DateFormat('yyyy-MM-dd');
+    final from = fmt.format(firstOfMonth.subtract(const Duration(days: 14)));
+    final to = fmt.format(lastOfMonth.add(const Duration(days: 14)));
+    ref.read(periodProvider.notifier).loadRange(from, to);
   }
 
   @override
@@ -97,12 +128,12 @@ class _MensesPageState extends ConsumerState<MensesPage> {
     _handleRefresh();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
       await ref.read(mensesProvider.notifier).getMenses();
-      periodCtrl.text =
-          (ref.read(mensesProvider).mensesModel?.periodLen ?? 25).toString();
-      cycleCtrl.text =
-          (ref.read(mensesProvider).mensesModel?.cycleLen ?? 5).toString();
-      if (periodCtrl.text == '0') periodCtrl.text = '25';
-      if (cycleCtrl.text == '0') cycleCtrl.text = '5';
+      var pLen = ref.read(mensesProvider).mensesModel?.periodLen ?? 5;
+      var cLen = ref.read(mensesProvider).mensesModel?.cycleLen ?? 28;
+      if (pLen == 0) pLen = 5;
+      if (cLen == 0) cLen = 28;
+      periodCtrl.text = pLen.toString();
+      cycleCtrl.text = cLen.toString();
     });
     super.initState();
   }
@@ -117,6 +148,25 @@ class _MensesPageState extends ConsumerState<MensesPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(periodProvider);
+    ref.listen<MensesState>(mensesProvider, (previous, next) {
+      // Only when the SAVED defaults actually changed (loaded, or edited in
+      // Settings). Any other mensesProvider state change (e.g. a post-status
+      // flip) used to overwrite whatever the user was typing in this form.
+      final model = next.mensesModel;
+      if (model == null) return;
+      final old = previous?.mensesModel;
+      if (old != null &&
+          old.periodLen == model.periodLen &&
+          old.cycleLen == model.cycleLen) {
+        return;
+      }
+      var pLen = model.periodLen ?? 5;
+      var cLen = model.cycleLen ?? 28;
+      if (pLen == 0) pLen = 5;
+      if (cLen == 0) cLen = 28;
+      periodCtrl.text = pLen.toString();
+      cycleCtrl.text = cLen.toString();
+    });
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -197,8 +247,7 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                 availableGestures: AvailableGestures.all,
                                 eventLoader: (day) {
                                   return state.period?[DateFormat('yyyy-MM-dd')
-                                          .format(DateTime.parse(
-                                              day.toString()))] ??
+                                          .format(day)] ??
                                       [];
                                 },
                                 calendarBuilders: CalendarBuilders(
@@ -239,18 +288,20 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                       DateTime.parse(_selectedDay.toString()));
                                   // ignore: avoid_print
                                   if (state.period?[day] == null) {
-                                    periodCtrl.text = (ref
-                                                .read(mensesProvider)
-                                                .mensesModel
-                                                ?.periodLen ??
-                                            0)
-                                        .toString();
-                                    cycleCtrl.text = (ref
-                                                .read(mensesProvider)
-                                                .mensesModel
-                                                ?.cycleLen ??
-                                            0)
-                                        .toString();
+                                    var pLen = ref
+                                            .read(mensesProvider)
+                                            .mensesModel
+                                            ?.periodLen ??
+                                        5;
+                                    var cLen = ref
+                                            .read(mensesProvider)
+                                            .mensesModel
+                                            ?.cycleLen ??
+                                        28;
+                                    if (pLen == 0) pLen = 5;
+                                    if (cLen == 0) cLen = 28;
+                                    periodCtrl.text = pLen.toString();
+                                    cycleCtrl.text = cLen.toString();
                                     isSelected = false;
                                     isNew = true;
                                     isFree = false;
@@ -276,7 +327,10 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                   }
                                 },
                                 onPageChanged: (focusedDay) {
-                                  //TODO : load other calender details
+                                  // Paging to another month loads that month's
+                                  // cycle days on demand (merged into the map).
+                                  _focusedDay = focusedDay;
+                                  _reloadVisible();
                                 },
                               ),
                               20.ph,
@@ -369,12 +423,7 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                 isFree = false;
                                                 SchedulerBinding.instance
                                                     .addPostFrameCallback(
-                                                        (timeStamp) async {
-                                                  ref
-                                                      .read(periodProvider
-                                                          .notifier)
-                                                      .getPeriodList();
-                                                });
+                                                        (_) => _reloadVisible());
                                               } else if (response
                                                   .responseMessage!
                                                   .isNotEmpty) {
@@ -467,8 +516,14 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                     .postStatus ==
                                                 Loader.loading,
                                             onPressed: () async {
-                                              if (periodCtrl.text.isEmpty ||
-                                                  cycleCtrl.text.isEmpty) {
+                                              final cycleLen =
+                                                  int.tryParse(cycleCtrl.text);
+                                              final periodLen =
+                                                  int.tryParse(periodCtrl.text);
+                                              final problem = _cycleInputProblem(
+                                                  cycleLen, periodLen);
+                                              if (problem != null) {
+                                                getAlert(problem);
                                                 return;
                                               }
                                               final response = await ref
@@ -477,9 +532,8 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                       DateFormat('yyyy-MM-dd')
                                                           .format(
                                                               _selectedDay!),
-                                                      int.parse(cycleCtrl.text),
-                                                      int.parse(
-                                                          periodCtrl.text));
+                                                      cycleLen!,
+                                                      periodLen!);
 
                                               if (response
                                                   .successMessage.isNotEmpty) {
@@ -491,12 +545,7 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                 cycleCtrl.clear();
                                                 SchedulerBinding.instance
                                                     .addPostFrameCallback(
-                                                        (timeStamp) async {
-                                                  ref
-                                                      .read(periodProvider
-                                                          .notifier)
-                                                      .getPeriodList();
-                                                });
+                                                        (_) => _reloadVisible());
                                               } else if (response
                                                   .responseMessage!
                                                   .isNotEmpty) {
@@ -570,14 +619,9 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                     isSelected = false;
                                                     isNew = true;
                                                     isFree = false;
-                                                    // SchedulerBinding.instance
-                                                    //     .addPostFrameCallback(
-                                                    //         (timeStamp) async {
-                                                    //   ref
-                                                    //       .read(periodProvider
-                                                    //           .notifier)
-                                                    //       .getPeriodList();
-                                                    // });
+                                                    SchedulerBinding.instance
+                                                        .addPostFrameCallback(
+                                                            (_) => _reloadVisible());
                                                   } else if (response
                                                       .responseMessage!
                                                       .isNotEmpty) {
@@ -896,12 +940,7 @@ class _MensesPageState extends ConsumerState<MensesPage> {
                                                   isSaveVisible = false;
                                                   SchedulerBinding.instance
                                                       .addPostFrameCallback(
-                                                          (timeStamp) async {
-                                                    ref
-                                                        .read(periodProvider
-                                                            .notifier)
-                                                        .getPeriodList();
-                                                  });
+                                                          (_) => _reloadVisible());
                                                 } else if (response
                                                     .responseMessage!
                                                     .isNotEmpty) {

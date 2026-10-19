@@ -20,6 +20,7 @@ import 'package:itoju_mobile/features/settings/widgets/settings_tile.dart';
 import 'package:itoju_mobile/features/widgets/back_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
+import 'package:itoju_mobile/core/auth/provider_reset.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -73,10 +74,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
     await Session.clearLocal();
     await Session.signOutProviders();
+
+    // Logged out: nothing from this account may linger in memory.
+    resetUserScopedProviders(ref.invalidate);
+
     if (mounted) setState(() => _loggedIn = false);
     if (!context.mounted) return;
-    // Back to the app root — the app stays fully usable anonymously.
-    Navigator.of(context).pushAndRemoveUntil(
+
+    // Back to the app root (the app stays fully usable anonymously). Root
+    // navigator avoids a blank nested page; LandingPage — not AuthGate — so the
+    // user isn't asked to unlock again right after logging out.
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LandingPage()),
       (route) => false,
     );
