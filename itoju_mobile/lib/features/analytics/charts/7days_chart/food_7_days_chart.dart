@@ -95,15 +95,7 @@ class _Food7DaysChartState extends ConsumerState<Food7DaysChart> {
                               show: false,
                             ),
                             gridData: const FlGridData(show: false),
-                            barGroups: chartFoodData([
-                              state.foodDiary7ChartModel!.mon!,
-                              state.foodDiary7ChartModel!.tue!,
-                              state.foodDiary7ChartModel!.wed!,
-                              state.foodDiary7ChartModel!.thur!,
-                              state.foodDiary7ChartModel!.fri!,
-                              state.foodDiary7ChartModel!.sat!,
-                              state.foodDiary7ChartModel!.sun!
-                            ]),
+                            barGroups: chartFoodData(state.foodDiary7ChartModel!),
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                   axisNameWidget: CustomText(
@@ -122,19 +114,26 @@ class _Food7DaysChartState extends ConsumerState<Food7DaysChart> {
                                 sideTitles: SideTitles(
                                   showTitles: true,
                                   getTitlesWidget: (value, meta) {
+                                    final pos = value.toInt();
+                                    if (pos < 1 || pos > 7) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final date = DateTime.now().subtract(
+                                        Duration(days: 7 - pos));
+                                    final label = switch (date.weekday) {
+                                      1 => 'Mon',
+                                      2 => 'Tue',
+                                      3 => 'Wed',
+                                      4 => 'Thur',
+                                      5 => 'Fri',
+                                      6 => 'Sat',
+                                      7 => 'Sun',
+                                      _ => '',
+                                    };
                                     return SideTitleWidget(
                                       meta: meta,
                                       child: Text(
-                                        switch (value) {
-                                          7 => 'Sun',
-                                          1 => 'Mon',
-                                          2 => 'Tue',
-                                          3 => 'Wed',
-                                          4 => 'Thur',
-                                          5 => 'Fri',
-                                          6 => 'Sat',
-                                          _ => '',
-                                        },
+                                        label,
                                         style: TextStyle(
                                             fontSize: 10.sp,
                                             fontWeight: FontWeight.w500,
@@ -204,36 +203,28 @@ class _Food7DaysChartState extends ConsumerState<Food7DaysChart> {
     }).toList();
   }
 
-  List<BarChartGroupData> chartFoodData(
-      List<List<FoodAnalyticsKeyValue>> values) {
-    if (values.length != 7) {
-      throw ArgumentError('The values list must contain exactly 7 elements.');
-    }
-
-    int todayIndex = DateTime.now().weekday;
-
-    // Create the reordered list
-    List<BarChartGroupData> reorderedData = [];
-
-    // Append from todayIndex to the end
-
-    for (int i = todayIndex + 1; i <= values.length; i++) {
-      reorderedData.add(BarChartGroupData(
-        x: i,
-        barRods: [...transformToBarChartRodData(values[i - 1])],
+  List<BarChartGroupData> chartFoodData(FoodDiary7ChartModel model) {
+    final now = DateTime.now();
+    final groups = <BarChartGroupData>[];
+    for (int pos = 1; pos <= 7; pos++) {
+      final date = now.subtract(Duration(days: 7 - pos));
+      final dow = date.weekday % 7;
+      final val = switch (dow) {
+        0 => model.sun ?? const [],
+        1 => model.mon ?? const [],
+        2 => model.tue ?? const [],
+        3 => model.wed ?? const [],
+        4 => model.thur ?? const [],
+        5 => model.fri ?? const [],
+        6 => model.sat ?? const [],
+        _ => const <FoodAnalyticsKeyValue>[],
+      };
+      groups.add(BarChartGroupData(
+        x: pos,
+        barRods: [...transformToBarChartRodData(val)],
       ));
     }
-
-    // Append from the beginning to todayIndex-1
-
-    for (int i = 1; i < todayIndex + 1; i++) {
-      reorderedData.add(BarChartGroupData(
-        x: i,
-        barRods: [...transformToBarChartRodData(values[i - 1])],
-      ));
-    }
-
-    return reorderedData;
+    return groups;
   }
 }
 

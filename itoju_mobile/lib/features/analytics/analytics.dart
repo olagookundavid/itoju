@@ -18,7 +18,7 @@ import 'package:itoju_mobile/features/analytics/charts/week_charts/syms_week_cha
 import 'package:itoju_mobile/features/analytics/days_chart_screen.dart';
 import 'package:itoju_mobile/features/analytics/month_chart_screen.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/bowel_7_day_chart_notifier.dart';
-import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/exercise_7_day_chart_notifier%20.dart';
+import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/exercise_7_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/food_diary_7_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/syms_7_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/analytics/notifiers/month_chart_notifier/bowel_month_chart_notifier.dart';
@@ -32,6 +32,7 @@ import 'package:itoju_mobile/features/analytics/notifiers/week_charts_notifier/s
 import 'package:itoju_mobile/features/analytics/widgets/helper_funcs.dart';
 import 'package:itoju_mobile/features/analytics/widgets/tabs.dart';
 import 'package:itoju_mobile/features/analytics/week_chart_screen.dart';
+import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 
 class AnalyticsPage extends ConsumerStatefulWidget {
@@ -48,79 +49,77 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     AppTabModel(title: "Year"),
   ];
   int tabValue = 0;
-  Future<void> _handleRefresh() async {
-    SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      tabValue == 0
-          ? refreshDayAnalytics()
-          : tabValue == 1
-              ? refreshWeekAnalytics()
-              : refreshMonthAnalytics();
-    });
-  }
 
-  // secTimer() async {
-  //   await Future.delayed(const Duration(milliseconds: 5));
-  // }
-  static const time = 2000;
+  Future<void> _handleRefresh() async => _loadTab(tabValue);
 
-  init() {
-    SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
-      refreshDayAnalytics();
-      await Future.delayed(const Duration(milliseconds: time));
-      refreshWeekAnalytics();
-      await Future.delayed(const Duration(milliseconds: time));
-      refreshMonthAnalytics();
-    });
+  /// Fetches the charts for the given tab using the CURRENT selections. Called
+  /// on first mount and every time a tab is opened, so switching to a tab
+  /// always reloads it for the currently-selected symptom/food-tag/month/year
+  /// — no manual refresh, and no stale data from a one-time initial fetch.
+  /// All reads are local (Drift), so re-fetching on each switch is cheap.
+  void _loadTab(int tab) {
+    switch (tab) {
+      case 0:
+        refreshDayAnalytics();
+      case 1:
+        refreshWeekAnalytics();
+      default:
+        refreshMonthAnalytics();
+    }
   }
 
   @override
   void initState() {
-    init();
     super.initState();
+    SchedulerBinding.instance
+        .addPostFrameCallback((_) => _loadTab(tabValue));
   }
 
-  refreshDayAnalytics() async {
+  void refreshDayAnalytics() {
     ref
         .read(syms7ChartProvider.notifier)
-        .getSyms7DaysChart(ref.watch(symsIdProvider).id!);
+        .getSyms7DaysChart(ref.read(symsIdProvider).id!);
     ref
         .read(foodDiary7ChartProvider.notifier)
-        .getFoodDiary7DaysChart(ref.watch(foodNameProvider));
-    await Future.delayed(const Duration(milliseconds: time));
+        .getFoodDiary7DaysChart(ref.read(foodNameProvider));
     ref.read(bowel7ChartProvider.notifier).getBowel7DaysChart();
     ref.read(exercise7ChartProvider.notifier).getExercise7DaysChart();
   }
 
-  refreshWeekAnalytics() async {
+  void refreshWeekAnalytics() {
     ref.read(symsWeekChartProvider.notifier).getSymsWeekDaysChart(
-        ref.watch(symsIdProvider).id!, monthToInt(ref.watch(symsWeekProvider)));
+        ref.read(symsIdProvider).id!, monthToInt(ref.read(symsWeekProvider)));
     ref.read(foodDiaryWeekChartProvider.notifier).getFoodDiaryWeekDaysChart(
-        ref.watch(foodNameProvider), monthToInt(ref.watch(foodWeekProvider)));
-    await Future.delayed(const Duration(milliseconds: time));
+        ref.read(foodNameProvider), monthToInt(ref.read(foodWeekProvider)));
     ref
         .read(bowelWeekChartProvider.notifier)
-        .getBowelWeekDaysChart(monthToInt(ref.watch(bowelWeekProvider)));
+        .getBowelWeekDaysChart(monthToInt(ref.read(bowelWeekProvider)));
     ref
         .read(exerciseWeekChartProvider.notifier)
-        .getExerciseWeekDaysChart(monthToInt(ref.watch(exerciseWeekProvider)));
+        .getExerciseWeekDaysChart(monthToInt(ref.read(exerciseWeekProvider)));
   }
 
-  refreshMonthAnalytics() async {
+  void refreshMonthAnalytics() {
     ref.read(symsMonthChartProvider.notifier).getSymsMonthDaysChart(
-        ref.watch(symsIdProvider).id!, ref.watch(symsYearProvider));
+        ref.read(symsIdProvider).id!, ref.read(symsYearProvider));
     ref.read(foodDiaryMonthChartProvider.notifier).getFoodDiaryMonthDaysChart(
-        ref.watch(foodNameProvider), ref.watch(foodYearProvider));
-    await Future.delayed(const Duration(milliseconds: time));
+        ref.read(foodNameProvider), ref.read(foodYearProvider));
     ref
         .read(bowelMonthChartProvider.notifier)
-        .getBowelMonthDaysChart(ref.watch(bowelYearProvider));
+        .getBowelMonthDaysChart(ref.read(bowelYearProvider));
     ref
         .read(exerciseMonthChartProvider.notifier)
-        .getExerciseMonthDaysChart(ref.watch(exerciseYearProvider));
+        .getExerciseMonthDaysChart(ref.read(exerciseYearProvider));
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(routeStateProvider, (previous, next) {
+      if (next.index == 1) {
+        _loadTab(tabValue);
+      }
+    });
+
     return Scaffold(
       body: RefreshIndicator(
         color: AppColors.primaryColorPurple,
@@ -167,6 +166,10 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                           onTap: () {
                             tabValue = index;
                             setState(() {});
+                            // Reload the opened tab for the current selection,
+                            // so Month/Year reflect the symptom/food-tag you
+                            // picked on another tab (no manual refresh needed).
+                            _loadTab(index);
                           },
                         ),
                         separatorBuilder: (context, item) => 8.pw,

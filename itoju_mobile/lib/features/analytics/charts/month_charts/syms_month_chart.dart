@@ -125,7 +125,7 @@ class _SymptomsMonthChartState extends ConsumerState<SymptomsMonthChart> {
                         height: 200.h,
                         child: BarChart(
                           BarChartData(
-                              maxY: 11,
+                              maxY: 10,
                               borderData: FlBorderData(
                                 show: false,
                               ),

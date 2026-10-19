@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/core/helpers/utils.dart';
-import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/exercise_7_day_chart_notifier%20.dart';
+import 'package:itoju_mobile/features/analytics/notifiers/7_days_chart_notifier/exercise_7_day_chart_notifier.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/symptoms_notifier.dart';
 import 'package:itoju_mobile/features/widgets/app_loader.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
@@ -65,15 +65,7 @@ class _Exercise7DaysChartState extends ConsumerState<Exercise7DaysChart> {
                               show: false,
                             ),
                             gridData: const FlGridData(show: false),
-                            barGroups: chartSymsData([
-                              state.exercise7ChartModel!.mon!.toDouble(),
-                              state.exercise7ChartModel!.tue!.toDouble(),
-                              state.exercise7ChartModel!.wed!.toDouble(),
-                              state.exercise7ChartModel!.thur!.toDouble(),
-                              state.exercise7ChartModel!.fri!.toDouble(),
-                              state.exercise7ChartModel!.sat!.toDouble(),
-                              state.exercise7ChartModel!.sun!.toDouble()
-                            ]),
+                            barGroups: chartExerciseData(state.exercise7ChartModel!),
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                   axisNameWidget: CustomText(
@@ -92,19 +84,26 @@ class _Exercise7DaysChartState extends ConsumerState<Exercise7DaysChart> {
                                 sideTitles: SideTitles(
                                   showTitles: true,
                                   getTitlesWidget: (value, meta) {
+                                    final pos = value.toInt();
+                                    if (pos < 1 || pos > 7) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final date = DateTime.now().subtract(
+                                        Duration(days: 7 - pos));
+                                    final label = switch (date.weekday) {
+                                      1 => 'Mon',
+                                      2 => 'Tue',
+                                      3 => 'Wed',
+                                      4 => 'Thur',
+                                      5 => 'Fri',
+                                      6 => 'Sat',
+                                      7 => 'Sun',
+                                      _ => '',
+                                    };
                                     return SideTitleWidget(
                                       meta: meta,
                                       child: Text(
-                                        switch (value) {
-                                          7 => 'Sun',
-                                          1 => 'Mon',
-                                          2 => 'Tue',
-                                          3 => 'Wed',
-                                          4 => 'Thur',
-                                          5 => 'Fri',
-                                          6 => 'Sat',
-                                          _ => '',
-                                        },
+                                        label,
                                         style: TextStyle(
                                             fontSize: 10.sp,
                                             fontWeight: FontWeight.w500,
@@ -128,37 +127,31 @@ class _Exercise7DaysChartState extends ConsumerState<Exercise7DaysChart> {
   }
 }
 
-List<BarChartGroupData> chartSymsData(List<double> values) {
-  if (values.length != 7) {
-    throw ArgumentError('The values list must contain exactly 7 elements.');
-  }
-
-  int todayIndex = DateTime.now().weekday;
-
-  // Create the reordered list
-  List<BarChartGroupData> reorderedData = [];
-
-  // Append from todayIndex to the end
-
-  for (int i = todayIndex + 1; i <= values.length; i++) {
-    reorderedData.add(BarChartGroupData(
-      x: i,
+List<BarChartGroupData> chartExerciseData(Exercise7ChartModel model) {
+  final now = DateTime.now();
+  final groups = <BarChartGroupData>[];
+  for (int pos = 1; pos <= 7; pos++) {
+    final date = now.subtract(Duration(days: 7 - pos));
+    final dow = date.weekday % 7;
+    final val = switch (dow) {
+      0 => model.sun ?? 0,
+      1 => model.mon ?? 0,
+      2 => model.tue ?? 0,
+      3 => model.wed ?? 0,
+      4 => model.thur ?? 0,
+      5 => model.fri ?? 0,
+      6 => model.sat ?? 0,
+      _ => 0,
+    };
+    groups.add(BarChartGroupData(
+      x: pos,
       barRods: [
-        BarChartRodData(toY: values[i - 1], color: const Color(0xffE34131))
+        BarChartRodData(
+          toY: val.toDouble(),
+          color: const Color(0xffE34131),
+        )
       ],
     ));
   }
-
-  // Append from the beginning to todayIndex-1
-
-  for (int i = 1; i < todayIndex + 1; i++) {
-    reorderedData.add(BarChartGroupData(
-      x: i,
-      barRods: [
-        BarChartRodData(toY: values[i - 1], color: const Color(0xffE34131))
-      ],
-    ));
-  }
-
-  return reorderedData;
+  return groups;
 }

@@ -29,10 +29,10 @@ class LocalAnalyticsService {
 
   // --- date-range helpers -------------------------------------------------
 
-  /// Trailing 7-day predicate: date >= (today - 7 days). No upper bound, matching
-  /// the backend's `date >= CURRENT_DATE - make_interval(days => 7)`.
+  /// Trailing 7-day predicate: date >= (today - 6 days), yielding exactly 7
+  /// calendar days (today + 6 prior days), matching backend SQL.
   String _sevenDayCutoff() =>
-      _fmt.format(DateTime.now().subtract(const Duration(days: 7)));
+      _fmt.format(DateTime.now().subtract(const Duration(days: 6)));
 
   String _monthStart(int year, int month) =>
       '$year-${month.toString().padLeft(2, '0')}-01';
@@ -57,35 +57,21 @@ class LocalAnalyticsService {
   /// Dart weekday is Monday=1 .. Sunday=7, so `weekday % 7` maps Sunday->0.
   int _dowBucket(String isoDate) => _parse(isoDate).weekday % 7;
 
-  /// Week-of-month = isoWeek(date) - isoWeek(1st of that month) + 1, exactly as
-  /// `EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1`.
-  /// NOTE: like the backend, this can yield out-of-range buckets around the
-  /// Jan/Dec ISO-year boundary (e.g. Jan 1 sitting in the prior year's week 52/53);
-  /// those rows land outside 1..5 and are dropped, faithful to the Go formula.
+  /// Week-of-month = 1..5, matching backend SQL. Calculated as the difference
+  /// between the Monday starting the week containing `date` and the Monday
+  /// starting the week containing the 1st of that month, plus 1.
+  /// Results are clamped to 1..5 so any 6th calendar week is merged into week 5.
   int _weekOfMonthBucket(String isoDate) {
     final d = _parse(isoDate);
     final firstOfMonth = DateTime.utc(d.year, d.month, 1);
-    return _isoWeek(d) - _isoWeek(firstOfMonth) + 1;
+    final dMonday = d.subtract(Duration(days: d.weekday - 1));
+    final firstMonday =
+        firstOfMonth.subtract(Duration(days: firstOfMonth.weekday - 1));
+    final week = dMonday.difference(firstMonday).inDays ~/ 7 + 1;
+    return week.clamp(1, 5);
   }
 
   int _monthBucket(String isoDate) => _parse(isoDate).month;
-
-  // ISO 8601 week number (1..53), including the cross-year behaviour Postgres'
-  // EXTRACT(WEEK) exhibits (early January can be week 52/53 of the prior year,
-  // late December can be week 1 of the next).
-  int _isoWeeksInYear(int year) {
-    int p(int y) => (y + (y ~/ 4) - (y ~/ 100) + (y ~/ 400)) % 7;
-    return (p(year) == 4 || p(year - 1) == 3) ? 53 : 52;
-  }
-
-  int _isoWeek(DateTime date) {
-    final d = DateTime.utc(date.year, date.month, date.day);
-    final dayOfYear = d.difference(DateTime.utc(d.year, 1, 1)).inDays + 1;
-    final woy = (dayOfYear - d.weekday + 10) ~/ 7;
-    if (woy < 1) return _isoWeeksInYear(d.year - 1);
-    if (woy > _isoWeeksInYear(d.year)) return 1;
-    return woy;
-  }
 
   double _round2(double v) => double.parse(v.toStringAsFixed(2));
 

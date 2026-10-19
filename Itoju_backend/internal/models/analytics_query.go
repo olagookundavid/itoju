@@ -28,7 +28,7 @@ func day7Period(days int) analyticsPeriod {
 		bucket:   "EXTRACT(DOW FROM date)",
 		fillFrom: 0, fillTo: 6,
 		dateRange: func(i int) (string, []any) {
-			return fmt.Sprintf("date >= CURRENT_DATE - make_interval(days => $%d)", i), []any{days}
+			return fmt.Sprintf("date >= CURRENT_DATE - make_interval(days => $%d - 1)", i), []any{days}
 		},
 	}
 }
@@ -36,7 +36,7 @@ func day7Period(days int) analyticsPeriod {
 // monthPeriod buckets by week-of-month (1-5) within a single calendar month.
 func monthPeriod(year, month int) analyticsPeriod {
 	return analyticsPeriod{
-		bucket:   "(EXTRACT(WEEK FROM date) - EXTRACT(WEEK FROM date_trunc('month', date)) + 1)",
+		bucket:   "LEAST((date_trunc('week', date)::date - date_trunc('week', date_trunc('month', date))::date) / 7 + 1, 5)",
 		fillFrom: 1, fillTo: 5,
 		dateRange: func(i int) (string, []any) {
 			return fmt.Sprintf("date >= make_date($%d, $%d, 1) AND date < make_date($%d, $%d, 1) + INTERVAL '1 month'", i, i+1, i, i+1), []any{year, month}
