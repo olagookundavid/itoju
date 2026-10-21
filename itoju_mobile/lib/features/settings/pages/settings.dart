@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/auth/session.dart';
+import 'package:itoju_mobile/features/auth/notifiers/login_notifier.dart';
+import 'package:itoju_mobile/services/flush_bar_service.dart';
 import 'package:itoju_mobile/core/helpers/app_reset.dart';
 import 'package:itoju_mobile/core/helpers/biometric_helper.dart';
 import 'package:itoju_mobile/features/auth/pages/login.dart';
@@ -31,6 +34,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool switchValueAuth = false;
   bool switchValueAppLock = Session.isAppLockEnabled();
+  bool switchValueBiometrics = Session.isBiometricLoginEnabled();
   bool _loggedIn = false;
   bool _backingUp = false;
 
@@ -40,6 +44,87 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     Session.hasToken().then((v) {
       if (mounted) setState(() => _loggedIn = v);
     });
+  }
+
+  /// Turning biometric sign-in ON: needs a device biometric, the account's email,
+  /// and the user's password — which is VERIFIED against the server before
+  /// anything is kept. The password is stored (in the platform keystore) only
+  /// from this point, and only while the toggle stays on.
+  Future<void> _enableBiometrics() async {
+    if (!await LocalAuthApi.hasBiometrics()) {
+      getAlert('Set up a fingerprint or face on this device first');
+      return;
+    }
+    final email = HiveStorage.get(HiveKeys.userName) as String?;
+    if (email == null || email.isEmpty) {
+      getAlert(
+          'Biometric sign-in is for email accounts. Sign in with your email and password first.');
+      return;
+    }
+    final check = await LocalAuthApi.authenticate();
+    if (check != 'success') {
+      getAlert(check);
+      return;
+    }
+    if (!mounted) return;
+    final password = await _askPassword(email);
+    if (password == null || password.isEmpty) return;
+
+    // Flag first, so the verifying login below saves the password.
+    await Session.setBiometricLoginEnabled(true);
+    final res =
+        await ref.read(loginNotifier.notifier).login(email, password);
+    if (res.successMessage.isNotEmpty) {
+      if (mounted) setState(() => switchValueBiometrics = true);
+      getAlert('Biometric sign-in is on', isWarning: false);
+    } else {
+      await Session.setBiometricLoginEnabled(false);
+      getAlert(res.responseMessage?.isNotEmpty == true
+          ? res.responseMessage!
+          : res.errorMessage);
+    }
+  }
+
+  Future<String?> _askPassword(String email) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm your password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(email),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'It is kept in your device\'s secure storage, and only while '
+              'this is switched on.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, ctrl.text),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result;
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -194,6 +279,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         },
                       ));
                     }),
+              if (_loggedIn || switchValueBiometrics)
+                Row(
+                  children: [
+                    Text(
+                      'Enable Biometrics',
+                      style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryColorPurple),
+                    ),
+                    const Spacer(),
+                    Switch.adaptive(
+                        inactiveTrackColor: Colors.grey.withOpacity(.5),
+                        activeColor: AppColors.primaryColorPurple,
+                        value: switchValueBiometrics,
+                        onChanged: (on) async {
+                          if (on) {
+                            await _enableBiometrics();
+                          } else {
+                            await Session.setBiometricLoginEnabled(false);
+                            setState(() => switchValueBiometrics = false);
+                          }
+                        }),
+                  ],
+                ),
+              if (_loggedIn || switchValueBiometrics)
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: Text(
+                    'Sign in with your fingerprint or face. While this is on, '
+                    'your password is kept in this device\'s secure storage.',
+                    style: TextStyle(fontSize: 11.sp, color: Colors.grey),
+                  ),
+                ),
               Row(
                 children: [
                   Text(

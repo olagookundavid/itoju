@@ -183,3 +183,24 @@ counts hits on those routes in the admin-only `/v1/debug/vars` under
 `legacy_requests` (keys like `GET /v1/user/symsMetric`). Once those counters stop
 moving across a release or two, the legacy handlers, routes and models can be
 removed. `legacyRouteKey` in `cmd/api/middleware.go` defines what counts as legacy.
+
+## Biometric sign-in (decision, 2026-10)
+
+**Shipped (option A):** opt-in. Settings → "Enable Biometrics" verifies the user's
+password against the server, then keeps the password in the platform keystore
+(Keychain / Android Keystore via flutter_secure_storage) **only while the toggle is
+on**. Sign-in releases it only after a device biometric check, it survives logout and
+session expiry, follows an in-app password change, switches itself off if the server
+rejects it (e.g. after a reset), and is wiped on turn-off, "Erase data" and account
+deletion. Email accounts only (Google sign-in has no password).
+
+**Accepted trade-off:** a stolen password is worth more than a stolen session token
+(it can be reused on other sites and does not expire), so we hold a password only on
+explicit opt-in.
+
+**Future (option B):** replace the stored password with a revocable per-device login
+token. The server would issue it at sign-in (new `device` token scope + an endpoint
+that exchanges it for a session), the phone would store only that, and a biometric
+check would unlock it. Same user experience, nothing reusable on the device, and a
+lost phone can be cut off server-side. Needs a new endpoint, revocation on password
+change, and app work.

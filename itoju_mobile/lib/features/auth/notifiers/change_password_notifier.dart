@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:itoju_mobile/core/Storage/secure_store.dart';
+import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
 import 'package:itoju_mobile/services/app_exception.dart';
 import 'package:itoju_mobile/services/dio_provider.dart';
@@ -30,6 +32,11 @@ class ChangePasswordNotifier extends StateNotifier<ChangePasswordState> {
 
       var body = response.data;
       if (response.statusCode == 200) {
+        // Keep the biometric sign-in credential in step with the new password
+        // (only if the user opted in; otherwise nothing is stored).
+        if (Session.isBiometricLoginEnabled()) {
+          await SecureStore.write(SecureKeys.password, newPassword);
+        }
         state = state.copyWith(loadStatus: Loader.loaded);
         return ApiResponse(
           successMessage: body["message"],

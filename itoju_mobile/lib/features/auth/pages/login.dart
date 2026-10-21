@@ -12,6 +12,7 @@ import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/onboarding/name_step.dart';
 import 'package:itoju_mobile/core/auth/provider_reset.dart';
+import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/features/widgets/coming_soon_dialog.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/margins.dart';
@@ -244,6 +245,54 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   );
                 }),
                 30.ph,
+                Center(
+                    child: InkWell(
+                  onTap: () async {
+                    if (!Session.isBiometricLoginEnabled()) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Biometrics not enabled',
+                              style: TextStyle(fontSize: 20.sp)),
+                          content: Text(
+                            'Sign in with your password, then switch on '
+                            '"Enable Biometrics" in Settings.',
+                            style: TextStyle(fontSize: 15.sp),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text('OK',
+                                  style: TextStyle(fontSize: 15.sp)),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+                    final response = await model.loginWithBioMetric();
+                    if (response.successMessage.isNotEmpty) {
+                      await _completeLogin(response);
+                    } else if (response.responseMessage?.isNotEmpty == true) {
+                      getAlert(response.responseMessage!);
+                    } else {
+                      getAlert(response.errorMessage);
+                    }
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.fingerprint, size: 25.r),
+                      Text(
+                        'Login With Biometrics',
+                        style: TextStyle(
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blueGrey),
+                      ),
+                    ],
+                  ),
+                )),
                 20.ph,
                 CustomText(
                   "Or Login using your",

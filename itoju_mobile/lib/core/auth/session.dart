@@ -29,25 +29,44 @@ class Session {
     await HiveStorage.put(HiveKeys.appLock, enabled);
   }
 
-  /// Clears the local session material only (token + biometric password +
-  /// cached username + cached profile). Used both by explicit logout and the
-  /// 401 bounce.
+  /// Whether the user has opted in to signing in with biometrics. OFF by
+  /// default. While ON, the password (and email) are kept in the platform
+  /// keystore so a fingerprint/face check can sign them back in.
+  static bool isBiometricLoginEnabled() =>
+      HiveStorage.get(HiveKeys.showBiometrics) == true;
+
+  /// Switches biometric sign-in on or off. Turning it OFF deletes the stored
+  /// password immediately. (Turning it ON stores nothing by itself: the password
+  /// is saved by the next successful password login, which Settings performs as
+  /// part of enabling.)
+  static Future<void> setBiometricLoginEnabled(bool enabled) async {
+    await HiveStorage.put(HiveKeys.showBiometrics, enabled);
+    if (!enabled) {
+      try {
+        await SecureStore.delete(SecureKeys.password);
+      } catch (_) {}
+    }
+  }
+
+  /// Clears the local session (token + cached profile). Used both by explicit
+  /// logout and the 401 bounce. If biometric sign-in is ON the stored password
+  /// and email are kept — being able to sign back in after logout or expiry is
+  /// exactly what that feature is for.
   static Future<void> clearLocal() async {
-    await SecureStore.clearAuth();
-    await HiveStorage.delete(HiveKeys.userName);
+    final keep = isBiometricLoginEnabled();
+    await SecureStore.clearAuth(keepPassword: keep);
+    if (!keep) await HiveStorage.delete(HiveKeys.userName);
     await HiveStorage.delete(HiveKeys.profileCache);
   }
 
-  /// Removes secrets that older versions kept on the device. The app used to
-  /// store the user's plaintext password (for a biometric "re-login"); it no
-  /// longer stores one, and this clears any copy left by an earlier install.
+  /// Startup hygiene: a password may only be stored while biometric sign-in is
+  /// on. Older versions kept one for every user; this removes any such stray copy.
   /// Never throws.
   static Future<void> purgeLegacySecrets() async {
     try {
-      await SecureStore.delete(SecureKeys.password);
-    } catch (_) {}
-    try {
-      await HiveStorage.delete(HiveKeys.showBiometrics);
+      if (!isBiometricLoginEnabled()) {
+        await SecureStore.delete(SecureKeys.password);
+      }
     } catch (_) {}
   }
 

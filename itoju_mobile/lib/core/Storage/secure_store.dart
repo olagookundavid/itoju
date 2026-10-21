@@ -21,10 +21,12 @@ class SecureStore {
 
   static Future<void> delete(String key) => _storage.delete(key: key);
 
-  /// Clears all auth material — call on logout.
-  static Future<void> clearAuth() async {
+  /// Clears the session token (call on logout / expiry). The stored password is
+  /// removed too, unless [keepPassword] — used while the user has biometric
+  /// sign-in switched on, which needs it to survive logout and session expiry.
+  static Future<void> clearAuth({bool keepPassword = false}) async {
     await _storage.delete(key: SecureKeys.token);
-    await _storage.delete(key: SecureKeys.password);
+    if (!keepPassword) await _storage.delete(key: SecureKeys.password);
   }
 
   /// Wipes EVERY secure key (token, biometric password, local account id, and
