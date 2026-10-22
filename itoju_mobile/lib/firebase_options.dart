@@ -58,12 +58,12 @@ class DefaultFirebaseOptions {
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCO9Mnt-TxGO7UbJ8fMT777bHsXPpZHsiQ',
-    appId: '1:408390509656:ios:a30416048839d95232162d',
+    appId: '1:408390509656:ios:b4102787642d443832162d',
     messagingSenderId: '408390509656',
     projectId: 'itoju-7c0f0',
     storageBucket: 'itoju-7c0f0.firebasestorage.app',
     androidClientId: '408390509656-okek4uhov71isbocbvko30vnkmnr9rov.apps.googleusercontent.com',
-    iosClientId: '408390509656-qkpjaihr02gmlvhl7ke56k0ieql0ek8p.apps.googleusercontent.com',
+    iosClientId: '408390509656-9iocsl66bcq9gm2ctobjepqo8uh51ken.apps.googleusercontent.com',
     iosBundleId: 'com.itoju.app',
   );
 }

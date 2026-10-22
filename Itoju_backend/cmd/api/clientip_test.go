@@ -1,6 +1,7 @@
 package api
 
 import (
+	"expvar"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -77,5 +78,42 @@ func TestAuthRateLimiterNotBypassedBySpoofedXFF(t *testing.T) {
 	limited(w, r)
 	if w.Code != http.StatusOK {
 		t.Fatalf("a different real client must not share the attacker's bucket, got %d", w.Code)
+	}
+}
+
+// So the operator can SEE whether the edge header actually reaches the server
+// (read via the admin-only /v1/debug/vars), instead of guessing.
+func TestClientIPDiagnosticsCountSourceAndHeadersSeen(t *testing.T) {
+	app := newTestApp("CF-Connecting-IP")
+	src := expvarMap("client_ip_source")
+	seen := expvarMap("client_ip_headers_seen")
+	val := func(m *expvar.Map, k string) int {
+		if v, ok := m.Get(k).(*expvar.Int); ok {
+			return int(v.Value())
+		}
+		return 0
+	}
+	edge0, fb0 := val(src, "edge_header"), val(src, "fallback")
+	cf0, xff0 := val(seen, "CF-Connecting-IP"), val(seen, "X-Forwarded-For")
+
+	h := app.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	app.Config.Limiter.Enabled = true
+	app.Config.Limiter.Rps, app.Config.Limiter.Burst = 1000, 1000
+	h = app.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+
+	h.ServeHTTP(httptest.NewRecorder(), reqWith(map[string]string{"CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "198.51.100.1"}))
+	h.ServeHTTP(httptest.NewRecorder(), reqWith(map[string]string{"X-Forwarded-For": "198.51.100.2"}))
+
+	if d := val(src, "edge_header") - edge0; d != 1 {
+		t.Errorf("edge_header count rose by %d, want 1", d)
+	}
+	if d := val(src, "fallback") - fb0; d != 1 {
+		t.Errorf("fallback count rose by %d, want 1", d)
+	}
+	if d := val(seen, "CF-Connecting-IP") - cf0; d != 1 {
+		t.Errorf("CF-Connecting-IP seen rose by %d, want 1", d)
+	}
+	if d := val(seen, "X-Forwarded-For") - xff0; d != 2 {
+		t.Errorf("X-Forwarded-For seen rose by %d, want 2", d)
 	}
 }

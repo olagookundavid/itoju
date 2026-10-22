@@ -35,13 +35,26 @@ func (app *Application) RecoverPanic(next http.Handler) http.Handler {
 // CF-Connecting-IP, so it can't be forged through the edge) and otherwise falls
 // back to realip's X-Forwarded-For handling.
 func (app *Application) clientIP(r *http.Request) string {
+	ip, _ := app.clientIPWithSource(r)
+	return ip
+}
+
+// clientIPWithSource is clientIP plus whether the address came from the trusted
+// edge header (true) or from the X-Forwarded-For / connection fallback (false).
+func (app *Application) clientIPWithSource(r *http.Request) (ip string, fromEdge bool) {
 	if h := app.Config.ClientIPHeader; h != "" {
-		if ip := net.ParseIP(strings.TrimSpace(r.Header.Get(h))); ip != nil {
-			return ip.String()
+		if parsed := net.ParseIP(strings.TrimSpace(r.Header.Get(h))); parsed != nil {
+			return parsed.String(), true
 		}
 	}
-	return realip.FromRequest(r)
+	return realip.FromRequest(r), false
 }
+
+// clientIPHeadersToWatch are the headers a proxy might use to pass on the real
+// client address. We count which of them actually arrive so the operator can read
+// the truth from the admin-only /v1/debug/vars instead of guessing what the
+// hosting proxy sends.
+var clientIPHeadersToWatch = []string{"CF-Connecting-IP", "True-Client-IP", "X-Real-Ip", "X-Forwarded-For"}
 
 // RequireAdminUser only allows activated, authenticated users whose account is
 // flagged as admin. Used to gate content-management and diagnostics endpoints.

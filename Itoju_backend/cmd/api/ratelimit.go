@@ -76,7 +76,20 @@ func (app *Application) RateLimit(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !limiter.allow(app.clientIP(r)) {
+		ip, fromEdge := app.clientIPWithSource(r)
+		// Diagnostics: is the trusted edge header actually arriving? (see /v1/debug/vars)
+		source := "fallback"
+		if fromEdge {
+			source = "edge_header"
+		}
+		expvarMap("client_ip_source").Add(source, 1)
+		seen := expvarMap("client_ip_headers_seen")
+		for _, name := range clientIPHeadersToWatch {
+			if r.Header.Get(name) != "" {
+				seen.Add(name, 1)
+			}
+		}
+		if !limiter.allow(ip) {
 			app.rateLimitExceededResponse(w, r)
 			return
 		}
