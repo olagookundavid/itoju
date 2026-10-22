@@ -75,8 +75,10 @@ void main() {
     await container.read(syncEngineProvider).push();
 
     // the payload carried exactly one bowel change with the right shape
-    final change =
-        api.lastPush!.firstWhere((c) => c['table'] == 'user_bowel_metric');
+    // (the entry also earned a point record, so there can be a follow-up round;
+    // the bowel row is in the FIRST push)
+    final change = api.pushCalls.first
+        .firstWhere((c) => c['table'] == 'user_bowel_metric');
     final row = (change['rows'] as List).single as Map;
     expect(row['id'], rowBefore.id);
     expect(row['date'], '2026-05-01');

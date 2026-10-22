@@ -2,18 +2,31 @@ import 'package:drift/native.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:itoju_mobile/data/account_service.dart';
 import 'package:itoju_mobile/data/db/app_database.dart';
 import 'package:itoju_mobile/data/ids.dart';
 import 'package:itoju_mobile/data/repositories/points_repository.dart';
+
+class _Acct extends AccountService {
+  String? bound;
+  @override
+  Future<String> localAccountId() async => 'local-acct';
+  @override
+  Future<String?> boundServerUserId() async => bound;
+  @override
+  Future<String> deterministicNamespaceId() async => bound ?? 'local-acct';
+}
 
 void main() {
   late AppDatabase db;
   late PointsRepository repository;
   final fmt = DateFormat('yyyy-MM-dd');
 
+  late _Acct account;
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
-    repository = PointsRepository(db);
+    account = _Acct();
+    repository = PointsRepository(db, account);
   });
 
   tearDown(() => db.close());
@@ -125,6 +138,54 @@ void main() {
           ));
       await repository.ensureBackfill();
       expect((await repository.getPoints()).totalPts, 10); // Register only
+    });
+
+
+    test('backfilled awards use deterministic ids (merge across devices)', () async {
+      final today = fmt.format(DateTime.now());
+      await db.into(db.foodMetrics).insert(FoodMetricsCompanion.insert(
+          id: 'f1', localUpdatedAt: DateTime.now(), date: today));
+      await repository.ensureBackfill();
+      final ids = (await db.select(db.pointRecords).get()).map((r) => r.id).toSet();
+      expect(ids, contains(IdMinter.pointRegister('local-acct')));
+      expect(ids, contains(IdMinter.pointDay('local-acct', 'Food', today)));
+    });
+
+    group('signed in (bound to a server account)', () {
+      test('does NOT backfill before the first download has finished', () async {
+        // A restored phone: entries may be only partly downloaded and the
+        // account's real point records haven't arrived yet. Backfilling now would
+        // award every day a second time once they do.
+        account.bound = 'server-1';
+        final today = fmt.format(DateTime.now());
+        await db.into(db.bowelMetrics).insert(BowelMetricsCompanion.insert(
+            id: 'b1', localUpdatedAt: DateTime.now(), date: today));
+        await repository.ensureBackfill();
+        expect(await db.select(db.pointRecords).get(), isEmpty);
+        expect((await repository.getPoints()).totalPts, 0);
+      });
+
+      test('backfills (only the gaps) once the first download is done', () async {
+        account.bound = 'server-1';
+        final today = fmt.format(DateTime.now());
+        await db.into(db.syncMeta).insertOnConflictUpdate(SyncMetaCompanion.insert(
+            key: 'pullWatermark', value: const Value('2026-06-01T00:00:00Z')));
+        await db.into(db.bowelMetrics).insert(BowelMetricsCompanion.insert(
+            id: 'b1', localUpdatedAt: DateTime.now(), date: today));
+        await db.into(db.foodMetrics).insert(FoodMetricsCompanion.insert(
+            id: 'f1', localUpdatedAt: DateTime.now(), date: today));
+        // the account already has the real Bowel award (pulled from the cloud)
+        await db.into(db.pointRecords).insert(PointRecordsCompanion.insert(
+            id: 'cloud-1',
+            localUpdatedAt: DateTime.now(),
+            point: 2,
+            scope: 'Bowel',
+            date: today));
+        await repository.ensureBackfill();
+        final scopes = (await db.select(db.pointRecords).get()).map((r) => r.scope).toList()..sort();
+        expect(scopes, ['Bowel', 'Food', 'Register'],
+            reason: 'Bowel already counted; Food gap and Register added');
+      });
     });
 
     test('watchPoints emits real-time updates when pointRecords change', () async {

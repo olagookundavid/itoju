@@ -83,13 +83,17 @@ class FoodRepository {
         );
 
     if (existing == null) {
-      await _db.into(_db.pointRecords).insert(PointRecordsCompanion.insert(
-            id: IdMinter.v7(),
+      // Once per day, so the id is deterministic: the same food day on two devices
+      // (or this award and a later catch-up) is one award, not two.
+      await _db.into(_db.pointRecords).insert(
+          PointRecordsCompanion.insert(
+            id: IdMinter.pointDay(account, 'Food', date),
             localUpdatedAt: now,
             point: 2,
             scope: 'Food',
             date: date,
-          ));
+          ),
+          mode: InsertMode.insertOrIgnore);
     }
   }
 

@@ -2,20 +2,26 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../account_service.dart';
 import '../db/app_database.dart';
 import '../ids.dart';
 import '../providers.dart';
 
 final pointsRepositoryProvider = Provider<PointsRepository>(
-  (ref) => PointsRepository(ref.watch(appDatabaseProvider)),
+  (ref) => PointsRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(accountServiceProvider),
+  ),
 );
 
 /// Local source of truth for the points display. Point rows are written by the
 /// metric repositories on create (scope + point + date); here we only read and
 /// aggregate them, mirroring the backend's points totals.
 class PointsRepository {
-  PointsRepository(this._db);
+  PointsRepository(this._db, [AccountService? account])
+      : _account = account ?? AccountService(db: _db);
   final AppDatabase _db;
+  final AccountService _account;
 
   /// Returns a stream of PointModel that updates whenever the pointRecords table changes.
   Stream<PointModel> watchPoints() {
@@ -52,7 +58,23 @@ class PointsRepository {
     });
   }
 
-  Future<void> _runBackfill() => _db.transaction(() async {
+  /// Points are part of the synced data now. For a signed-in account, the real
+  /// point records arrive with the first download — awarding "missing" days before
+  /// that finishes would count every day twice once they land. So a bound account
+  /// waits for its first completed pull; an anonymous (never signed in) device has
+  /// nothing to wait for.
+  Future<bool> _safeToBackfill() async {
+    if (await _account.boundServerUserId() == null) return true;
+    final pulled = await (_db.select(_db.syncMeta)
+          ..where((t) => t.key.equals('pullWatermark')))
+        .getSingleOrNull();
+    return pulled?.value != null && pulled!.value!.isNotEmpty;
+  }
+
+  Future<void> _runBackfill() async {
+    if (!await _safeToBackfill()) return;
+    final namespace = await _account.deterministicNamespaceId();
+    await _db.transaction(() async {
         final fmt = DateFormat('yyyy-MM-dd');
         final now = DateTime.now();
 
@@ -61,13 +83,15 @@ class PointsRepository {
               ..limit(1))
             .get();
         if (register.isEmpty) {
-          await _db.into(_db.pointRecords).insert(PointRecordsCompanion.insert(
-                id: IdMinter.v7(),
+          await _db.into(_db.pointRecords).insert(
+              PointRecordsCompanion.insert(
+                id: IdMinter.pointRegister(namespace),
                 localUpdatedAt: now,
                 point: 10,
                 scope: 'Register',
                 date: fmt.format(now),
-              ));
+              ),
+              mode: InsertMode.insertOrIgnore);
         }
 
         // One query per metric type: distinct live days with no live award yet.
@@ -80,16 +104,20 @@ class PointsRepository {
             variables: [Variable<String>(s.scope)],
           ).get();
           for (final r in rows) {
-            await _db.into(_db.pointRecords).insert(PointRecordsCompanion.insert(
-                  id: IdMinter.v7(),
+            final date = r.read<String>('date');
+            await _db.into(_db.pointRecords).insert(
+                PointRecordsCompanion.insert(
+                  id: IdMinter.pointDay(namespace, s.scope, date),
                   localUpdatedAt: now,
                   point: s.points,
                   scope: s.scope,
-                  date: r.read<String>('date'),
-                ));
+                  date: date,
+                ),
+                mode: InsertMode.insertOrIgnore);
           }
         }
       });
+  }
 
   /// total = SUM(point) over live rows; today = SUM where date == today;
   /// thisWeek = SUM where date >= Monday. Dates are ISO 'yyyy-MM-dd' so string

@@ -443,6 +443,21 @@ class SyncEngine {
         await _reid('user_conditions', r.data['id'] as String,
             IdMinter.condition(to, r.data['condition_id'] as int));
       }
+      // point records: only the deterministic ones carry the account in their id
+      // (registration, once-per-day catch-up/Food); per-entry awards are random.
+      final pts = await _db
+          .customSelect('SELECT id, scope, date FROM point_records')
+          .get();
+      for (final r in pts) {
+        final id = r.data['id'] as String;
+        final scope = r.data['scope'] as String;
+        final date = r.data['date'] as String;
+        if (id == IdMinter.pointRegister(from)) {
+          await _reid('point_records', id, IdMinter.pointRegister(to));
+        } else if (id == IdMinter.pointDay(from, scope, date)) {
+          await _reid('point_records', id, IdMinter.pointDay(to, scope, date));
+        }
+      }
       // settings (single row)
       await _reid(
           'user_settings', IdMinter.settings(from), IdMinter.settings(to));

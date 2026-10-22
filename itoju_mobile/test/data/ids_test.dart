@@ -55,4 +55,19 @@ void selectionVectors() {
     expect(IdMinter.condition(user, 5), '39678ede-24d4-5239-b247-74dbd24cbc39');
     expect(IdMinter.settings(user), '930a21fa-7f84-5cfd-b659-88f739d0a3f9');
   });
+  test('registration point id matches the backend golden vector', () {
+    // The server's sign-up award and the app's own award are ONE row because
+    // both use this id (internal/models/sync_points_db_test.go asserts it too).
+    expect(IdMinter.pointRegister(user), 'd03c6ab1-33a6-51fd-9b00-8bc14d721511');
+  });
+  test('per-day point ids are stable per (account, scope, date) and distinct', () {
+    expect(IdMinter.pointDay(user, 'Food', '2026-05-01'),
+        IdMinter.pointDay(user, 'Food', '2026-05-01'));
+    expect(IdMinter.pointDay(user, 'Food', '2026-05-01'),
+        isNot(IdMinter.pointDay(user, 'Food', '2026-05-02')));
+    expect(IdMinter.pointDay(user, 'Food', '2026-05-01'),
+        isNot(IdMinter.pointDay(user, 'Bowel', '2026-05-01')));
+    expect(IdMinter.pointDay(user, 'Food', '2026-05-01'),
+        isNot(IdMinter.pointDay('someone-else', 'Food', '2026-05-01')));
+  });
 }

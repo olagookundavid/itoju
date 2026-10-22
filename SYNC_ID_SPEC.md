@@ -36,8 +36,17 @@ Hardcode the resulting `cda0d494-…` literal on all three sides.
 - Selections and settings sync like every other table (migration
   `042_sync_selections_and_settings.sql` adds ids, sync columns and the
   `det_row_id()` trigger). A deselect travels as a tombstone (`deleted_at`).
-- Points are intentionally NOT synced: they are derived from the entries, and the
-  client re-awards them (`PointsRepository.ensureBackfill`) after a restore.
+- Points sync too (`user_point_record`, migration `043_sync_point_records.sql`; the
+  table keeps its SERIAL `id` and is keyed for sync by `sync_id`). Two awards have
+  deterministic ids so they are never double-counted:
+  - registration: `uuidv5(NS, "{user_id}:point_register")` — the server's own
+    sign-up award and the app's award are the same row;
+  - once-per-day awards (Food, and the catch-up awards for days with entries but no
+    points): `uuidv5(NS, "{account}:point_day:{scope}:{YYYY-MM-DD}")` — client-only,
+    so two devices on one account merge. Per-entry awards stay random v7.
+  Server-only `Login` awards are not sent down (the app never showed them). A
+  signed-in device does not run the catch-up awards until its first pull has
+  finished, otherwise every day would be awarded twice when the real records land.
 
 ## List tables → random, not deterministic
 
@@ -61,11 +70,13 @@ cycle day → 77229aff-1df0-5e14-9361-bf49c94497f3   (cycle_id = the cycle vecto
 tracked metric (metric_id = 3)  → 00eab78b-ee0b-59d8-9e07-3782c64789fd
 condition      (condition_id = 5) → 39678ede-24d4-5239-b247-74dbd24cbc39
 settings                          → 930a21fa-7f84-5cfd-b659-88f739d0a3f9
+registration point                → d03c6ab1-33a6-51fd-9b00-8bc14d721511
 ```
 
 Server anchor tests: `internal/models/det_sync_id_db_test.go`,
 `internal/models/sync_pagination_db_test.go` (`TestCycleDeterministicIDsDB`),
-`internal/models/sync_selections_db_test.go` (selection/settings vectors + migration backfill).
+`internal/models/sync_selections_db_test.go` (selection/settings vectors + migration backfill),
+`internal/models/sync_points_db_test.go` (registration vector, Login exclusion, dedupe).
 Client anchor test: `itoju_mobile/test/data/ids_test.dart`.
 Server-side implementations: `034_metric_uuid.sql` (food/symptoms triggers) and
 `038_deterministic_cycle_ids.sql` (cycle/day triggers + backfill).

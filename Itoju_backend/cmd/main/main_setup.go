@@ -136,16 +136,9 @@ func cronJob(app *api.Application) {
 		return
 	}
 
-	if _, err := c.AddFunc("@daily", func() {
-		defer recoverCron(app, "delete week-old points")
-		app.Logger.PrintInfo("Deleting Over 1 week Points", nil)
-		if err := app.Models.UserPoint.DeletePointRecordMoreThanWeek(); err != nil {
-			app.Logger.PrintError(err, map[string]string{"error": "An error occured with deleting from points records table"})
-		}
-	}); err != nil {
-		app.Logger.PrintError(err, map[string]string{"error": "An error occured scheduling the points cleanup cron job"})
-		return
-	}
+	// (There used to be a second daily job here that deleted point records older
+	// than a week. Point records now sync with the user's other data and ARE the
+	// history a restored device downloads, so they must not be purged.)
 
 	c.Start()
 }

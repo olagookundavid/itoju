@@ -126,6 +126,13 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('height', ColKind.number),
     SyncCol('weight', ColKind.number),
   ]),
+  // Points ledger. Synced so a restored device shows the same total (server-only
+  // Login awards are filtered out server-side).
+  SyncTableSpec('user_point_record', 'point_records', [
+    SyncCol('point', ColKind.number),
+    SyncCol('scope', ColKind.text),
+    SyncCol('date', ColKind.date),
+  ]),
   SyncTableSpec('user_smiley', 'smiley_entries', [
     SyncCol('smiley_id', ColKind.number),
     SyncCol('tags', ColKind.tags),

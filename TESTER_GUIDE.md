@@ -129,9 +129,9 @@ them again just creates noise:
 2. **Backup requires being signed in.** Everything else works signed-out;
    only cloud backup/restore needs an account. That's by design.
 3. **A restore brings back your choices too.** Tracked metrics, diagnosed
-   conditions, cycle/period lengths and body measurements are backed up along
-   with your entries. (Points are not stored separately — they're recalculated
-   from your entries, so the total can differ slightly after a restore.)
+   conditions, cycle/period lengths, body measurements and your points are
+   backed up along with your entries, so your points total is the same after a
+   restore.
 4. **No payment/premium screens anywhere.** Correct for this phase — sync is
    free during testing. If you *do* see anything about payment, that IS a bug.
 5. **First backup after signing in can take noticeably longer** — it's

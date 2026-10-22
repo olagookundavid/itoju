@@ -51,5 +51,18 @@ class IdMinter {
   /// Deterministic id for the single per-account settings row.
   static String settings(String accountId) => _v5('$accountId:user_settings');
 
+  /// The one registration award per account. DETERMINISTIC and identical to the
+  /// id the backend gives its own sign-up award (migration 043 / InsertPointsBatch),
+  /// so the server's 10 points and the app's 10 points are a single row.
+  static String pointRegister(String accountId) =>
+      _v5('$accountId:point_register');
+
+  /// A once-per-(scope, day) award: the catch-up awards for days that have
+  /// entries but no points, and the Food award. Deterministic so two devices
+  /// signed in to one account produce the same row instead of doubling the points.
+  /// (Per-entry awards stay random v7: each entry is its own award.)
+  static String pointDay(String accountId, String scope, String date) =>
+      _v5('$accountId:point_day:$scope:$date');
+
   static String _v5(String name) => _uuid.v5(namespace, name);
 }

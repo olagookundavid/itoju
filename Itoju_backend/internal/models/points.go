@@ -65,16 +65,23 @@ func (m UserPointModel) InsertPointsBatch(events []PointEvent) (err error) {
 
 	// One multi-row insert for the per-event records.
 	var b strings.Builder
-	b.WriteString("INSERT INTO user_point_record (user_id, point, scope) VALUES ")
+	// The registration award has a deterministic sync id (the app mints the same
+	// one for its own registration award), so the two collapse into ONE row; a
+	// repeated server-side award is ignored by ON CONFLICT. Every other award gets
+	// a fresh random id.
+	b.WriteString("INSERT INTO user_point_record (user_id, point, scope, sync_id) VALUES ")
 	args := make([]any, 0, len(events)*3)
 	for i, e := range events {
 		if i > 0 {
 			b.WriteString(", ")
 		}
 		n := i * 3
-		fmt.Fprintf(&b, "($%d, $%d, $%d)", n+1, n+2, n+3)
+		fmt.Fprintf(&b, `($%d::uuid, $%d, $%d::text, CASE WHEN $%d::text = 'Register'
+			THEN uuid_generate_v5(uuid_generate_v5(uuid_ns_dns(), 'sync.itoju.app'), $%d::uuid::text || ':point_register')
+			ELSE uuid_generate_v4() END)`, n+1, n+2, n+3, n+3, n+1)
 		args = append(args, e.UserID, e.Points, e.Scope)
 	}
+	b.WriteString(" ON CONFLICT (sync_id) DO NOTHING")
 	if _, err = tx.ExecContext(ctx, b.String(), args...); err != nil {
 		return err
 	}
@@ -98,12 +105,4 @@ func (m UserPointModel) GetUserPointsSummary(ctx context.Context, userID string)
 	defer cancel()
 	err = m.DB.QueryRowContext(ctx, query, userID).Scan(&total, &today, &week)
 	return total, today, week, err
-}
-
-func (m UserPointModel) DeletePointRecordMoreThanWeek() error {
-	query := `DELETE FROM user_point_record WHERE date < CURRENT_DATE - INTERVAL '7 days'`
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_, err := m.DB.ExecContext(ctx, query)
-	return err
 }

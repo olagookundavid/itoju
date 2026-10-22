@@ -54,6 +54,9 @@ type syncSpec struct {
 	idCol   string
 	cols    []syncCol
 	healKey []string
+	// pullWhere is an extra SQL predicate applied when pulling, for rows that live
+	// in the table but must not reach the client (server-only bookkeeping).
+	pullWhere string
 	// singleton marks a one-row-per-user table (settings): its natural key is just
 	// user_id, so an id collision heals onto that user's one live row.
 	singleton bool
@@ -116,6 +119,12 @@ var syncSpecs = map[string]syncSpec{
 	"bodymeasure": {table: "bodymeasure", idCol: "id", cols: []syncCol{
 		{"height", kNum}, {"weight", kNum},
 	}, singleton: true},
+	// Points ledger. Keyed by its own uuid (sync_id); the SERIAL id stays for legacy
+	// code. Login awards are server-only and were never shown by the app, so they
+	// are not sent down (keeps the total equal to what users see today).
+	"user_point_record": {table: "user_point_record", idCol: "sync_id", cols: []syncCol{
+		{"point", kNum}, {"scope", kText}, {"date", kDate},
+	}, pullWhere: "scope IS DISTINCT FROM 'Login'"},
 	"user_smiley": {table: "user_smiley", idCol: "id", cols: []syncCol{
 		{"smiley_id", kNum}, {"tags", kTags}, {"granted_at", kTs},
 	}},
@@ -448,12 +457,16 @@ func (m SyncModel) Pull(ctx context.Context, userID, table string, since time.Ti
 		args = append(args, cursorID)
 	}
 
+	extra := ""
+	if spec.pullWhere != "" {
+		extra = " AND (" + spec.pullWhere + ")"
+	}
 	query := fmt.Sprintf(`
 		SELECT %s FROM %s
-		WHERE user_id = $1 AND %s AND server_updated_at <= $3
+		WHERE user_id = $1 AND %s AND server_updated_at <= $3%s
 		ORDER BY server_updated_at, %s
 		LIMIT $4`,
-		strings.Join(selectCols, ", "), spec.table, cursorCond, spec.idCol)
+		strings.Join(selectCols, ", "), spec.table, cursorCond, extra, spec.idCol)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -540,7 +553,9 @@ func newHolder(kind colKind) any {
 	case kDate, kTs:
 		return new(time.Time)
 	default:
-		return new(string)
+		// NullString: some legacy rows have NULL text (e.g. point scope before 026);
+		// a plain *string would fail the whole page's Scan.
+		return new(sql.NullString)
 	}
 }
 
@@ -561,7 +576,7 @@ func readHolder(kind colKind, h any) any {
 	case kTs:
 		return h.(*time.Time).UTC().Format(time.RFC3339Nano)
 	default:
-		return *h.(*string)
+		return h.(*sql.NullString).String
 	}
 }
 

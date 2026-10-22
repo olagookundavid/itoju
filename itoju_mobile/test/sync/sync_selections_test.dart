@@ -8,6 +8,7 @@ import 'package:itoju_mobile/data/db/app_database.dart';
 import 'package:itoju_mobile/data/ids.dart';
 import 'package:itoju_mobile/data/providers.dart';
 import 'package:itoju_mobile/data/repositories/conditions_repository.dart';
+import 'package:itoju_mobile/data/repositories/points_repository.dart';
 import 'package:itoju_mobile/data/repositories/settings_repository.dart';
 import 'package:itoju_mobile/data/repositories/tracked_metrics_repository.dart';
 import 'package:itoju_mobile/sync/sync_engine.dart';
@@ -203,5 +204,66 @@ void main() {
     expect(rowsFor('user_trackedmetric')['id'],
         IdMinter.trackedMetric('server-1', 3));
     expect(SecureStore, isNotNull);
+  });
+
+  test('point records push and pull like everything else', () async {
+    FlutterSecureStorage.setMockInitialValues({'local_account_id': 'acct'});
+    await db.into(db.pointRecords).insert(PointRecordsCompanion.insert(
+        id: 'p-local',
+        localUpdatedAt: DateTime.now(),
+        point: 10,
+        scope: 'Symptoms',
+        date: '2026-05-01'));
+    await container.read(syncEngineProvider).push();
+    final row = rowsFor('user_point_record');
+    expect(row['id'], 'p-local');
+    expect(row['point'], 10);
+    expect(row['scope'], 'Symptoms');
+    expect(row['date'], '2026-05-01');
+    expect(row['updated_at'], isA<String>(), reason: 'falls back to local edit time');
+
+    api.pullResponse = {
+      'changes': {
+        'user_point_record': [
+          {'id': 'p-cloud', 'point': 2, 'scope': 'Bowel', 'date': '2026-05-02',
+           'updated_at': '2026-05-02T10:00:00Z', 'deleted_at': null},
+        ],
+      },
+      'has_more': false,
+      'watermark': '2026-06-01T00:00:00Z',
+    };
+    await container.read(syncEngineProvider).pull();
+    final total = await container.read(pointsRepositoryProvider).getPoints();
+    expect(total.totalPts, 12, reason: 'restored device shows the cloud total');
+  });
+
+  test('binding re-keys the registration and per-day point ids', () async {
+    FlutterSecureStorage.setMockInitialValues({'local_account_id': 'local-1'});
+    final day = '2026-05-03';
+    for (final r in [
+      (IdMinter.pointRegister('local-1'), 'Register', '2026-05-01'),
+      (IdMinter.pointDay('local-1', 'Food', day), 'Food', day),
+    ]) {
+      await db.into(db.pointRecords).insert(PointRecordsCompanion.insert(
+          id: r.$1, localUpdatedAt: DateTime.now(), point: 2, scope: r.$2, date: r.$3));
+    }
+    // an ordinary per-entry award must be left alone
+    await db.into(db.pointRecords).insert(PointRecordsCompanion.insert(
+        id: 'live-award', localUpdatedAt: DateTime.now(), point: 2, scope: 'Bowel', date: day));
+
+    FlutterSecureStorage.setMockInitialValues({
+      'local_account_id': 'local-1',
+      'token': 'tok',
+      'bound_server_user_id': 'server-1',
+      'current_server_user_id': 'server-1',
+    });
+    expect(await container.read(syncEngineProvider).syncNow(), SyncOutcome.synced);
+
+    final ids = (await db.select(db.pointRecords).get()).map((r) => r.id).toSet();
+    expect(ids, {
+      IdMinter.pointRegister('server-1'), // == what the server's own award uses
+      IdMinter.pointDay('server-1', 'Food', day),
+      'live-award',
+    });
   });
 }
