@@ -70,6 +70,30 @@ class MedicationMetrics extends Table with SyncColumns {
   TextColumn get time => text().withDefault(const Constant(''))();
 }
 
+/// One blood-pressure reading. Entry-time validation lives in
+/// data/blood_pressure.dart; the server's CHECKs are only a wider backstop.
+class BpMetrics extends Table with SyncColumns {
+  TextColumn get date => text()();
+  TextColumn get time => text().withDefault(const Constant(''))();
+  IntColumn get systolic => integer()();
+  IntColumn get diastolic => integer()();
+  IntColumn get pulse => integer().withDefault(const Constant(0))();
+}
+
+/// A medication reminder: which days (Mon..Sun bitmask, Mon=1 .. Sun=64) and
+/// which times of day ('HH:mm', local time). Synced; the OS-level scheduled
+/// notifications are derived from these rows on each device.
+class MedReminders extends Table with SyncColumns {
+  TextColumn get name => text()();
+  IntColumn get dosage => integer().withDefault(const Constant(0))();
+  TextColumn get unit => text().withDefault(const Constant('mg'))();
+  IntColumn get quantity => integer().withDefault(const Constant(1))();
+  IntColumn get days => integer().withDefault(const Constant(127))();
+  TextColumn get times =>
+      text().map(const StringListConverter()).withDefault(const Constant('[]'))();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+}
+
 class ExerciseMetrics extends Table with SyncColumns {
   TextColumn get date => text()();
   TextColumn get name => text().withDefault(const Constant(''))();
@@ -144,8 +168,14 @@ class UserConditions extends Table with SyncColumns {
 class UserSettings extends Table with SyncColumns {
   IntColumn get periodLen => integer().withDefault(const Constant(0))();
   IntColumn get cycleLen => integer().withDefault(const Constant(0))();
+  // LEGACY whole-number height/weight (unit was only a label on the device).
+  // No longer written or synced; kept so the v1 -> v2 migration can read them.
   IntColumn get height => integer().withDefault(const Constant(0))();
   IntColumn get weight => integer().withDefault(const Constant(0))();
+  // Current body measurements, always stored as centimetres / kilograms and
+  // converted only for display.
+  RealColumn get heightCm => real().withDefault(const Constant(0))();
+  RealColumn get weightKg => real().withDefault(const Constant(0))();
 }
 
 // --- Seeded catalogs (NOT synced; ids match the server SERIAL catalog ids) ---

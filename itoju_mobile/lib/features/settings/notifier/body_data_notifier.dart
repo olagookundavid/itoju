@@ -4,7 +4,8 @@ import 'package:itoju_mobile/data/models/settings_model.dart';
 import 'package:itoju_mobile/data/repositories/settings_repository.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 
-export 'package:itoju_mobile/data/models/settings_model.dart' show BodyDataModel;
+export 'package:itoju_mobile/data/models/settings_model.dart'
+    show BodyDataModel;
 
 final bodyDataProvider =
     StateNotifierProvider.autoDispose<BodyDataNotifier, BodyDataState>((ref) {
@@ -30,10 +31,11 @@ class BodyDataNotifier extends StateNotifier<BodyDataState> {
     }
   }
 
-  Future<ApiResponse> updateBodyData(int height, int weight) async {
+  /// [heightCm] / [weightKg] are always canonical units; the page converts.
+  Future<ApiResponse> updateBodyData(double heightCm, double weightKg) async {
     state = state.copyWith(postStatus: Loader.loading);
     try {
-      await repo.updateBodyData(height, weight);
+      await repo.updateBodyData(heightCm, weightKg);
       if (mounted) state = state.copyWith(postStatus: Loader.loaded);
       return ApiResponse(successMessage: 'Successfully updated body data');
     } catch (e) {

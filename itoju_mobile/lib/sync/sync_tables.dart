@@ -89,6 +89,22 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('time', ColKind.text),
     SyncCol('tags', ColKind.tags),
   ]),
+  SyncTableSpec('user_bp_metric', 'bp_metrics', [
+    SyncCol('date', ColKind.date),
+    SyncCol('time', ColKind.text),
+    SyncCol('systolic', ColKind.number),
+    SyncCol('diastolic', ColKind.number),
+    SyncCol('pulse', ColKind.number),
+  ]),
+  SyncTableSpec('user_med_reminder', 'med_reminders', [
+    SyncCol('name', ColKind.text),
+    SyncCol('dosage', ColKind.number),
+    SyncCol('unit', ColKind.text),
+    SyncCol('quantity', ColKind.number),
+    SyncCol('days', ColKind.number),
+    SyncCol('times', ColKind.tags),
+    SyncCol('enabled', ColKind.boolean),
+  ]),
   SyncTableSpec('menstrual_cycles', 'menstrual_cycles', [
     SyncCol('start_date', ColKind.date),
     SyncCol('cycle_length', ColKind.number),
@@ -122,9 +138,11 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('period_len', ColKind.number),
     SyncCol('cycle_len', ColKind.number),
   ]),
-  SyncTableSpec('bodymeasure', 'user_settings', [
-    SyncCol('height', ColKind.number),
-    SyncCol('weight', ColKind.number),
+  // Decimal cm / kg. The backend's whole-number `bodymeasure` spec is left for
+  // 1.1.x builds; both read and write the same server table (migration 044).
+  SyncTableSpec('bodymeasure_v2', 'user_settings', [
+    SyncCol('height_cm', ColKind.number),
+    SyncCol('weight_kg', ColKind.number),
   ]),
   // Points ledger. Synced so a restored device shows the same total (server-only
   // Login awards are filtered out server-side).

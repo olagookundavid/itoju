@@ -83,6 +83,7 @@ const List<String> kTrackedMetricsSeed = [
   'Medications',
   'Urination',
   'Exercise',
+  'Blood Pressure', // id 9 — appended in app 1.2 (server migration 044)
 ];
 
 const List<String> kConditionsSeed = [

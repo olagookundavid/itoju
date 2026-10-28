@@ -11,6 +11,7 @@ import 'package:itoju_mobile/core/auth/session.dart';
 import 'package:itoju_mobile/features/auth/pages/app_lock.dart';
 import 'package:itoju_mobile/features/auth/pages/auth_gate.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
+import 'package:itoju_mobile/data/repositories/settings_repository.dart';
 import 'package:itoju_mobile/firebase_options.dart';
 import 'package:itoju_mobile/sync/online_tasks.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
@@ -61,6 +62,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // connectivity-regained sync trigger.
     ref.read(purchaseServiceProvider).configure();
     ref.read(syncSchedulerProvider).start();
+    // 1.1 -> 1.2: convert whole-number inches / pounds into the new cm / kg
+    // columns once (needs the unit from Hive, which the DB upgrade can't see).
+    ref
+        .read(settingsRepositoryProvider)
+        .migrateLegacyBodyUnits(
+          heightUnit: HiveStorage.get(HiveKeys.heightMetric),
+          weightUnit: HiveStorage.get(HiveKeys.weightMetric),
+        )
+        .catchError((Object _) {});
     // Attempt a sync on launch (no-op unless authenticated + entitled).
     WidgetsBinding.instance.addPostFrameCallback((_) => _triggerSync());
   }

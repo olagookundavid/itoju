@@ -2598,6 +2598,1092 @@ class MedicationMetricsCompanion extends UpdateCompanion<MedicationMetric> {
   }
 }
 
+class $BpMetricsTable extends BpMetrics
+    with TableInfo<$BpMetricsTable, BpMetric> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BpMetricsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _syncStateMeta =
+      const VerificationMeta('syncState');
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+      'sync_state', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _localUpdatedAtMeta =
+      const VerificationMeta('localUpdatedAt');
+  @override
+  late final GeneratedColumn<DateTime> localUpdatedAt =
+      GeneratedColumn<DateTime>('local_updated_at', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<String> date = GeneratedColumn<String>(
+      'date', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _timeMeta = const VerificationMeta('time');
+  @override
+  late final GeneratedColumn<String> time = GeneratedColumn<String>(
+      'time', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _systolicMeta =
+      const VerificationMeta('systolic');
+  @override
+  late final GeneratedColumn<int> systolic = GeneratedColumn<int>(
+      'systolic', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _diastolicMeta =
+      const VerificationMeta('diastolic');
+  @override
+  late final GeneratedColumn<int> diastolic = GeneratedColumn<int>(
+      'diastolic', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _pulseMeta = const VerificationMeta('pulse');
+  @override
+  late final GeneratedColumn<int> pulse = GeneratedColumn<int>(
+      'pulse', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        updatedAt,
+        deletedAt,
+        syncState,
+        localUpdatedAt,
+        date,
+        time,
+        systolic,
+        diastolic,
+        pulse
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bp_metrics';
+  @override
+  VerificationContext validateIntegrity(Insertable<BpMetric> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(_syncStateMeta,
+          syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta));
+    }
+    if (data.containsKey('local_updated_at')) {
+      context.handle(
+          _localUpdatedAtMeta,
+          localUpdatedAt.isAcceptableOrUnknown(
+              data['local_updated_at']!, _localUpdatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_localUpdatedAtMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+          _dateMeta, date.isAcceptableOrUnknown(data['date']!, _dateMeta));
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('time')) {
+      context.handle(
+          _timeMeta, time.isAcceptableOrUnknown(data['time']!, _timeMeta));
+    }
+    if (data.containsKey('systolic')) {
+      context.handle(_systolicMeta,
+          systolic.isAcceptableOrUnknown(data['systolic']!, _systolicMeta));
+    } else if (isInserting) {
+      context.missing(_systolicMeta);
+    }
+    if (data.containsKey('diastolic')) {
+      context.handle(_diastolicMeta,
+          diastolic.isAcceptableOrUnknown(data['diastolic']!, _diastolicMeta));
+    } else if (isInserting) {
+      context.missing(_diastolicMeta);
+    }
+    if (data.containsKey('pulse')) {
+      context.handle(
+          _pulseMeta, pulse.isAcceptableOrUnknown(data['pulse']!, _pulseMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BpMetric map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BpMetric(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+      syncState: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_state'])!,
+      localUpdatedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}local_updated_at'])!,
+      date: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}date'])!,
+      time: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}time'])!,
+      systolic: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}systolic'])!,
+      diastolic: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}diastolic'])!,
+      pulse: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}pulse'])!,
+    );
+  }
+
+  @override
+  $BpMetricsTable createAlias(String alias) {
+    return $BpMetricsTable(attachedDatabase, alias);
+  }
+}
+
+class BpMetric extends DataClass implements Insertable<BpMetric> {
+  final String id;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String syncState;
+  final DateTime localUpdatedAt;
+  final String date;
+  final String time;
+  final int systolic;
+  final int diastolic;
+  final int pulse;
+  const BpMetric(
+      {required this.id,
+      this.updatedAt,
+      this.deletedAt,
+      required this.syncState,
+      required this.localUpdatedAt,
+      required this.date,
+      required this.time,
+      required this.systolic,
+      required this.diastolic,
+      required this.pulse});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['sync_state'] = Variable<String>(syncState);
+    map['local_updated_at'] = Variable<DateTime>(localUpdatedAt);
+    map['date'] = Variable<String>(date);
+    map['time'] = Variable<String>(time);
+    map['systolic'] = Variable<int>(systolic);
+    map['diastolic'] = Variable<int>(diastolic);
+    map['pulse'] = Variable<int>(pulse);
+    return map;
+  }
+
+  BpMetricsCompanion toCompanion(bool nullToAbsent) {
+    return BpMetricsCompanion(
+      id: Value(id),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncState: Value(syncState),
+      localUpdatedAt: Value(localUpdatedAt),
+      date: Value(date),
+      time: Value(time),
+      systolic: Value(systolic),
+      diastolic: Value(diastolic),
+      pulse: Value(pulse),
+    );
+  }
+
+  factory BpMetric.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BpMetric(
+      id: serializer.fromJson<String>(json['id']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      localUpdatedAt: serializer.fromJson<DateTime>(json['localUpdatedAt']),
+      date: serializer.fromJson<String>(json['date']),
+      time: serializer.fromJson<String>(json['time']),
+      systolic: serializer.fromJson<int>(json['systolic']),
+      diastolic: serializer.fromJson<int>(json['diastolic']),
+      pulse: serializer.fromJson<int>(json['pulse']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncState': serializer.toJson<String>(syncState),
+      'localUpdatedAt': serializer.toJson<DateTime>(localUpdatedAt),
+      'date': serializer.toJson<String>(date),
+      'time': serializer.toJson<String>(time),
+      'systolic': serializer.toJson<int>(systolic),
+      'diastolic': serializer.toJson<int>(diastolic),
+      'pulse': serializer.toJson<int>(pulse),
+    };
+  }
+
+  BpMetric copyWith(
+          {String? id,
+          Value<DateTime?> updatedAt = const Value.absent(),
+          Value<DateTime?> deletedAt = const Value.absent(),
+          String? syncState,
+          DateTime? localUpdatedAt,
+          String? date,
+          String? time,
+          int? systolic,
+          int? diastolic,
+          int? pulse}) =>
+      BpMetric(
+        id: id ?? this.id,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+        syncState: syncState ?? this.syncState,
+        localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+        date: date ?? this.date,
+        time: time ?? this.time,
+        systolic: systolic ?? this.systolic,
+        diastolic: diastolic ?? this.diastolic,
+        pulse: pulse ?? this.pulse,
+      );
+  BpMetric copyWithCompanion(BpMetricsCompanion data) {
+    return BpMetric(
+      id: data.id.present ? data.id.value : this.id,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      localUpdatedAt: data.localUpdatedAt.present
+          ? data.localUpdatedAt.value
+          : this.localUpdatedAt,
+      date: data.date.present ? data.date.value : this.date,
+      time: data.time.present ? data.time.value : this.time,
+      systolic: data.systolic.present ? data.systolic.value : this.systolic,
+      diastolic: data.diastolic.present ? data.diastolic.value : this.diastolic,
+      pulse: data.pulse.present ? data.pulse.value : this.pulse,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BpMetric(')
+          ..write('id: $id, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('localUpdatedAt: $localUpdatedAt, ')
+          ..write('date: $date, ')
+          ..write('time: $time, ')
+          ..write('systolic: $systolic, ')
+          ..write('diastolic: $diastolic, ')
+          ..write('pulse: $pulse')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, updatedAt, deletedAt, syncState,
+      localUpdatedAt, date, time, systolic, diastolic, pulse);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BpMetric &&
+          other.id == this.id &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncState == this.syncState &&
+          other.localUpdatedAt == this.localUpdatedAt &&
+          other.date == this.date &&
+          other.time == this.time &&
+          other.systolic == this.systolic &&
+          other.diastolic == this.diastolic &&
+          other.pulse == this.pulse);
+}
+
+class BpMetricsCompanion extends UpdateCompanion<BpMetric> {
+  final Value<String> id;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> syncState;
+  final Value<DateTime> localUpdatedAt;
+  final Value<String> date;
+  final Value<String> time;
+  final Value<int> systolic;
+  final Value<int> diastolic;
+  final Value<int> pulse;
+  final Value<int> rowid;
+  const BpMetricsCompanion({
+    this.id = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.localUpdatedAt = const Value.absent(),
+    this.date = const Value.absent(),
+    this.time = const Value.absent(),
+    this.systolic = const Value.absent(),
+    this.diastolic = const Value.absent(),
+    this.pulse = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BpMetricsCompanion.insert({
+    required String id,
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    required DateTime localUpdatedAt,
+    required String date,
+    this.time = const Value.absent(),
+    required int systolic,
+    required int diastolic,
+    this.pulse = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        localUpdatedAt = Value(localUpdatedAt),
+        date = Value(date),
+        systolic = Value(systolic),
+        diastolic = Value(diastolic);
+  static Insertable<BpMetric> custom({
+    Expression<String>? id,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncState,
+    Expression<DateTime>? localUpdatedAt,
+    Expression<String>? date,
+    Expression<String>? time,
+    Expression<int>? systolic,
+    Expression<int>? diastolic,
+    Expression<int>? pulse,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncState != null) 'sync_state': syncState,
+      if (localUpdatedAt != null) 'local_updated_at': localUpdatedAt,
+      if (date != null) 'date': date,
+      if (time != null) 'time': time,
+      if (systolic != null) 'systolic': systolic,
+      if (diastolic != null) 'diastolic': diastolic,
+      if (pulse != null) 'pulse': pulse,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BpMetricsCompanion copyWith(
+      {Value<String>? id,
+      Value<DateTime?>? updatedAt,
+      Value<DateTime?>? deletedAt,
+      Value<String>? syncState,
+      Value<DateTime>? localUpdatedAt,
+      Value<String>? date,
+      Value<String>? time,
+      Value<int>? systolic,
+      Value<int>? diastolic,
+      Value<int>? pulse,
+      Value<int>? rowid}) {
+    return BpMetricsCompanion(
+      id: id ?? this.id,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncState: syncState ?? this.syncState,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      systolic: systolic ?? this.systolic,
+      diastolic: diastolic ?? this.diastolic,
+      pulse: pulse ?? this.pulse,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (localUpdatedAt.present) {
+      map['local_updated_at'] = Variable<DateTime>(localUpdatedAt.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<String>(date.value);
+    }
+    if (time.present) {
+      map['time'] = Variable<String>(time.value);
+    }
+    if (systolic.present) {
+      map['systolic'] = Variable<int>(systolic.value);
+    }
+    if (diastolic.present) {
+      map['diastolic'] = Variable<int>(diastolic.value);
+    }
+    if (pulse.present) {
+      map['pulse'] = Variable<int>(pulse.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BpMetricsCompanion(')
+          ..write('id: $id, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('localUpdatedAt: $localUpdatedAt, ')
+          ..write('date: $date, ')
+          ..write('time: $time, ')
+          ..write('systolic: $systolic, ')
+          ..write('diastolic: $diastolic, ')
+          ..write('pulse: $pulse, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MedRemindersTable extends MedReminders
+    with TableInfo<$MedRemindersTable, MedReminder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MedRemindersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _syncStateMeta =
+      const VerificationMeta('syncState');
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+      'sync_state', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _localUpdatedAtMeta =
+      const VerificationMeta('localUpdatedAt');
+  @override
+  late final GeneratedColumn<DateTime> localUpdatedAt =
+      GeneratedColumn<DateTime>('local_updated_at', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dosageMeta = const VerificationMeta('dosage');
+  @override
+  late final GeneratedColumn<int> dosage = GeneratedColumn<int>(
+      'dosage', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+      'unit', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('mg'));
+  static const VerificationMeta _quantityMeta =
+      const VerificationMeta('quantity');
+  @override
+  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+      'quantity', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _daysMeta = const VerificationMeta('days');
+  @override
+  late final GeneratedColumn<int> days = GeneratedColumn<int>(
+      'days', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(127));
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String> times =
+      GeneratedColumn<String>('times', aliasedName, false,
+              type: DriftSqlType.string,
+              requiredDuringInsert: false,
+              defaultValue: const Constant('[]'))
+          .withConverter<List<String>>($MedRemindersTable.$convertertimes);
+  static const VerificationMeta _enabledMeta =
+      const VerificationMeta('enabled');
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+      'enabled', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("enabled" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        updatedAt,
+        deletedAt,
+        syncState,
+        localUpdatedAt,
+        name,
+        dosage,
+        unit,
+        quantity,
+        days,
+        times,
+        enabled
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'med_reminders';
+  @override
+  VerificationContext validateIntegrity(Insertable<MedReminder> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(_syncStateMeta,
+          syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta));
+    }
+    if (data.containsKey('local_updated_at')) {
+      context.handle(
+          _localUpdatedAtMeta,
+          localUpdatedAt.isAcceptableOrUnknown(
+              data['local_updated_at']!, _localUpdatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_localUpdatedAtMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('dosage')) {
+      context.handle(_dosageMeta,
+          dosage.isAcceptableOrUnknown(data['dosage']!, _dosageMeta));
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+          _unitMeta, unit.isAcceptableOrUnknown(data['unit']!, _unitMeta));
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(_quantityMeta,
+          quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta));
+    }
+    if (data.containsKey('days')) {
+      context.handle(
+          _daysMeta, days.isAcceptableOrUnknown(data['days']!, _daysMeta));
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(_enabledMeta,
+          enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MedReminder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MedReminder(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+      syncState: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_state'])!,
+      localUpdatedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}local_updated_at'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      dosage: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}dosage'])!,
+      unit: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unit'])!,
+      quantity: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}quantity'])!,
+      days: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}days'])!,
+      times: $MedRemindersTable.$convertertimes.fromSql(attachedDatabase
+          .typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}times'])!),
+      enabled: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}enabled'])!,
+    );
+  }
+
+  @override
+  $MedRemindersTable createAlias(String alias) {
+    return $MedRemindersTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<List<String>, String> $convertertimes =
+      const StringListConverter();
+}
+
+class MedReminder extends DataClass implements Insertable<MedReminder> {
+  final String id;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String syncState;
+  final DateTime localUpdatedAt;
+  final String name;
+  final int dosage;
+  final String unit;
+  final int quantity;
+  final int days;
+  final List<String> times;
+  final bool enabled;
+  const MedReminder(
+      {required this.id,
+      this.updatedAt,
+      this.deletedAt,
+      required this.syncState,
+      required this.localUpdatedAt,
+      required this.name,
+      required this.dosage,
+      required this.unit,
+      required this.quantity,
+      required this.days,
+      required this.times,
+      required this.enabled});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['sync_state'] = Variable<String>(syncState);
+    map['local_updated_at'] = Variable<DateTime>(localUpdatedAt);
+    map['name'] = Variable<String>(name);
+    map['dosage'] = Variable<int>(dosage);
+    map['unit'] = Variable<String>(unit);
+    map['quantity'] = Variable<int>(quantity);
+    map['days'] = Variable<int>(days);
+    {
+      map['times'] =
+          Variable<String>($MedRemindersTable.$convertertimes.toSql(times));
+    }
+    map['enabled'] = Variable<bool>(enabled);
+    return map;
+  }
+
+  MedRemindersCompanion toCompanion(bool nullToAbsent) {
+    return MedRemindersCompanion(
+      id: Value(id),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncState: Value(syncState),
+      localUpdatedAt: Value(localUpdatedAt),
+      name: Value(name),
+      dosage: Value(dosage),
+      unit: Value(unit),
+      quantity: Value(quantity),
+      days: Value(days),
+      times: Value(times),
+      enabled: Value(enabled),
+    );
+  }
+
+  factory MedReminder.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MedReminder(
+      id: serializer.fromJson<String>(json['id']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      localUpdatedAt: serializer.fromJson<DateTime>(json['localUpdatedAt']),
+      name: serializer.fromJson<String>(json['name']),
+      dosage: serializer.fromJson<int>(json['dosage']),
+      unit: serializer.fromJson<String>(json['unit']),
+      quantity: serializer.fromJson<int>(json['quantity']),
+      days: serializer.fromJson<int>(json['days']),
+      times: serializer.fromJson<List<String>>(json['times']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncState': serializer.toJson<String>(syncState),
+      'localUpdatedAt': serializer.toJson<DateTime>(localUpdatedAt),
+      'name': serializer.toJson<String>(name),
+      'dosage': serializer.toJson<int>(dosage),
+      'unit': serializer.toJson<String>(unit),
+      'quantity': serializer.toJson<int>(quantity),
+      'days': serializer.toJson<int>(days),
+      'times': serializer.toJson<List<String>>(times),
+      'enabled': serializer.toJson<bool>(enabled),
+    };
+  }
+
+  MedReminder copyWith(
+          {String? id,
+          Value<DateTime?> updatedAt = const Value.absent(),
+          Value<DateTime?> deletedAt = const Value.absent(),
+          String? syncState,
+          DateTime? localUpdatedAt,
+          String? name,
+          int? dosage,
+          String? unit,
+          int? quantity,
+          int? days,
+          List<String>? times,
+          bool? enabled}) =>
+      MedReminder(
+        id: id ?? this.id,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+        syncState: syncState ?? this.syncState,
+        localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+        name: name ?? this.name,
+        dosage: dosage ?? this.dosage,
+        unit: unit ?? this.unit,
+        quantity: quantity ?? this.quantity,
+        days: days ?? this.days,
+        times: times ?? this.times,
+        enabled: enabled ?? this.enabled,
+      );
+  MedReminder copyWithCompanion(MedRemindersCompanion data) {
+    return MedReminder(
+      id: data.id.present ? data.id.value : this.id,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      localUpdatedAt: data.localUpdatedAt.present
+          ? data.localUpdatedAt.value
+          : this.localUpdatedAt,
+      name: data.name.present ? data.name.value : this.name,
+      dosage: data.dosage.present ? data.dosage.value : this.dosage,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      days: data.days.present ? data.days.value : this.days,
+      times: data.times.present ? data.times.value : this.times,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MedReminder(')
+          ..write('id: $id, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('localUpdatedAt: $localUpdatedAt, ')
+          ..write('name: $name, ')
+          ..write('dosage: $dosage, ')
+          ..write('unit: $unit, ')
+          ..write('quantity: $quantity, ')
+          ..write('days: $days, ')
+          ..write('times: $times, ')
+          ..write('enabled: $enabled')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, updatedAt, deletedAt, syncState,
+      localUpdatedAt, name, dosage, unit, quantity, days, times, enabled);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MedReminder &&
+          other.id == this.id &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncState == this.syncState &&
+          other.localUpdatedAt == this.localUpdatedAt &&
+          other.name == this.name &&
+          other.dosage == this.dosage &&
+          other.unit == this.unit &&
+          other.quantity == this.quantity &&
+          other.days == this.days &&
+          other.times == this.times &&
+          other.enabled == this.enabled);
+}
+
+class MedRemindersCompanion extends UpdateCompanion<MedReminder> {
+  final Value<String> id;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String> syncState;
+  final Value<DateTime> localUpdatedAt;
+  final Value<String> name;
+  final Value<int> dosage;
+  final Value<String> unit;
+  final Value<int> quantity;
+  final Value<int> days;
+  final Value<List<String>> times;
+  final Value<bool> enabled;
+  final Value<int> rowid;
+  const MedRemindersCompanion({
+    this.id = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.localUpdatedAt = const Value.absent(),
+    this.name = const Value.absent(),
+    this.dosage = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.days = const Value.absent(),
+    this.times = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MedRemindersCompanion.insert({
+    required String id,
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncState = const Value.absent(),
+    required DateTime localUpdatedAt,
+    required String name,
+    this.dosage = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.days = const Value.absent(),
+    this.times = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        localUpdatedAt = Value(localUpdatedAt),
+        name = Value(name);
+  static Insertable<MedReminder> custom({
+    Expression<String>? id,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncState,
+    Expression<DateTime>? localUpdatedAt,
+    Expression<String>? name,
+    Expression<int>? dosage,
+    Expression<String>? unit,
+    Expression<int>? quantity,
+    Expression<int>? days,
+    Expression<String>? times,
+    Expression<bool>? enabled,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncState != null) 'sync_state': syncState,
+      if (localUpdatedAt != null) 'local_updated_at': localUpdatedAt,
+      if (name != null) 'name': name,
+      if (dosage != null) 'dosage': dosage,
+      if (unit != null) 'unit': unit,
+      if (quantity != null) 'quantity': quantity,
+      if (days != null) 'days': days,
+      if (times != null) 'times': times,
+      if (enabled != null) 'enabled': enabled,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MedRemindersCompanion copyWith(
+      {Value<String>? id,
+      Value<DateTime?>? updatedAt,
+      Value<DateTime?>? deletedAt,
+      Value<String>? syncState,
+      Value<DateTime>? localUpdatedAt,
+      Value<String>? name,
+      Value<int>? dosage,
+      Value<String>? unit,
+      Value<int>? quantity,
+      Value<int>? days,
+      Value<List<String>>? times,
+      Value<bool>? enabled,
+      Value<int>? rowid}) {
+    return MedRemindersCompanion(
+      id: id ?? this.id,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncState: syncState ?? this.syncState,
+      localUpdatedAt: localUpdatedAt ?? this.localUpdatedAt,
+      name: name ?? this.name,
+      dosage: dosage ?? this.dosage,
+      unit: unit ?? this.unit,
+      quantity: quantity ?? this.quantity,
+      days: days ?? this.days,
+      times: times ?? this.times,
+      enabled: enabled ?? this.enabled,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (localUpdatedAt.present) {
+      map['local_updated_at'] = Variable<DateTime>(localUpdatedAt.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (dosage.present) {
+      map['dosage'] = Variable<int>(dosage.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<int>(quantity.value);
+    }
+    if (days.present) {
+      map['days'] = Variable<int>(days.value);
+    }
+    if (times.present) {
+      map['times'] = Variable<String>(
+          $MedRemindersTable.$convertertimes.toSql(times.value));
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MedRemindersCompanion(')
+          ..write('id: $id, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncState: $syncState, ')
+          ..write('localUpdatedAt: $localUpdatedAt, ')
+          ..write('name: $name, ')
+          ..write('dosage: $dosage, ')
+          ..write('unit: $unit, ')
+          ..write('quantity: $quantity, ')
+          ..write('days: $days, ')
+          ..write('times: $times, ')
+          ..write('enabled: $enabled, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ExerciseMetricsTable extends ExerciseMetrics
     with TableInfo<$ExerciseMetricsTable, ExerciseMetric> {
   @override
@@ -6942,6 +8028,22 @@ class $UserSettingsTable extends UserSettings
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _heightCmMeta =
+      const VerificationMeta('heightCm');
+  @override
+  late final GeneratedColumn<double> heightCm = GeneratedColumn<double>(
+      'height_cm', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _weightKgMeta =
+      const VerificationMeta('weightKg');
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+      'weight_kg', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -6952,7 +8054,9 @@ class $UserSettingsTable extends UserSettings
         periodLen,
         cycleLen,
         height,
-        weight
+        weight,
+        heightCm,
+        weightKg
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7005,6 +8109,14 @@ class $UserSettingsTable extends UserSettings
       context.handle(_weightMeta,
           weight.isAcceptableOrUnknown(data['weight']!, _weightMeta));
     }
+    if (data.containsKey('height_cm')) {
+      context.handle(_heightCmMeta,
+          heightCm.isAcceptableOrUnknown(data['height_cm']!, _heightCmMeta));
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(_weightKgMeta,
+          weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta));
+    }
     return context;
   }
 
@@ -7032,6 +8144,10 @@ class $UserSettingsTable extends UserSettings
           .read(DriftSqlType.int, data['${effectivePrefix}height'])!,
       weight: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}weight'])!,
+      heightCm: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}height_cm'])!,
+      weightKg: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}weight_kg'])!,
     );
   }
 
@@ -7051,6 +8167,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
   final int cycleLen;
   final int height;
   final int weight;
+  final double heightCm;
+  final double weightKg;
   const UserSetting(
       {required this.id,
       this.updatedAt,
@@ -7060,7 +8178,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       required this.periodLen,
       required this.cycleLen,
       required this.height,
-      required this.weight});
+      required this.weight,
+      required this.heightCm,
+      required this.weightKg});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -7077,6 +8197,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     map['cycle_len'] = Variable<int>(cycleLen);
     map['height'] = Variable<int>(height);
     map['weight'] = Variable<int>(weight);
+    map['height_cm'] = Variable<double>(heightCm);
+    map['weight_kg'] = Variable<double>(weightKg);
     return map;
   }
 
@@ -7095,6 +8217,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       cycleLen: Value(cycleLen),
       height: Value(height),
       weight: Value(weight),
+      heightCm: Value(heightCm),
+      weightKg: Value(weightKg),
     );
   }
 
@@ -7111,6 +8235,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       cycleLen: serializer.fromJson<int>(json['cycleLen']),
       height: serializer.fromJson<int>(json['height']),
       weight: serializer.fromJson<int>(json['weight']),
+      heightCm: serializer.fromJson<double>(json['heightCm']),
+      weightKg: serializer.fromJson<double>(json['weightKg']),
     );
   }
   @override
@@ -7126,6 +8252,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       'cycleLen': serializer.toJson<int>(cycleLen),
       'height': serializer.toJson<int>(height),
       'weight': serializer.toJson<int>(weight),
+      'heightCm': serializer.toJson<double>(heightCm),
+      'weightKg': serializer.toJson<double>(weightKg),
     };
   }
 
@@ -7138,7 +8266,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           int? periodLen,
           int? cycleLen,
           int? height,
-          int? weight}) =>
+          int? weight,
+          double? heightCm,
+          double? weightKg}) =>
       UserSetting(
         id: id ?? this.id,
         updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
@@ -7149,6 +8279,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
         cycleLen: cycleLen ?? this.cycleLen,
         height: height ?? this.height,
         weight: weight ?? this.weight,
+        heightCm: heightCm ?? this.heightCm,
+        weightKg: weightKg ?? this.weightKg,
       );
   UserSetting copyWithCompanion(UserSettingsCompanion data) {
     return UserSetting(
@@ -7163,6 +8295,8 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       cycleLen: data.cycleLen.present ? data.cycleLen.value : this.cycleLen,
       height: data.height.present ? data.height.value : this.height,
       weight: data.weight.present ? data.weight.value : this.weight,
+      heightCm: data.heightCm.present ? data.heightCm.value : this.heightCm,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
     );
   }
 
@@ -7177,14 +8311,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           ..write('periodLen: $periodLen, ')
           ..write('cycleLen: $cycleLen, ')
           ..write('height: $height, ')
-          ..write('weight: $weight')
+          ..write('weight: $weight, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('weightKg: $weightKg')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, updatedAt, deletedAt, syncState,
-      localUpdatedAt, periodLen, cycleLen, height, weight);
+      localUpdatedAt, periodLen, cycleLen, height, weight, heightCm, weightKg);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7197,7 +8333,9 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           other.periodLen == this.periodLen &&
           other.cycleLen == this.cycleLen &&
           other.height == this.height &&
-          other.weight == this.weight);
+          other.weight == this.weight &&
+          other.heightCm == this.heightCm &&
+          other.weightKg == this.weightKg);
 }
 
 class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
@@ -7210,6 +8348,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
   final Value<int> cycleLen;
   final Value<int> height;
   final Value<int> weight;
+  final Value<double> heightCm;
+  final Value<double> weightKg;
   final Value<int> rowid;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
@@ -7221,6 +8361,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     this.cycleLen = const Value.absent(),
     this.height = const Value.absent(),
     this.weight = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.weightKg = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UserSettingsCompanion.insert({
@@ -7233,6 +8375,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     this.cycleLen = const Value.absent(),
     this.height = const Value.absent(),
     this.weight = const Value.absent(),
+    this.heightCm = const Value.absent(),
+    this.weightKg = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         localUpdatedAt = Value(localUpdatedAt);
@@ -7246,6 +8390,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     Expression<int>? cycleLen,
     Expression<int>? height,
     Expression<int>? weight,
+    Expression<double>? heightCm,
+    Expression<double>? weightKg,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7258,6 +8404,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       if (cycleLen != null) 'cycle_len': cycleLen,
       if (height != null) 'height': height,
       if (weight != null) 'weight': weight,
+      if (heightCm != null) 'height_cm': heightCm,
+      if (weightKg != null) 'weight_kg': weightKg,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7272,6 +8420,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       Value<int>? cycleLen,
       Value<int>? height,
       Value<int>? weight,
+      Value<double>? heightCm,
+      Value<double>? weightKg,
       Value<int>? rowid}) {
     return UserSettingsCompanion(
       id: id ?? this.id,
@@ -7283,6 +8433,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
       cycleLen: cycleLen ?? this.cycleLen,
       height: height ?? this.height,
       weight: weight ?? this.weight,
+      heightCm: heightCm ?? this.heightCm,
+      weightKg: weightKg ?? this.weightKg,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7317,6 +8469,12 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     if (weight.present) {
       map['weight'] = Variable<int>(weight.value);
     }
+    if (heightCm.present) {
+      map['height_cm'] = Variable<double>(heightCm.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7335,6 +8493,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
           ..write('cycleLen: $cycleLen, ')
           ..write('height: $height, ')
           ..write('weight: $weight, ')
+          ..write('heightCm: $heightCm, ')
+          ..write('weightKg: $weightKg, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8244,6 +9404,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SleepMetricsTable sleepMetrics = $SleepMetricsTable(this);
   late final $MedicationMetricsTable medicationMetrics =
       $MedicationMetricsTable(this);
+  late final $BpMetricsTable bpMetrics = $BpMetricsTable(this);
+  late final $MedRemindersTable medReminders = $MedRemindersTable(this);
   late final $ExerciseMetricsTable exerciseMetrics =
       $ExerciseMetricsTable(this);
   late final $UrineMetricsTable urineMetrics = $UrineMetricsTable(this);
@@ -8272,6 +9434,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         foodMetrics,
         sleepMetrics,
         medicationMetrics,
+        bpMetrics,
+        medReminders,
         exerciseMetrics,
         urineMetrics,
         bowelMetrics,
@@ -9504,6 +10668,530 @@ typedef $$MedicationMetricsTableProcessedTableManager = ProcessedTableManager<
       BaseReferences<_$AppDatabase, $MedicationMetricsTable, MedicationMetric>
     ),
     MedicationMetric,
+    PrefetchHooks Function()>;
+typedef $$BpMetricsTableCreateCompanionBuilder = BpMetricsCompanion Function({
+  required String id,
+  Value<DateTime?> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String> syncState,
+  required DateTime localUpdatedAt,
+  required String date,
+  Value<String> time,
+  required int systolic,
+  required int diastolic,
+  Value<int> pulse,
+  Value<int> rowid,
+});
+typedef $$BpMetricsTableUpdateCompanionBuilder = BpMetricsCompanion Function({
+  Value<String> id,
+  Value<DateTime?> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String> syncState,
+  Value<DateTime> localUpdatedAt,
+  Value<String> date,
+  Value<String> time,
+  Value<int> systolic,
+  Value<int> diastolic,
+  Value<int> pulse,
+  Value<int> rowid,
+});
+
+class $$BpMetricsTableFilterComposer
+    extends Composer<_$AppDatabase, $BpMetricsTable> {
+  $$BpMetricsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+      column: $table.syncState, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get time => $composableBuilder(
+      column: $table.time, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get systolic => $composableBuilder(
+      column: $table.systolic, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get diastolic => $composableBuilder(
+      column: $table.diastolic, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get pulse => $composableBuilder(
+      column: $table.pulse, builder: (column) => ColumnFilters(column));
+}
+
+class $$BpMetricsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BpMetricsTable> {
+  $$BpMetricsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+      column: $table.syncState, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get time => $composableBuilder(
+      column: $table.time, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get systolic => $composableBuilder(
+      column: $table.systolic, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get diastolic => $composableBuilder(
+      column: $table.diastolic, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get pulse => $composableBuilder(
+      column: $table.pulse, builder: (column) => ColumnOrderings(column));
+}
+
+class $$BpMetricsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BpMetricsTable> {
+  $$BpMetricsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get time =>
+      $composableBuilder(column: $table.time, builder: (column) => column);
+
+  GeneratedColumn<int> get systolic =>
+      $composableBuilder(column: $table.systolic, builder: (column) => column);
+
+  GeneratedColumn<int> get diastolic =>
+      $composableBuilder(column: $table.diastolic, builder: (column) => column);
+
+  GeneratedColumn<int> get pulse =>
+      $composableBuilder(column: $table.pulse, builder: (column) => column);
+}
+
+class $$BpMetricsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BpMetricsTable,
+    BpMetric,
+    $$BpMetricsTableFilterComposer,
+    $$BpMetricsTableOrderingComposer,
+    $$BpMetricsTableAnnotationComposer,
+    $$BpMetricsTableCreateCompanionBuilder,
+    $$BpMetricsTableUpdateCompanionBuilder,
+    (BpMetric, BaseReferences<_$AppDatabase, $BpMetricsTable, BpMetric>),
+    BpMetric,
+    PrefetchHooks Function()> {
+  $$BpMetricsTableTableManager(_$AppDatabase db, $BpMetricsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BpMetricsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BpMetricsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BpMetricsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String> syncState = const Value.absent(),
+            Value<DateTime> localUpdatedAt = const Value.absent(),
+            Value<String> date = const Value.absent(),
+            Value<String> time = const Value.absent(),
+            Value<int> systolic = const Value.absent(),
+            Value<int> diastolic = const Value.absent(),
+            Value<int> pulse = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BpMetricsCompanion(
+            id: id,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            syncState: syncState,
+            localUpdatedAt: localUpdatedAt,
+            date: date,
+            time: time,
+            systolic: systolic,
+            diastolic: diastolic,
+            pulse: pulse,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String> syncState = const Value.absent(),
+            required DateTime localUpdatedAt,
+            required String date,
+            Value<String> time = const Value.absent(),
+            required int systolic,
+            required int diastolic,
+            Value<int> pulse = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BpMetricsCompanion.insert(
+            id: id,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            syncState: syncState,
+            localUpdatedAt: localUpdatedAt,
+            date: date,
+            time: time,
+            systolic: systolic,
+            diastolic: diastolic,
+            pulse: pulse,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$BpMetricsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BpMetricsTable,
+    BpMetric,
+    $$BpMetricsTableFilterComposer,
+    $$BpMetricsTableOrderingComposer,
+    $$BpMetricsTableAnnotationComposer,
+    $$BpMetricsTableCreateCompanionBuilder,
+    $$BpMetricsTableUpdateCompanionBuilder,
+    (BpMetric, BaseReferences<_$AppDatabase, $BpMetricsTable, BpMetric>),
+    BpMetric,
+    PrefetchHooks Function()>;
+typedef $$MedRemindersTableCreateCompanionBuilder = MedRemindersCompanion
+    Function({
+  required String id,
+  Value<DateTime?> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String> syncState,
+  required DateTime localUpdatedAt,
+  required String name,
+  Value<int> dosage,
+  Value<String> unit,
+  Value<int> quantity,
+  Value<int> days,
+  Value<List<String>> times,
+  Value<bool> enabled,
+  Value<int> rowid,
+});
+typedef $$MedRemindersTableUpdateCompanionBuilder = MedRemindersCompanion
+    Function({
+  Value<String> id,
+  Value<DateTime?> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String> syncState,
+  Value<DateTime> localUpdatedAt,
+  Value<String> name,
+  Value<int> dosage,
+  Value<String> unit,
+  Value<int> quantity,
+  Value<int> days,
+  Value<List<String>> times,
+  Value<bool> enabled,
+  Value<int> rowid,
+});
+
+class $$MedRemindersTableFilterComposer
+    extends Composer<_$AppDatabase, $MedRemindersTable> {
+  $$MedRemindersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+      column: $table.syncState, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get dosage => $composableBuilder(
+      column: $table.dosage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get quantity => $composableBuilder(
+      column: $table.quantity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get days => $composableBuilder(
+      column: $table.days, builder: (column) => ColumnFilters(column));
+
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+      get times => $composableBuilder(
+          column: $table.times,
+          builder: (column) => ColumnWithTypeConverterFilters(column));
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+      column: $table.enabled, builder: (column) => ColumnFilters(column));
+}
+
+class $$MedRemindersTableOrderingComposer
+    extends Composer<_$AppDatabase, $MedRemindersTable> {
+  $$MedRemindersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+      column: $table.syncState, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get dosage => $composableBuilder(
+      column: $table.dosage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+      column: $table.unit, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get quantity => $composableBuilder(
+      column: $table.quantity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get days => $composableBuilder(
+      column: $table.days, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get times => $composableBuilder(
+      column: $table.times, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+      column: $table.enabled, builder: (column) => ColumnOrderings(column));
+}
+
+class $$MedRemindersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MedRemindersTable> {
+  $$MedRemindersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get localUpdatedAt => $composableBuilder(
+      column: $table.localUpdatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get dosage =>
+      $composableBuilder(column: $table.dosage, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<int> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<int> get days =>
+      $composableBuilder(column: $table.days, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<List<String>, String> get times =>
+      $composableBuilder(column: $table.times, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+}
+
+class $$MedRemindersTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $MedRemindersTable,
+    MedReminder,
+    $$MedRemindersTableFilterComposer,
+    $$MedRemindersTableOrderingComposer,
+    $$MedRemindersTableAnnotationComposer,
+    $$MedRemindersTableCreateCompanionBuilder,
+    $$MedRemindersTableUpdateCompanionBuilder,
+    (
+      MedReminder,
+      BaseReferences<_$AppDatabase, $MedRemindersTable, MedReminder>
+    ),
+    MedReminder,
+    PrefetchHooks Function()> {
+  $$MedRemindersTableTableManager(_$AppDatabase db, $MedRemindersTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MedRemindersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MedRemindersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MedRemindersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String> syncState = const Value.absent(),
+            Value<DateTime> localUpdatedAt = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<int> dosage = const Value.absent(),
+            Value<String> unit = const Value.absent(),
+            Value<int> quantity = const Value.absent(),
+            Value<int> days = const Value.absent(),
+            Value<List<String>> times = const Value.absent(),
+            Value<bool> enabled = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              MedRemindersCompanion(
+            id: id,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            syncState: syncState,
+            localUpdatedAt: localUpdatedAt,
+            name: name,
+            dosage: dosage,
+            unit: unit,
+            quantity: quantity,
+            days: days,
+            times: times,
+            enabled: enabled,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<String> syncState = const Value.absent(),
+            required DateTime localUpdatedAt,
+            required String name,
+            Value<int> dosage = const Value.absent(),
+            Value<String> unit = const Value.absent(),
+            Value<int> quantity = const Value.absent(),
+            Value<int> days = const Value.absent(),
+            Value<List<String>> times = const Value.absent(),
+            Value<bool> enabled = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              MedRemindersCompanion.insert(
+            id: id,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            syncState: syncState,
+            localUpdatedAt: localUpdatedAt,
+            name: name,
+            dosage: dosage,
+            unit: unit,
+            quantity: quantity,
+            days: days,
+            times: times,
+            enabled: enabled,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$MedRemindersTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $MedRemindersTable,
+    MedReminder,
+    $$MedRemindersTableFilterComposer,
+    $$MedRemindersTableOrderingComposer,
+    $$MedRemindersTableAnnotationComposer,
+    $$MedRemindersTableCreateCompanionBuilder,
+    $$MedRemindersTableUpdateCompanionBuilder,
+    (
+      MedReminder,
+      BaseReferences<_$AppDatabase, $MedRemindersTable, MedReminder>
+    ),
+    MedReminder,
     PrefetchHooks Function()>;
 typedef $$ExerciseMetricsTableCreateCompanionBuilder = ExerciseMetricsCompanion
     Function({
@@ -11654,6 +13342,8 @@ typedef $$UserSettingsTableCreateCompanionBuilder = UserSettingsCompanion
   Value<int> cycleLen,
   Value<int> height,
   Value<int> weight,
+  Value<double> heightCm,
+  Value<double> weightKg,
   Value<int> rowid,
 });
 typedef $$UserSettingsTableUpdateCompanionBuilder = UserSettingsCompanion
@@ -11667,6 +13357,8 @@ typedef $$UserSettingsTableUpdateCompanionBuilder = UserSettingsCompanion
   Value<int> cycleLen,
   Value<int> height,
   Value<int> weight,
+  Value<double> heightCm,
+  Value<double> weightKg,
   Value<int> rowid,
 });
 
@@ -11706,6 +13398,12 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<int> get weight => $composableBuilder(
       column: $table.weight, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get heightCm => $composableBuilder(
+      column: $table.heightCm, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get weightKg => $composableBuilder(
+      column: $table.weightKg, builder: (column) => ColumnFilters(column));
 }
 
 class $$UserSettingsTableOrderingComposer
@@ -11744,6 +13442,12 @@ class $$UserSettingsTableOrderingComposer
 
   ColumnOrderings<int> get weight => $composableBuilder(
       column: $table.weight, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get heightCm => $composableBuilder(
+      column: $table.heightCm, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get weightKg => $composableBuilder(
+      column: $table.weightKg, builder: (column) => ColumnOrderings(column));
 }
 
 class $$UserSettingsTableAnnotationComposer
@@ -11781,6 +13485,12 @@ class $$UserSettingsTableAnnotationComposer
 
   GeneratedColumn<int> get weight =>
       $composableBuilder(column: $table.weight, builder: (column) => column);
+
+  GeneratedColumn<double> get heightCm =>
+      $composableBuilder(column: $table.heightCm, builder: (column) => column);
+
+  GeneratedColumn<double> get weightKg =>
+      $composableBuilder(column: $table.weightKg, builder: (column) => column);
 }
 
 class $$UserSettingsTableTableManager extends RootTableManager<
@@ -11818,6 +13528,8 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             Value<int> cycleLen = const Value.absent(),
             Value<int> height = const Value.absent(),
             Value<int> weight = const Value.absent(),
+            Value<double> heightCm = const Value.absent(),
+            Value<double> weightKg = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               UserSettingsCompanion(
@@ -11830,6 +13542,8 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             cycleLen: cycleLen,
             height: height,
             weight: weight,
+            heightCm: heightCm,
+            weightKg: weightKg,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -11842,6 +13556,8 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             Value<int> cycleLen = const Value.absent(),
             Value<int> height = const Value.absent(),
             Value<int> weight = const Value.absent(),
+            Value<double> heightCm = const Value.absent(),
+            Value<double> weightKg = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               UserSettingsCompanion.insert(
@@ -11854,6 +13570,8 @@ class $$UserSettingsTableTableManager extends RootTableManager<
             cycleLen: cycleLen,
             height: height,
             weight: weight,
+            heightCm: heightCm,
+            weightKg: weightKg,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -12489,6 +14207,10 @@ class $AppDatabaseManager {
       $$SleepMetricsTableTableManager(_db, _db.sleepMetrics);
   $$MedicationMetricsTableTableManager get medicationMetrics =>
       $$MedicationMetricsTableTableManager(_db, _db.medicationMetrics);
+  $$BpMetricsTableTableManager get bpMetrics =>
+      $$BpMetricsTableTableManager(_db, _db.bpMetrics);
+  $$MedRemindersTableTableManager get medReminders =>
+      $$MedRemindersTableTableManager(_db, _db.medReminders);
   $$ExerciseMetricsTableTableManager get exerciseMetrics =>
       $$ExerciseMetricsTableTableManager(_db, _db.exerciseMetrics);
   $$UrineMetricsTableTableManager get urineMetrics =>

@@ -12,16 +12,10 @@ class MensesModel {
   }
 }
 
+/// Height in centimetres and weight in kilograms, whatever unit the user sees.
 class BodyDataModel {
-  final int? height;
-  final int? weight;
+  final double heightCm;
+  final double weightKg;
 
-  BodyDataModel({required this.height, required this.weight});
-
-  factory BodyDataModel.fromMap(Map<String, dynamic> data) {
-    return BodyDataModel(
-      height: data['height'] ?? 0,
-      weight: data['weight'] ?? 0,
-    );
-  }
+  const BodyDataModel({required this.heightCm, required this.weightKg});
 }

@@ -18,7 +18,9 @@ void main() {
     expect(one.name, 'Abdominal Pain (Left)');
 
     final metrics = await db.select(db.trackedMetricsCatalog).get();
-    expect(metrics.length, 8);
+    expect(metrics.length, 9);
+    final bp = await (db.select(db.trackedMetricsCatalog)..where((t) => t.id.equals(9))).getSingle();
+    expect(bp.name, 'Blood Pressure', reason: 'must match server catalog id 9 (migration 044)');
     final smileys = await db.select(db.smileyCatalog).get();
     expect(smileys.length, 5);
     final conditions = await db.select(db.conditions).get();

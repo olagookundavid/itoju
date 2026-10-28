@@ -37,3 +37,13 @@ double clampQuantity(double v) {
   if (v.isNaN) return 0;
   return v < 0 ? 0 : (v > 999.99 ? 999.99 : v);
 }
+
+/// Body measurements are stored as cm / kg with one decimal (NUMERIC(5,1)).
+const double kMaxHeightCm = 300;
+const double kMaxWeightKg = 500;
+
+double clampBody(double v, double max) {
+  if (v.isNaN || v < 0) return 0;
+  final bounded = v > max ? max : v;
+  return (bounded * 10).roundToDouble() / 10;
+}

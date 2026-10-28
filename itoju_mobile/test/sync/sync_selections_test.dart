@@ -74,7 +74,7 @@ void main() {
     await container.read(trackedMetricsRepositoryProvider).add(3);
     await container.read(conditionsRepositoryProvider).add(5);
     await container.read(settingsRepositoryProvider).updateMenses(5, 28);
-    await container.read(settingsRepositoryProvider).updateBodyData(170, 60);
+    await container.read(settingsRepositoryProvider).updateBodyData(170.5, 60.3);
 
     await container.read(syncEngineProvider).push();
 
@@ -85,13 +85,15 @@ void main() {
     expect(cd['conditions_id'], 5, reason: 'payload name differs from local condition_id');
     expect(cd.containsKey('condition_id'), isFalse);
     final mens = rowsFor('menstruation');
-    final body = rowsFor('bodymeasure');
+    final body = rowsFor('bodymeasure_v2');
     expect(mens['id'], body['id'], reason: 'one client row -> same id on both server tables');
     expect(mens['period_len'], 5);
     expect(mens['cycle_len'], 28);
-    expect(mens.containsKey('height'), isFalse, reason: 'each table carries only its own columns');
-    expect(body['height'], 170);
-    expect(body['weight'], 60);
+    expect(mens.containsKey('height_cm'), isFalse, reason: 'each table carries only its own columns');
+    expect(body['height_cm'], 170.5);
+    expect(body['weight_kg'], 60.3);
+    expect(body.containsKey('height'), isFalse,
+        reason: 'the whole-number legacy columns are no longer synced');
     // everything acked
     for (final t in [
       db.userTrackedMetrics.actualTableName,
@@ -123,8 +125,8 @@ void main() {
           {'id': settingsId, 'period_len': 4, 'cycle_len': 30,
            'updated_at': '2026-05-01T10:00:00Z', 'deleted_at': null},
         ],
-        'bodymeasure': [
-          {'id': settingsId, 'height': 165, 'weight': 58,
+        'bodymeasure_v2': [
+          {'id': settingsId, 'height_cm': 165.5, 'weight_kg': 58.2,
            'updated_at': '2026-05-01T10:00:00Z', 'deleted_at': null},
         ],
       },
@@ -141,7 +143,7 @@ void main() {
     final menses = await repo.getMenses();
     final bodyData = await repo.getBodyData();
     expect([menses.periodLen, menses.cycleLen], [4, 30]);
-    expect([bodyData.height, bodyData.weight], [165, 58]);
+    expect([bodyData.heightCm, bodyData.weightKg], [165.5, 58.2]);
   });
 
   test('a newer remote menstruation row does not swallow an unsent body edit',
@@ -151,7 +153,7 @@ void main() {
     await db.into(db.userSettings).insert(UserSettingsCompanion.insert(
           id: id,
           localUpdatedAt: DateTime.utc(2026, 5, 1, 12),
-          height: const Value(180),
+          heightCm: const Value(180),
           updatedAt: Value(DateTime.utc(2026, 5, 1, 12)),
         ));
     // ...then another device changed the PERIOD length later (newer remote).
@@ -169,7 +171,7 @@ void main() {
 
     final row = await db.select(db.userSettings).getSingle();
     expect(row.periodLen, 6, reason: 'newer remote values applied');
-    expect(row.height, 180, reason: 'local height untouched');
+    expect(row.heightCm, 180, reason: 'local height untouched');
     expect(row.syncState, 'pending',
         reason: 'the unsent height edit must still be pushed, not marked synced');
   });

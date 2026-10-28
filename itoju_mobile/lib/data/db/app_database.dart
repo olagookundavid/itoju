@@ -13,6 +13,8 @@ part 'app_database.g.dart';
     FoodMetrics,
     SleepMetrics,
     MedicationMetrics,
+    BpMetrics,
+    MedReminders,
     ExerciseMetrics,
     UrineMetrics,
     BowelMetrics,
@@ -38,11 +40,11 @@ class AppDatabase extends _$AppDatabase {
   /// smileys) change, so existing installs pick up the new rows on next launch.
   /// Ids are positional (they match the server's SERIAL ids): only ever APPEND to
   /// the seed lists, never reorder or remove.
-  static const int catalogSeedVersion = 1;
+  static const int catalogSeedVersion = 2;
 
   /// Bump when a table/column changes, and add the matching step in [onUpgrade].
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,11 +53,25 @@ class AppDatabase extends _$AppDatabase {
           await _seedCatalogs();
         },
         // Schema upgrades go here, in order, each guarded by `from`:
-        //   if (from < 2) { await m.addColumn(someTable, someTable.newColumn); }
-        //   if (from < 3) { await m.createTable(newTable); }
-        // (Add a test that opens a database at the old version.) Nothing yet:
-        // the schema is still at version 1.
-        onUpgrade: (m, from, to) async {},
+        //   if (from < 3) { await m.addColumn(someTable, someTable.newColumn); }
+        //   if (from < 4) { await m.createTable(newTable); }
+        // (Add a test that opens a database at the old version.)
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // 1.2: blood pressure, medication reminders, decimal body measures.
+            await m.createTable(bpMetrics);
+            await m.createTable(medReminders);
+            await m.addColumn(userSettings, userSettings.heightCm);
+            await m.addColumn(userSettings, userSettings.weightKg);
+            // Carry the old whole numbers over as cm / kg. The unit they were
+            // entered in lives in Hive, so SettingsRepository.migrateLegacyBodyUnits
+            // converts inches / pounds once at startup. Mark the row pending so
+            // the new columns reach the server.
+            await customStatement(
+                'UPDATE user_settings SET height_cm = height, weight_kg = weight, '
+                "sync_state = 'pending' WHERE height <> 0 OR weight <> 0");
+          }
+        },
         beforeOpen: (details) async {
           // A fresh create just seeded; for existing installs, top up the
           // catalogs if this app version carries a newer one.
@@ -83,6 +99,8 @@ class AppDatabase extends _$AppDatabase {
         foodMetrics,
         sleepMetrics,
         medicationMetrics,
+        bpMetrics,
+        medReminders,
         exerciseMetrics,
         urineMetrics,
         bowelMetrics,
