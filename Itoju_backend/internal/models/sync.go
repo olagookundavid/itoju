@@ -119,6 +119,21 @@ var syncSpecs = map[string]syncSpec{
 	"bodymeasure": {table: "bodymeasure", idCol: "id", cols: []syncCol{
 		{"height", kNum}, {"weight", kNum},
 	}, singleton: true},
+	// Decimal body measurements (cm / kg, one decimal) for app 1.2+. Same physical
+	// table as "bodymeasure" above, which stays for 1.1.x builds that only know
+	// whole numbers; migration 044's trigger keeps the two column pairs in step.
+	"bodymeasure_v2": {table: "bodymeasure", idCol: "id", cols: []syncCol{
+		{"height_cm", kNum}, {"weight_kg", kNum},
+	}, singleton: true},
+	"user_bp_metric": {table: "user_bp_metric", idCol: "id", cols: []syncCol{
+		{"date", kDate}, {"time", kText},
+		{"systolic", kNum}, {"diastolic", kNum}, {"pulse", kNum},
+	}},
+	// Medication reminders. days is a Mon..Sun bitmask, times a list of 'HH:mm'.
+	"user_med_reminder": {table: "user_med_reminder", idCol: "id", cols: []syncCol{
+		{"name", kText}, {"dosage", kNum}, {"unit", kText}, {"quantity", kNum},
+		{"days", kNum}, {"times", kTags}, {"enabled", kBool},
+	}},
 	// Points ledger. Keyed by its own uuid (sync_id); the SERIAL id stays for legacy
 	// code. Login awards are server-only and were never shown by the app, so they
 	// are not sent down (keeps the total equal to what users see today).
