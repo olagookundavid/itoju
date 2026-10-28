@@ -39,6 +39,7 @@ class PointsRepository {
     (scope: 'Sleep', table: 'sleep_metrics', points: 2),
     (scope: 'Urine', table: 'urine_metrics', points: 2),
     (scope: 'Medication', table: 'medication_metrics', points: 2),
+    (scope: 'BloodPressure', table: 'bp_metrics', points: 2),
   ];
 
   Future<void>? _backfillInFlight;

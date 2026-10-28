@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/home/notifer/metrics_status_notifier.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
+import 'package:itoju_mobile/features/metrics/pages/blood_pressure.dart';
 import 'package:itoju_mobile/features/metrics/pages/bowel_movements.dart';
 import 'package:itoju_mobile/features/metrics/pages/exercise.dart';
 import 'package:itoju_mobile/features/metrics/pages/food_metric.dart';
@@ -62,6 +63,9 @@ class _SyptomsBoxState extends ConsumerState<SyptomsBox> {
       case 'Exercise':
         image = 'meditation';
         break;
+      case 'Blood Pressure':
+        image = 'bp';
+        break;
       default:
         image = '';
     }
@@ -117,6 +121,11 @@ class _SyptomsBoxState extends ConsumerState<SyptomsBox> {
                       true
                   ? const Color(0xffEBF9EE)
                   : const Color(0xffE4E6E7);
+        case 'Blood Pressure':
+          color =
+              ref.watch(metricsStatusProvider).metricStatusModel?.bp == true
+                  ? const Color(0xffFFEAE6)
+                  : const Color(0xffE4E6E7);
         default:
           color = const Color(0xffE4E6E7);
           {}
@@ -148,6 +157,9 @@ class _SyptomsBoxState extends ConsumerState<SyptomsBox> {
         break;
       case 'Exercise':
         screen = ExercisePage(widget.intialDate);
+        break;
+      case 'Blood Pressure':
+        screen = BloodPressurePage(widget.intialDate);
         break;
       default:
         screen = Container();

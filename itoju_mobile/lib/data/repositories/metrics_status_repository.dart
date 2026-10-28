@@ -25,6 +25,7 @@ class MetricsStatusRepository {
       medication: await _hasMedication(date),
       urine: await _hasUrine(date),
       bowel: await _hasBowel(date),
+      bp: await _hasBp(date),
     );
   }
 
@@ -70,6 +71,14 @@ class MetricsStatusRepository {
 
   Future<bool> _hasUrine(String date) async {
     final row = await (_db.select(_db.urineMetrics)
+          ..where((t) => t.date.equals(date) & t.deletedAt.isNull())
+          ..limit(1))
+        .getSingleOrNull();
+    return row != null;
+  }
+
+  Future<bool> _hasBp(String date) async {
+    final row = await (_db.select(_db.bpMetrics)
           ..where((t) => t.date.equals(date) & t.deletedAt.isNull())
           ..limit(1))
         .getSingleOrNull();

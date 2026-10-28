@@ -19,6 +19,7 @@ import 'package:itoju_mobile/features/home/notifer/get_latest_smiley_notifier.da
 import 'package:itoju_mobile/features/home/notifer/metrics_status_notifier.dart';
 import 'package:itoju_mobile/features/menses/notifiers/menses_notifier.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/bowel_notifier.dart';
+import 'package:itoju_mobile/features/metrics/notifiers/bp_notifier.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/exercise_notifier.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/food_metric_notifier.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/medication_notifier.dart';
@@ -55,6 +56,9 @@ void resetUserScopedProviders(void Function(ProviderOrFamily provider) invalidat
   invalidate(urineProvider);
   invalidate(exerciseProvider);
   invalidate(medicationProvider);
+  invalidate(bpProvider);
+  invalidate(bpTrendProvider);
+  invalidate(bpLatestProvider);
   invalidate(foodMetricProvider);
   invalidate(symsProvider);
   invalidate(latestSmileyProvider);

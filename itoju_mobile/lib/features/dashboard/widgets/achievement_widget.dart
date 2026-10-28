@@ -12,7 +12,10 @@ enum PointsKind { today, week, total }
 const List<({String label, int points})> kPointsTable = [
   (label: 'Log a symptom', points: 10),
   (label: 'Create your account', points: 10),
-  (label: 'Log food, sleep, bowel, urine, exercise or medication', points: 2),
+  (
+    label: 'Log food, sleep, bowel, urine, exercise, medication or blood pressure',
+    points: 2
+  ),
 ];
 
 String _kindTitle(PointsKind k) => switch (k) {

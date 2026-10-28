@@ -6,6 +6,7 @@ class MetricStatusModel {
   final bool? medication;
   final bool? urine;
   final bool? bowel;
+  final bool? bp;
 
   MetricStatusModel({
     required this.symptoms,
@@ -15,6 +16,7 @@ class MetricStatusModel {
     required this.medication,
     required this.urine,
     required this.bowel,
+    this.bp = false,
   });
 
   factory MetricStatusModel.fromMap(Map<String, dynamic> data) {
@@ -25,6 +27,7 @@ class MetricStatusModel {
         food: data['food'] ?? false,
         urine: data['urine'] ?? false,
         bowel: data['bowel'] ?? false,
-        medication: data['medication'] ?? false);
+        medication: data['medication'] ?? false,
+        bp: data['bp'] ?? false);
   }
 }
