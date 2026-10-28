@@ -138,6 +138,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     AchievementWidget(
+                      kind: PointsKind.today,
                       text1: ref
                               .watch(pointProvider)
                               .pointModel
@@ -147,6 +148,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       text2: 'Today Points',
                     ),
                     AchievementWidget(
+                      kind: PointsKind.week,
                       text1: ref
                               .watch(pointProvider)
                               .pointModel
@@ -156,6 +158,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       text2: 'Week Points',
                     ),
                     AchievementWidget(
+                      kind: PointsKind.total,
                       text1: ref
                               .watch(pointProvider)
                               .pointModel

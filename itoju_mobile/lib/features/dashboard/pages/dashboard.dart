@@ -159,6 +159,42 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      10.ph,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          AchievementWidget(
+                            kind: PointsKind.today,
+                            text1: ref
+                                    .watch(pointProvider)
+                                    .pointModel
+                                    ?.todayPts
+                                    .toString() ??
+                                '0',
+                            text2: 'Today Points',
+                          ),
+                          AchievementWidget(
+                            kind: PointsKind.week,
+                            text1: ref
+                                    .watch(pointProvider)
+                                    .pointModel
+                                    ?.weekPts
+                                    .toString() ??
+                                '0',
+                            text2: 'Week Points',
+                          ),
+                          AchievementWidget(
+                            kind: PointsKind.total,
+                            text1: ref
+                                    .watch(pointProvider)
+                                    .pointModel
+                                    ?.totalPts
+                                    .toString() ??
+                                '0',
+                            text2: 'Total Points',
+                          ),
+                        ],
+                      ),
                       20.ph,
                       DashedRect(
                         color: AppColors.primaryColorPurple,
@@ -283,48 +319,6 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                                             (syms.count ?? 0).toString());
                                       },
                                     ),
-                      20.ph,
-                      CustomText(
-                        'Achievements',
-                        fontSize: 15.sp,
-                        color: AppColors.primaryColorPurple,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      10.ph,
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          AchievementWidget(
-                            text1: ref
-                                    .watch(pointProvider)
-                                    .pointModel
-                                    ?.todayPts
-                                    .toString() ??
-                                '0',
-                            text2: 'Today Points',
-                          ),
-                          AchievementWidget(
-                            text1: ref
-                                    .watch(pointProvider)
-                                    .pointModel
-                                    ?.weekPts
-                                    .toString() ??
-                                '0',
-                            text2: 'Week Points',
-                          ),
-                          AchievementWidget(
-                            text1: ref
-                                    .watch(pointProvider)
-                                    .pointModel
-                                    ?.totalPts
-                                    .toString() ??
-                                '0',
-                            text2: 'Total Points',
-                          ),
-                        ],
-                      ),
                       20.ph,
                       CustomText(
                         'Resources',
