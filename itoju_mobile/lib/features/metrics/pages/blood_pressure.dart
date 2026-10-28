@@ -171,11 +171,6 @@ class _BloodPressurePageState extends ConsumerState<BloodPressurePage> {
                       fontSize: 22.sp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xffFF9F00).withValues(alpha: 0.35)),
-                  suffixText: unit,
-                  suffixStyle: TextStyle(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xffEEAF4B)),
                 ),
                 style: TextStyle(
                     fontSize: 22.sp,
@@ -183,6 +178,16 @@ class _BloodPressurePageState extends ConsumerState<BloodPressurePage> {
                     color: const Color(0xffFF9F00)),
               ),
             ),
+          ),
+          // The unit sits under the box: inside it, "mmHg" collided with the number
+          // and was clipped at the edge on narrow phones.
+          4.ph,
+          Center(
+            child: Text(unit,
+                style: TextStyle(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.hintGrey)),
           ),
         ],
       ),

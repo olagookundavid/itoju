@@ -207,7 +207,7 @@ class _SetBodyDataState extends ConsumerState<SetBodyData> {
   Widget _stepper(TextEditingController c, String unit, double step,
       {double max = 999, double width = 110, bool decimal = true}) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         SignWigdet(isAdd: false, onTap: () => _step(c, -step, max: max)),
         6.pw,

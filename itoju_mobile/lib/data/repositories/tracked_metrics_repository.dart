@@ -48,6 +48,23 @@ class TrackedMetricsRepository {
     }).toList();
   }
 
+  /// Live version of [getSelected], in catalog order (stable, so boxes built from
+  /// it don't reshuffle). Re-emits when a metric is added or removed.
+  Stream<List<MetricModel>> watchSelected() {
+    final query = _db.select(_db.userTrackedMetrics).join([
+      innerJoin(
+        _db.trackedMetricsCatalog,
+        _db.trackedMetricsCatalog.id.equalsExp(_db.userTrackedMetrics.metricId),
+      ),
+    ])
+      ..where(_db.userTrackedMetrics.deletedAt.isNull())
+      ..orderBy([OrderingTerm.asc(_db.trackedMetricsCatalog.id)]);
+    return query.watch().map((rows) => rows.map((r) {
+          final c = r.readTable(_db.trackedMetricsCatalog);
+          return MetricModel(id: c.id, name: c.name);
+        }).toList());
+  }
+
   /// Select a metric (idempotent): upsert its deterministic row, reviving any
   /// tombstone and marking it pending for sync.
   Future<void> add(int metricId) async {

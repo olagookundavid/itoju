@@ -51,6 +51,10 @@ class HiveKeys {
   /// dose) so nothing about the person's health appears on a lock screen.
   static const reminderHideNames = 'reminderHideNames';
 
+  /// Set once the person dismisses (or acts on) the Home "what's new" card for
+  /// blood pressure tracking and medication reminders (app 1.2).
+  static const whatsNew12Seen = 'whatsNew12Seen';
+
   /// Local-first onboarding: the name the user gave before creating any account.
   /// Used to greet them and to prefill sign-up when they later enable sync.
   static const localName = 'localName';

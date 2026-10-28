@@ -285,6 +285,10 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
                 child: CurvedButton(
                   text: editing ? 'Save changes' : 'Save reminder',
                   loading: _saving,
+                  // Look disabled while there is no name (the button also is).
+                  color: draft.name.trim().isEmpty
+                      ? AppColors.borderGrey
+                      : AppColors.primaryColorPurple,
                   // Greyed out until the basics are valid; the message on tapping
                   // explains anything else (e.g. the phone's reminder limit).
                   onPressed: draft.name.trim().isEmpty ? null : _save,

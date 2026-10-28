@@ -10,9 +10,11 @@ import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/auth/notifiers/profile_notifier.dart';
 import 'package:itoju_mobile/features/dashboard/notifiers/getSmiley_notifier.dart';
 import 'package:itoju_mobile/features/dashboard/notifiers/get_most_tracked_syms_notifier.dart';
+import 'package:itoju_mobile/features/dashboard/notifiers/today_provider.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/achievement_widget.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/reoccuring_sysm.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/smiley_line.dart';
+import 'package:itoju_mobile/features/dashboard/widgets/today_section.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/profile/notifiers/resources_notifiers.dart';
 import 'package:itoju_mobile/features/profile/widgets/resources_webview.dart';
@@ -36,7 +38,8 @@ class DashBoardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashBoardScreen> createState() => _DashBoardScreenState();
 }
 
-class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
+class _DashBoardScreenState extends ConsumerState<DashBoardScreen>
+    with WidgetsBindingObserver {
   Future<void> _handleRefresh() async {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
       ref.read(profileProvider.notifier).getProfile();
@@ -52,7 +55,24 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
   @override
   void initState() {
     _handleRefresh();
+    WidgetsBinding.instance.addObserver(this);
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // If the app was left open past midnight, roll "Today" over to the new day.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final key = todayKey();
+    if (ref.read(todayKeyProvider) != key) {
+      ref.read(todayKeyProvider.notifier).state = key;
+    }
   }
 
   double getCountForSmileyId(
@@ -195,6 +215,9 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen> {
                           ),
                         ],
                       ),
+                      20.ph,
+                      const TodaySection(),
+                      const WhatsNewCard(),
                       20.ph,
                       DashedRect(
                         color: AppColors.primaryColorPurple,

@@ -4,15 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/home/notifer/metrics_status_notifier.dart';
+import 'package:itoju_mobile/features/home/metric_registry.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
-import 'package:itoju_mobile/features/metrics/pages/blood_pressure.dart';
-import 'package:itoju_mobile/features/metrics/pages/bowel_movements.dart';
-import 'package:itoju_mobile/features/metrics/pages/exercise.dart';
-import 'package:itoju_mobile/features/metrics/pages/food_metric.dart';
-import 'package:itoju_mobile/features/metrics/pages/medication.dart';
-import 'package:itoju_mobile/features/metrics/pages/sleep.dart';
-import 'package:itoju_mobile/features/metrics/pages/symptoms.dart';
-import 'package:itoju_mobile/features/metrics/pages/urination.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
@@ -38,37 +31,8 @@ class _SyptomsBoxState extends ConsumerState<SyptomsBox> {
 
   @override
   Widget build(BuildContext context) {
-    switch (widget.metric) {
-      case 'Food Diary':
-        image = 'food_diary';
-        break;
-      case 'Symptoms':
-        image = 'cough';
-        break;
-      case 'Sleep':
-        image = 'sleep';
-        break;
-      case 'Bowel Movements':
-        image = 'bowel';
-        break;
-      case 'Medications':
-        image = 'drug';
-        break;
-      case 'Menstruation and Ovulation':
-        image = 'blood';
-        break;
-      case 'Urination':
-        image = 'bladder';
-        break;
-      case 'Exercise':
-        image = 'meditation';
-        break;
-      case 'Blood Pressure':
-        image = 'bp';
-        break;
-      default:
-        image = '';
-    }
+    final def = kMetricDefs[widget.metric];
+    image = def?.icon ?? '';
 
     Color getStatusColor() {
       Color color;
@@ -134,36 +98,7 @@ class _SyptomsBoxState extends ConsumerState<SyptomsBox> {
       return color;
     }
 
-    switch (widget.metric) {
-      case 'Food Diary':
-        screen = FoodMetric(widget.intialDate);
-        break;
-      case 'Symptoms':
-        screen = SymptomsPage(widget.intialDate);
-        break;
-      case 'Sleep':
-        screen = SleepWidget(widget.intialDate);
-        break;
-      case 'Bowel Movements':
-        screen = BowelMovement(widget.intialDate);
-        break;
-      case 'Medications':
-        screen = MedicationMovement((widget.intialDate));
-        break;
-      // case 'Menstruation and Ovulation':
-      //   break;
-      case 'Urination':
-        screen = UrineMovement(widget.intialDate);
-        break;
-      case 'Exercise':
-        screen = ExercisePage(widget.intialDate);
-        break;
-      case 'Blood Pressure':
-        screen = BloodPressurePage(widget.intialDate);
-        break;
-      default:
-        screen = Container();
-    }
+    screen = def?.pageFor?.call(widget.intialDate) ?? Container();
 
     return InkWell(
       onTap: () {
