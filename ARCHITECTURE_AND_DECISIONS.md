@@ -204,3 +204,17 @@ that exchanges it for a session), the phone would store only that, and a biometr
 check would unlock it. Same user experience, nothing reusable on the device, and a
 lost phone can be cut off server-side. Needs a new endpoint, revocation on password
 change, and app work.
+
+---
+
+## App 1.2 additions (blood pressure, reminders, decimal body data, new Home)
+
+Migration `044` + Drift schema v2. Decisions worth knowing before changing any of it:
+
+- **Blood pressure** is catalog metric **id 9** (`trackedmetrics`, client seed index 9). The catalog is positional on both sides: only ever append. Synced as `user_bp_metric`; AHA category labels are computed on the client (`data/blood_pressure.dart`), never stored.
+- **Body measurements are stored as cm / kg with one decimal** and converted only for display. The server keeps the old SMALLINT `height`/`weight` columns, kept in step by trigger `bodymeasure_units`, and still serves them through the legacy `bodymeasure` sync spec, so 1.1.x builds sharing an account never receive a decimal they can't parse. 1.2 syncs `bodymeasure_v2`. Retire the legacy columns/spec once 1.1.x is gone (watch the `legacy_requests` counter and store-version stats).
+- **Unit fix-up**: 1.1 stored whatever number was typed in whatever unit the toggle was on (unit lived only in Hive). `SettingsRepository.migrateLegacyBodyUnits` converts inches/pounds once at startup, guarded by SyncMeta `bodyUnitsMigrated`.
+- **Reminders** sync as `user_med_reminder` (days = Mon..Sun bitmask, times = `HH:mm` list). The OS notifications are derived state, rebuilt by `ReminderCoordinator` on any change, on launch and on resume; permission is requested only when the person sets up a reminder. Inexact alarms on purpose (no exact-alarm permission / Play declaration). iOS keeps 64 pending notifications, so saving enforces 60 across all reminders (`validateReminder`).
+- **Notification taps never navigate** (a tap could otherwise bypass the app lock). "Mark as taken" writes a normal medication entry from a background isolate. A privacy option replaces the medication name with generic text.
+- **Toolchain pins**: `flutter_local_notifications ^18` and `flutter_timezone ^4` match AGP 8.2 / Kotlin 1.8. Newer majors need AGP 8.6+ / Kotlin 2 — upgrade together. Release builds need `android/app/proguard-rules.pro` (Gson) and `res/raw/keep.xml`.
+- **Home** boxes read `TodayRepository.watch` (live Drift stream); `MetricDef` (`features/home/metric_registry.dart`) is the single source for icon, colour and entry page, shared with the middle tab.
