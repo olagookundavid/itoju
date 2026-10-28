@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/add_button.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/medication_notifier.dart';
+import 'package:itoju_mobile/features/metrics/pages/medication_reminders.dart';
 import 'package:itoju_mobile/features/metrics/widgets/medication_list.dart';
 import 'package:itoju_mobile/features/widgets/app_loader.dart';
 import 'package:itoju_mobile/features/widgets/back_button.dart';
@@ -66,12 +67,22 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                 height: 120.h,
                 child: Column(
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        CustomBackButton(),
-                        TopNote(
+                        const CustomBackButton(),
+                        const TopNote(
                           text: 'Have you had any medication today?',
-                        )
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: 'Medication reminders',
+                          icon: const Icon(Icons.notifications_active_outlined,
+                              color: AppColors.primaryColorPurple),
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const MedicationRemindersPage())),
+                        ),
                       ],
                     ),
                     5.ph,

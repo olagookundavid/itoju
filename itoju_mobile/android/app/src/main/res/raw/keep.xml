@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resource shrinking must not remove the reminder notification icon: it is only
+     referenced by name at runtime, so a missing icon makes notifications fail
+     silently. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_reminder" />

@@ -12,6 +12,7 @@ import 'package:itoju_mobile/features/auth/pages/app_lock.dart';
 import 'package:itoju_mobile/features/auth/pages/auth_gate.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/data/repositories/settings_repository.dart';
+import 'package:itoju_mobile/services/reminder_coordinator.dart';
 import 'package:itoju_mobile/firebase_options.dart';
 import 'package:itoju_mobile/sync/online_tasks.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
@@ -73,6 +74,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         .catchError((Object _) {});
     // Attempt a sync on launch (no-op unless authenticated + entitled).
     WidgetsBinding.instance.addPostFrameCallback((_) => _triggerSync());
+    // Medication reminders: keep the phone's scheduled notifications equal to the
+    // saved reminders. Never throws into the UI - reminders are a convenience.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(reminderCoordinatorProvider).start().catchError((Object _) {});
+    });
   }
 
   void _triggerSync() {
@@ -95,6 +101,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.resumed) {
       _maybeLock();
       _triggerSync();
+      // Timezone / daylight-saving or notification settings may have changed.
+      ref.read(reminderCoordinatorProvider).refresh();
     }
   }
 

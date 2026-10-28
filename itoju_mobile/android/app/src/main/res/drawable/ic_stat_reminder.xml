@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for medication reminders: a capsule. Android tints it, so it
+     must be a single flat colour on transparent. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.22,11.29l7.07,-7.07c2.34,-2.34 6.14,-2.34 8.49,0c2.34,2.34 2.34,6.14 0,8.49l-7.07,7.07c-2.34,2.34 -6.14,2.34 -8.49,0C1.88,17.43 1.88,13.63 4.22,11.29zM13.41,13.41l4.95,-4.95c0.78,-0.78 0.78,-2.05 0,-2.83c-0.78,-0.78 -2.05,-0.78 -2.83,0l-4.95,4.95L13.41,13.41z" />
+</vector>

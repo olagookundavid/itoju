@@ -47,6 +47,10 @@ class HiveKeys {
   static const heightMetric = 'heightMetric';
   static const appLock = 'appLock';
 
+  /// Medication reminders: show a generic notification (no medication name or
+  /// dose) so nothing about the person's health appears on a lock screen.
+  static const reminderHideNames = 'reminderHideNames';
+
   /// Local-first onboarding: the name the user gave before creating any account.
   /// Used to greet them and to prefill sign-up when they later enable sync.
   static const localName = 'localName';
