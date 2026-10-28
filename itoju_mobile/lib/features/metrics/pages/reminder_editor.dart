@@ -65,6 +65,9 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
       );
 
   Future<void> _addTime() async {
+    // Otherwise focus returns to the name box when the picker closes and the
+    // keyboard pops up over the times the person just set.
+    FocusScope.of(context).unfocus();
     final picked = await showTimePicker(
         context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
     if (picked == null) return;

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:itoju_mobile/core/helpers/response_helper/api_response.dart';
 import 'package:itoju_mobile/data/models/bp_model.dart';
 import 'package:itoju_mobile/data/repositories/bp_repository.dart';
+import 'package:itoju_mobile/data/today_logic.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 
 export 'package:itoju_mobile/data/models/bp_model.dart';
@@ -16,8 +17,7 @@ final bpProvider = StateNotifierProvider<BpNotifier, BpState>((ref) {
 final bpTrendProvider =
     FutureProvider.autoDispose.family<List<BpDayPoint>, int>((ref, days) {
   final today = DateTime.now();
-  final from = DateTime(today.year, today.month, today.day)
-      .subtract(Duration(days: days - 1));
+  final from = addCalendarDays(today, -(days - 1));
   return ref.read(bpRepositoryProvider).dailyAverages(from, today);
 });
 

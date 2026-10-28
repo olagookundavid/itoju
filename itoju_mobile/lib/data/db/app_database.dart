@@ -73,6 +73,11 @@ class AppDatabase extends _$AppDatabase {
           }
         },
         beforeOpen: (details) async {
+          // A notification's "Mark as taken" runs in a separate Flutter engine
+          // with its own connection to this file. Without a busy timeout, SQLite
+          // fails at once with "database is locked" if the app is mid-write (e.g.
+          // a sync), and the dose would silently not be logged. Wait instead.
+          await customStatement('PRAGMA busy_timeout = 5000');
           // A fresh create just seeded; for existing installs, top up the
           // catalogs if this app version carries a newer one.
           if (!details.wasCreated) await _ensureCatalogsCurrent();

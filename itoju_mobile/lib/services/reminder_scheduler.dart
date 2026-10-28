@@ -47,14 +47,7 @@ class LocalReminderScheduler implements ReminderScheduler {
   Future<void> init() async {
     if (_ready) return;
     tzdata.initializeTimeZones();
-    try {
-      final name = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(name));
-    } catch (e) {
-      // Without the device timezone, reminders would fire at the wrong hour.
-      // Leave tz.local as UTC and log; this is rare (unknown/legacy zone id).
-      debugPrint('Reminders: could not read the device timezone ($e)');
-    }
+    await _applyDeviceTimezone();
     await _plugin.initialize(
       InitializationSettings(
         android: const AndroidInitializationSettings('ic_stat_reminder'),
@@ -85,12 +78,25 @@ class LocalReminderScheduler implements ReminderScheduler {
     _ready = true;
   }
 
+  /// Points tz.local at the device's zone. Re-run before each reschedule so a
+  /// person who travels (or whose clock rules change) isn't left on the zone the
+  /// app happened to start in.
+  Future<void> _applyDeviceTimezone() async {
+    try {
+      final name = await FlutterTimezone.getLocalTimezone();
+      if (tz.local.name != name) tz.setLocalLocation(tz.getLocation(name));
+    } catch (e) {
+      // Without the device timezone, reminders would fire at the wrong hour.
+      // Keep the last known zone and log; this is rare (unknown/legacy zone id).
+      debugPrint('Reminders: could not read the device timezone ($e)');
+    }
+  }
+
   void _onResponse(NotificationResponse r) {
     // A plain tap just opens the app (through the normal app-lock flow): never
     // navigate from here, or a tap could bypass the lock screen.
-    if (r.actionId == kActionTaken && r.payload != null) {
-      onTaken?.call(r.payload!);
-    }
+    final id = reminderIdFromPayload(r.payload);
+    if (r.actionId == kActionTaken && id != null) onTaken?.call(id);
   }
 
   @override
@@ -119,40 +125,46 @@ class LocalReminderScheduler implements ReminderScheduler {
 
   @override
   Future<void> reschedule(List<MedReminderModel> reminders, {required bool hideNames}) async {
-    await _plugin.cancelAll();
+    await _applyDeviceTimezone();
+    final zone = tz.local.name;
     final byId = {
       for (final r in reminders)
         if (r.id != null) r.id!: r
     };
+    final slots = buildSlots(reminders);
+    final ids = notificationIds(slots);
+    final desired = [
+      for (final slot in slots)
+        () {
+          final text = reminderTexts(byId[slot.reminderId]!, hideNames: hideNames);
+          return (
+            slot: slot,
+            note: ScheduledNote(ids[slot]!, text.title, text.body, slotPayload(slot, zone)),
+          );
+        }()
+    ];
+    final pending = (await _plugin.pendingNotificationRequests())
+        .map((p) => ScheduledNote(p.id, p.title, p.body, p.payload))
+        .toList();
+
+    // Touch only what changed: cancelling an id also clears that notification
+    // from the tray, so a blanket cancel on every launch would wipe reminders the
+    // person hasn't acted on yet.
+    final plan = planReschedule([for (final d in desired) d.note], pending);
+    for (final id in plan.cancel) {
+      await _plugin.cancel(id);
+    }
     final now = tz.TZDateTime.now(tz.local);
-    var nextId = 1;
-    for (final slot in buildSlots(reminders)) {
-      final r = byId[slot.reminderId]!;
-      final text = reminderTexts(r, hideNames: hideNames);
+    final changed = {for (final n in plan.schedule) n.id};
+    for (final d in desired) {
+      if (!changed.contains(d.note.id)) continue;
       await _plugin.zonedSchedule(
-        nextId++,
-        text.title,
-        text.body,
-        nextWeekly(now, slot.weekday, slot.hour, slot.minute),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            kReminderChannelId,
-            'Medication reminders',
-            channelDescription: 'Reminders to take your medication',
-            importance: Importance.high,
-            priority: Priority.high,
-            category: AndroidNotificationCategory.reminder,
-            // Hide the content when the phone is locked and the person has chosen
-            // to keep sensitive notification content private.
-            visibility: NotificationVisibility.private,
-            actions: [
-              AndroidNotificationAction(kActionTaken, 'Mark as taken',
-                  cancelNotification: true, showsUserInterface: false),
-            ],
-          ),
-          iOS: DarwinNotificationDetails(categoryIdentifier: kReminderCategory),
-        ),
-        payload: slot.reminderId,
+        d.note.id,
+        d.note.title,
+        d.note.body,
+        nextWeekly(now, d.slot.weekday, d.slot.hour, d.slot.minute),
+        _details,
+        payload: d.note.payload,
         // Inexact: a reminder may arrive a few minutes late in Doze, but the app
         // then needs no exact-alarm permission (which Google Play restricts).
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -162,6 +174,25 @@ class LocalReminderScheduler implements ReminderScheduler {
       );
     }
   }
+
+  static const _details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      kReminderChannelId,
+      'Medication reminders',
+      channelDescription: 'Reminders to take your medication',
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.reminder,
+      // Hide the content when the phone is locked and the person has chosen
+      // to keep sensitive notification content private.
+      visibility: NotificationVisibility.private,
+      actions: [
+        AndroidNotificationAction(kActionTaken, 'Mark as taken',
+            cancelNotification: true, showsUserInterface: false),
+      ],
+    ),
+    iOS: DarwinNotificationDetails(categoryIdentifier: kReminderCategory),
+  );
 }
 
 /// Runs in a separate background isolate (the app may not be running at all) when
@@ -170,7 +201,7 @@ class LocalReminderScheduler implements ReminderScheduler {
 /// main isolate if there is one.
 @pragma('vm:entry-point')
 Future<void> reminderBackgroundResponse(NotificationResponse r) async {
-  final id = r.payload;
+  final id = reminderIdFromPayload(r.payload);
   if (r.actionId != kActionTaken || id == null) return;
   DartPluginRegistrant.ensureInitialized();
   final db = AppDatabase();

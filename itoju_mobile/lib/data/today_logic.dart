@@ -34,6 +34,18 @@ String formatDuration(int minutes) {
   return m == 0 ? '${h}h' : '${h}h ${m}m';
 }
 
+/// Whole calendar days from [from] to [to], ignoring the time of day. Done on UTC
+/// dates because a local day is 23 or 25 hours long across a daylight-saving
+/// change, so `difference().inDays` would come out one short (or long).
+int calendarDaysBetween(DateTime from, DateTime to) =>
+    DateTime.utc(to.year, to.month, to.day)
+        .difference(DateTime.utc(from.year, from.month, from.day))
+        .inDays;
+
+/// [d]'s calendar date plus [days] days, at midnight. Built from date fields, not
+/// by adding 24-hour Durations (which drift by an hour across DST).
+DateTime addCalendarDays(DateTime d, int days) => DateTime(d.year, d.month, d.day + days);
+
 String plural(int n, String one, [String? many]) => '$n ${n == 1 ? one : (many ?? '${one}s')}';
 
 /// Consecutive logging days ending [today]. A day with entries is any date in
@@ -55,9 +67,7 @@ int computeStreak(Set<String> loggedDates, DateTime today) {
 String relativeDay(String isoDate, DateTime today) {
   final d = DateTime.tryParse(isoDate);
   if (d == null) return isoDate;
-  final diff = DateTime(today.year, today.month, today.day)
-      .difference(DateTime(d.year, d.month, d.day))
-      .inDays;
+  final diff = calendarDaysBetween(d, today);
   if (diff <= 0) return 'today';
   if (diff == 1) return 'yesterday';
   if (diff < 14) return '$diff days ago';

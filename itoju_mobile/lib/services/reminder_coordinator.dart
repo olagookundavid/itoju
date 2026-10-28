@@ -65,12 +65,16 @@ class ReminderCoordinator {
   ReceivePort? _port;
   Timer? _timer;
   Future<void> _queue = Future.value();
-  bool _started = false;
+  Future<void>? _starting;
 
-  /// Idempotent. Safe to call on every launch.
-  Future<void> start() async {
-    if (_started) return;
-    _started = true;
+  /// Idempotent. Safe to call on every launch; if it fails (e.g. the plugin
+  /// couldn't initialise) the next call tries again instead of staying dead.
+  Future<void> start() => _starting ??= _start().catchError((Object e) {
+        _starting = null;
+        throw e;
+      });
+
+  Future<void> _start() async {
     await scheduler.init();
     scheduler.onTaken = _handleTaken;
     if (listenForBackgroundEvents) {
@@ -115,6 +119,16 @@ class ReminderCoordinator {
   Future<bool> get notificationsAllowed async {
     await scheduler.init();
     return scheduler.notificationsAllowed();
+  }
+
+  /// Re-runs live database queries. "Mark as taken" pressed while the app was in
+  /// the background writes through another engine's connection, which this
+  /// connection's streams can't see; call on resume so Home catches up.
+  void refreshLiveQueries() {
+    db.notifyUpdates({
+      TableUpdate.onTable(db.medicationMetrics),
+      TableUpdate.onTable(db.pointRecords),
+    });
   }
 
   Future<void> _handleTaken(String reminderId) async {

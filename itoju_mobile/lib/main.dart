@@ -102,7 +102,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       _maybeLock();
       _triggerSync();
       // Timezone / daylight-saving or notification settings may have changed.
-      ref.read(reminderCoordinatorProvider).refresh();
+      ref.read(reminderCoordinatorProvider)
+        ..refreshLiveQueries()
+        ..refresh();
     }
   }
 

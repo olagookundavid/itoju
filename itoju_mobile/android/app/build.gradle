@@ -69,8 +69,10 @@ android {
    buildTypes {
        release {
            signingConfig signingConfigs.release
-           // Additive: keep-rules for the reminders plugin (see the file).
-           proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+           // proguard-rules.pro (reminders plugin keep-rules) is applied by
+           // Flutter's Gradle plugin automatically, alongside the optimizing
+           // defaults. Don't list default files here: proguard-android.txt would
+           // add -dontoptimize to the whole app.
         }
     }
 }

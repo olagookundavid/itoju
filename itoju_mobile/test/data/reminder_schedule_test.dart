@@ -196,4 +196,69 @@ void main() {
       expect(next.isAfter(now), isTrue);
     });
   });
+
+  group('keeping the OS schedule in step', () {
+    const a8 = ReminderSlot('a', 1, 8, 0), a20 = ReminderSlot('a', 1, 20, 0);
+    const b8 = ReminderSlot('b', 3, 8, 0);
+
+    test('payload carries the reminder id first, and round-trips', () {
+      final p = slotPayload(a8, 'Europe/London');
+      expect(p, 'a|1|08:00|Europe/London');
+      expect(reminderIdFromPayload(p), 'a');
+      expect(reminderIdFromPayload('legacy-bare-id'), 'legacy-bare-id');
+      expect(reminderIdFromPayload(null), isNull);
+      expect(reminderIdFromPayload(''), isNull);
+    });
+
+    test('ids are stable, positive, 31-bit and unique', () {
+      final first = notificationIds([a8, a20, b8]);
+      final again = notificationIds([a8, a20, b8]);
+      expect(first, again);
+      expect(first.values.toSet(), hasLength(3));
+      for (final id in first.values) {
+        expect(id, greaterThan(0));
+        expect(id, lessThanOrEqualTo(0x7fffffff));
+      }
+      // A slot's id does not depend on which other slots exist.
+      expect(notificationIds([a8])[a8], first[a8]);
+    });
+
+    test('ids stay unique across a full schedule', () {
+      final slots = [
+        for (var d = 1; d <= 7; d++)
+          for (var h = 6; h < 18; h += 2) ReminderSlot('r$h', d, h, 0)
+      ];
+      expect(notificationIds(slots).values.toSet(), hasLength(slots.length));
+    });
+
+    ScheduledNote note(int id, {String title = 'Time for X', String payload = 'p'}) =>
+        ScheduledNote(id, title, 'body', payload);
+
+    test('an unchanged schedule touches nothing (shown notifications survive)', () {
+      final plan = planReschedule([note(1), note(2)], [note(2), note(1)]);
+      expect(plan.cancel, isEmpty);
+      expect(plan.schedule, isEmpty);
+    });
+
+    test('only what changed is cancelled or rescheduled', () {
+      final plan = planReschedule(
+        [note(1), note(2, title: 'Time for Y'), note(4)],
+        [note(1), note(2), note(3)],
+      );
+      expect(plan.cancel, [3], reason: 'removed slot');
+      expect(plan.schedule.map((n) => n.id), [2, 4], reason: 'changed text, new slot');
+    });
+
+    test('a timezone change reschedules everything via the payload', () {
+      final plan = planReschedule([note(1, payload: 'a|1|08:00|America/New_York')],
+          [note(1, payload: 'a|1|08:00|Europe/London')]);
+      expect(plan.schedule.map((n) => n.id), [1]);
+      expect(plan.cancel, isEmpty);
+    });
+
+    test('from nothing schedules all; to nothing cancels all', () {
+      expect(planReschedule([note(1), note(2)], []).schedule, hasLength(2));
+      expect(planReschedule([], [note(1), note(2)]).cancel, [1, 2]);
+    });
+  });
 }

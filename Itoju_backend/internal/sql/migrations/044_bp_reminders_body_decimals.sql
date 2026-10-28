@@ -64,7 +64,12 @@ CREATE TRIGGER trg_user_med_reminder_sync_touch
 --   - otherwise the legacy column is always re-derived from the new one (rounded).
 ALTER TABLE bodymeasure ADD COLUMN height_cm NUMERIC(5,1) NOT NULL DEFAULT 0;
 ALTER TABLE bodymeasure ADD COLUMN weight_kg NUMERIC(5,1) NOT NULL DEFAULT 0;
+-- The backfill must not look like a user edit: sync_touch would stamp every row's
+-- updated_at with now(), and a 1.1 device's unsynced offline body edit would then
+-- lose last-write-wins against it. Suspend it for this one statement.
+ALTER TABLE bodymeasure DISABLE TRIGGER trg_bodymeasure_sync_touch;
 UPDATE bodymeasure SET height_cm = height, weight_kg = weight;
+ALTER TABLE bodymeasure ENABLE TRIGGER trg_bodymeasure_sync_touch;
 
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION bodymeasure_units() RETURNS trigger AS $$

@@ -206,3 +206,80 @@ tz.TZDateTime nextWeekly(tz.TZDateTime now, int weekday, int hour, int minute) {
     body: parts.isEmpty ? 'Time to take your medication' : parts.join(' · '),
   );
 }
+
+// --- Keeping the OS schedule in step without disturbing shown notifications ---
+//
+// Cancelling a notification id also removes that notification from the tray if it
+// is currently shown. Rebuilding everything on every app launch/resume therefore
+// wiped reminders the person hadn't acted on yet. Instead each slot gets a stable
+// id derived from what it is, and only slots that actually changed are touched.
+
+/// Payload carried by a scheduled notification: the reminder id first (what
+/// "Mark as taken" needs), then what makes this slot distinct, including the
+/// timezone it was scheduled in so a timezone change reschedules it.
+String slotPayload(ReminderSlot s, String timezone) =>
+    '${s.reminderId}|${s.weekday}|${formatHhmm(s.hour, s.minute)}|$timezone';
+
+/// The reminder id from a notification payload, or null. Accepts the bare id
+/// that early 1.2 builds used.
+String? reminderIdFromPayload(String? payload) {
+  if (payload == null || payload.isEmpty) return null;
+  final id = payload.split('|').first;
+  return id.isEmpty ? null : id;
+}
+
+int _fnv1a(String s) {
+  var h = 0x811c9dc5;
+  for (final c in s.codeUnits) {
+    h ^= c;
+    h = (h * 0x01000193) & 0xffffffff;
+  }
+  return h;
+}
+
+/// A notification id per slot, stable across runs (a hash of the slot), positive
+/// and 31-bit as Android requires. Collisions — vanishingly rare with at most
+/// [kMaxScheduledNotifications] slots — are resolved by probing upwards in the
+/// slots' stable sort order, so the result is still deterministic.
+Map<ReminderSlot, int> notificationIds(List<ReminderSlot> slots) {
+  final used = <int>{};
+  final out = <ReminderSlot, int>{};
+  for (final s in slots) {
+    var id = _fnv1a('${s.reminderId}|${s.weekday}|${formatHhmm(s.hour, s.minute)}') & 0x7fffffff;
+    if (id == 0) id = 1;
+    while (used.contains(id)) {
+      id = (id + 1) & 0x7fffffff;
+      if (id == 0) id = 1;
+    }
+    used.add(id);
+    out[s] = id;
+  }
+  return out;
+}
+
+/// One notification as the OS should hold it.
+class ScheduledNote {
+  const ScheduledNote(this.id, this.title, this.body, this.payload);
+  final int id;
+  final String? title;
+  final String? body;
+  final String? payload;
+
+  bool sameAs(ScheduledNote o) =>
+      o.id == id && o.title == title && o.body == body && o.payload == payload;
+}
+
+/// What to change so the OS holds exactly [desired], given what it holds now
+/// ([pending]): ids to cancel, and notes to (re)schedule. Untouched when equal.
+({List<int> cancel, List<ScheduledNote> schedule}) planReschedule(
+    List<ScheduledNote> desired, List<ScheduledNote> pending) {
+  final want = {for (final d in desired) d.id: d};
+  final have = {for (final p in pending) p.id: p};
+  return (
+    cancel: [for (final id in have.keys) if (!want.containsKey(id)) id],
+    schedule: [
+      for (final d in desired)
+        if (!(have[d.id]?.sameAs(d) ?? false)) d
+    ],
+  );
+}

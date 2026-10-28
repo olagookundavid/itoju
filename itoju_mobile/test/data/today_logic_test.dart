@@ -84,4 +84,25 @@ void main() {
     expect(relativeDay('2026-09-01', today), '1 Sep');
     expect(relativeDay('garbage', today), 'garbage');
   });
+
+  group('calendar-day maths (daylight saving safe)', () {
+    // These only exercise a real clock change when the machine's zone has one.
+    // Run them with TZ=Europe/London (or America/New_York) to check that.
+    test('one calendar day apart is 1, even when that day is 23 or 25 hours', () {
+      expect(calendarDaysBetween(DateTime(2026, 3, 29), DateTime(2026, 3, 30)), 1);
+      expect(calendarDaysBetween(DateTime(2026, 10, 25), DateTime(2026, 10, 26)), 1);
+      expect(calendarDaysBetween(DateTime(2026, 3, 20), DateTime(2026, 4, 10)), 21);
+    });
+    test('time of day is ignored', () {
+      expect(calendarDaysBetween(DateTime(2026, 3, 29, 23, 59), DateTime(2026, 3, 30, 0, 1)), 1);
+      expect(calendarDaysBetween(DateTime(2026, 3, 30, 0, 1), DateTime(2026, 3, 30, 23, 59)), 0);
+    });
+    test('addCalendarDays lands on midnight of the right date', () {
+      expect(addCalendarDays(DateTime(2026, 3, 27, 15), 3), DateTime(2026, 3, 30));
+      expect(addCalendarDays(DateTime(2026, 10, 28), -30), DateTime(2026, 9, 28));
+    });
+    test('relativeDay says yesterday across the spring clock change', () {
+      expect(relativeDay('2026-03-29', DateTime(2026, 3, 30, 9)), 'yesterday');
+    });
+  });
 }

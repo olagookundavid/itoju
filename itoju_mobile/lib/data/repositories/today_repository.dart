@@ -22,7 +22,6 @@ class TodayRepository {
   TodayRepository(this._db);
   final AppDatabase _db;
 
-  static final _day = DateFormat('yyyy-MM-dd');
   static const _unlogged = 'Tap to log';
 
   /// Emits now, then again whenever any table feeding the summary changes.
@@ -254,13 +253,8 @@ class TodayRepository {
       return const MetricToday(logged: false, headline: _unlogged, detail: 'Log your period');
     }
 
-    int dayOf(MenstrualCycle c) {
-      final s = DateTime.parse(c.startDate);
-      return DateTime(target.year, target.month, target.day)
-              .difference(DateTime(s.year, s.month, s.day))
-              .inDays +
-          1;
-    }
+    int dayOf(MenstrualCycle c) =>
+        calendarDaysBetween(DateTime.parse(c.startDate), target) + 1;
 
     // Prefer the most recent cycle that has a day row for today (overlapping cycles).
     final byId = {for (final c in cycles) c.id: c};
@@ -286,14 +280,22 @@ class TodayRepository {
   }
 
   Future<int?> _mood(String date) async {
-    final rows = await (_db.select(_db.smileyEntries)
-          ..where((t) => t.deletedAt.isNull())
-          ..orderBy([(t) => OrderingTerm.desc(t.grantedAt)]))
-        .get();
-    for (final r in rows) {
-      if (_day.format(r.grantedAt) == date) return r.smileyId;
-    }
-    return null;
+    final day = DateTime.tryParse(date);
+    if (day == null) return null;
+    // Only that day's rows (grantedAt is a local timestamp), not the whole history.
+    final start = DateTime(day.year, day.month, day.day);
+    final end = DateTime(day.year, day.month, day.day + 1);
+    final row = await (_db.select(_db.smileyEntries)
+          ..where((t) =>
+              t.deletedAt.isNull() &
+              t.grantedAt.isBiggerOrEqualValue(start) &
+              t.grantedAt.isSmallerThanValue(end))
+          ..orderBy([(t) => OrderingTerm.desc(t.grantedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    // A synced row outside the 1..5 catalog would index past the mood list.
+    final id = row?.smileyId;
+    return (id != null && id >= 1 && id <= 5) ? id : null;
   }
 
   Future<int> _streak(DateTime today) async {

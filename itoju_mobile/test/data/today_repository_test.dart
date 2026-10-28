@@ -206,6 +206,13 @@ void main() {
       expect((await sum()).metrics['Menstruation and Ovulation']!.headline, 'Cycle day 15');
     });
 
+    test('the cycle day is right after a spring clock change', () async {
+      // Started before 29 Mar (UK/EU clocks go forward); counted on 1 Apr.
+      await cycle('2026-03-20');
+      final s = await repo.summary('2026-04-01', now: DateTime(2026, 4, 1, 12));
+      expect(s.metrics['Menstruation and Ovulation']!.headline, 'Cycle day 13');
+    });
+
     test('a long-stale cycle is treated as untracked', () async {
       await cycle('2026-06-01');
       expect((await sum()).metrics['Menstruation and Ovulation']!.logged, isFalse);

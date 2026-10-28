@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/today_logic.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/bp_notifier.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 
@@ -32,13 +33,10 @@ class BpTrendChart extends StatelessWidget {
   final DateTime end;
   final int days;
 
-  DateTime get _start => DateTime(end.year, end.month, end.day)
-      .subtract(Duration(days: days - 1));
+  DateTime get _start => addCalendarDays(end, -(days - 1));
 
-  double _x(String date) {
-    final d = DateTime.parse(date);
-    return DateTime(d.year, d.month, d.day).difference(_start).inDays.toDouble();
-  }
+  double _x(String date) =>
+      calendarDaysBetween(_start, DateTime.parse(date)).toDouble();
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +120,7 @@ class BpTrendChart extends StatelessWidget {
                 if (v != i.toDouble() || i % labelEvery != 0) {
                   return const SizedBox.shrink();
                 }
-                final d = _start.add(Duration(days: i));
+                final d = addCalendarDays(_start, i);
                 return SideTitleWidget(
                   meta: meta,
                   child: Text(days <= 7 ? dayFmt.format(d) : longFmt.format(d),
@@ -138,7 +136,7 @@ class BpTrendChart extends StatelessWidget {
             getTooltipColor: (_) => AppColors.textGrey,
             getTooltipItems: (touched) {
               if (touched.isEmpty) return [];
-              final d = _start.add(Duration(days: touched.first.x.toInt()));
+              final d = addCalendarDays(_start, touched.first.x.toInt());
               return [
                 for (var i = 0; i < touched.length; i++)
                   LineTooltipItem(
