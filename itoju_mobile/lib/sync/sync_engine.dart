@@ -9,6 +9,7 @@ import '../data/account_service.dart';
 import '../data/db/app_database.dart';
 import '../data/ids.dart';
 import '../data/providers.dart';
+import '../data/repositories/points_repository.dart';
 import '../services/dio_provider.dart';
 import 'sync_tables.dart';
 
@@ -287,6 +288,15 @@ class SyncEngine {
     }
     if (until != null && !hasMore) {
       await _setMeta('pullWatermark', until);
+      // A signed-in account's point catch-up (registration points, days with
+      // entries but no award) waits for this first download, and the screen asks
+      // for points before it has run. Do it now that it is done — the points
+      // display updates itself when the rows land. Never let it fail the sync.
+      try {
+        await _ref.read(pointsRepositoryProvider).ensureBackfill();
+      } catch (e) {
+        debugLog('points catch-up failed: $e');
+      }
     }
   }
 

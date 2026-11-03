@@ -236,7 +236,10 @@ void main() {
     };
     await container.read(syncEngineProvider).pull();
     final total = await container.read(pointsRepositoryProvider).getPoints();
-    expect(total.totalPts, 12, reason: 'restored device shows the cloud total');
+    // 10 (local) + 2 (cloud) + 10 registration points: a finished download also
+    // runs the points catch-up, and this device had no Register award yet.
+    expect(total.totalPts, 22,
+        reason: 'restored device shows the cloud total plus its registration');
   });
 
   test('binding re-keys the registration and per-day point ids', () async {
