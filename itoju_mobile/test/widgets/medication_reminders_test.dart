@@ -155,6 +155,24 @@ void main() {
     expect((await ReminderRepository(db).getAll()).single.days, 31);
   });
 
+  page('days: Weekends preset saves Saturday and Sunday only', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.text('Add a reminder'));
+    await tester.pumpAndSettle();
+    await fillBasics(tester, dose: '');
+    await addTimeViaPicker(tester);
+
+    await tester.ensureVisible(find.text('Weekends'));
+    await tester.tap(find.text('Weekends'));
+    await tester.pump();
+    expect(find.textContaining('Weekends at'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Save reminder'));
+    await tester.tap(find.text('Save reminder'));
+    await tester.pumpAndSettle();
+    expect((await ReminderRepository(db).getAll()).single.days, 96);
+  });
+
   page('several times a day can be added and removed', (tester) async {
     await pumpPage(tester);
     await tester.tap(find.text('Add a reminder'));
@@ -281,6 +299,37 @@ void main() {
     await tester.tap(find.text('Turn on'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Notifications are off'), findsNothing);
+  });
+
+  page('without exact timing, a banner offers it once there is a reminder',
+      (tester) async {
+    scheduler.exact = false;
+    await pumpPage(tester);
+    expect(find.textContaining('a few minutes late'), findsNothing,
+        reason: 'nothing to be on time for yet');
+
+    await ReminderRepository(db).save(const MedReminderModel(
+        id: null, name: 'Metformin', dosage: 500, times: ['08:00']));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('a few minutes late'), findsOneWidget);
+
+    await tester.tap(find.text('Allow exact timing'));
+    await tester.pumpAndSettle();
+    expect(scheduler.exactRequests, 1);
+
+    // Back from the system screen with it allowed: the banner goes.
+    scheduler.exact = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('a few minutes late'), findsNothing);
+  });
+
+  page('with exact timing allowed there is no timing banner', (tester) async {
+    await ReminderRepository(db).save(const MedReminderModel(
+        id: null, name: 'Metformin', dosage: 500, times: ['08:00']));
+    await pumpPage(tester);
+    expect(find.textContaining('a few minutes late'), findsNothing);
   });
 
   page('the privacy switch is remembered and reschedules with generic text',

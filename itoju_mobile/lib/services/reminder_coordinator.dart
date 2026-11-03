@@ -121,6 +121,19 @@ class ReminderCoordinator {
     return scheduler.notificationsAllowed();
   }
 
+  /// Whether reminders fire at the exact minute (see [ReminderScheduler.exactAllowed]).
+  Future<bool> get exactAllowed async {
+    await scheduler.init();
+    return scheduler.exactAllowed();
+  }
+
+  /// Opens the phone's "Alarms & reminders" screen. Reminders switch to exact
+  /// timing on the next [refresh] (the app runs one on resume).
+  Future<void> requestExact() async {
+    await scheduler.init();
+    await scheduler.requestExact();
+  }
+
   /// Re-runs live database queries. "Mark as taken" pressed while the app was in
   /// the background writes through another engine's connection, which this
   /// connection's streams can't see; call on resume so Home catches up.

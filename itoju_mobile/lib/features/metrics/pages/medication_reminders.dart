@@ -26,6 +26,7 @@ class MedicationRemindersPage extends ConsumerStatefulWidget {
 class _MedicationRemindersPageState extends ConsumerState<MedicationRemindersPage>
     with WidgetsBindingObserver {
   bool? _allowed; // null until checked
+  bool? _exact; // exact-minute timing allowed; null until checked
   bool _hideNames = HiveStorage.get(HiveKeys.reminderHideNames) == true;
 
   @override
@@ -50,8 +51,23 @@ class _MedicationRemindersPageState extends ConsumerState<MedicationRemindersPag
   }
 
   Future<void> _checkPermission() async {
-    final ok = await ref.read(reminderCoordinatorProvider).notificationsAllowed;
-    if (mounted) setState(() => _allowed = ok);
+    final coordinator = ref.read(reminderCoordinatorProvider);
+    final ok = await coordinator.notificationsAllowed;
+    final exact = await coordinator.exactAllowed;
+    if (mounted) {
+      setState(() {
+        _allowed = ok;
+        _exact = exact;
+      });
+    }
+  }
+
+  Future<void> _allowExact() async {
+    try {
+      await ref.read(reminderCoordinatorProvider).requestExact();
+    } catch (_) {
+      getAlert('Open your phone settings, find Itoju, and allow "Alarms & reminders".');
+    }
   }
 
   Future<void> _turnOn() async {
@@ -103,6 +119,26 @@ class _MedicationRemindersPageState extends ConsumerState<MedicationRemindersPag
                 style: TextStyle(fontSize: 12.sp, color: AppColors.textGrey)),
           ),
           TextButton(onPressed: _turnOn, child: const Text('Turn on')),
+        ]),
+      );
+
+  /// Shown when notifications work but Android may deliver them late.
+  Widget _exactBanner() => Container(
+        width: double.infinity,
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: const Color(0xffFFF8E6),
+          borderRadius: BorderRadius.circular(10.r),
+        ),
+        child: Row(children: [
+          const Icon(Icons.schedule, color: Color(0xffC98500)),
+          10.pw,
+          Expanded(
+            child: Text('Reminders may arrive a few minutes late.',
+                style: TextStyle(fontSize: 12.sp, color: AppColors.textGrey)),
+          ),
+          TextButton(onPressed: _allowExact, child: const Text('Allow exact timing')),
         ]),
       );
 
@@ -166,6 +202,11 @@ class _MedicationRemindersPageState extends ConsumerState<MedicationRemindersPag
               ]),
               12.ph,
               if (_allowed == false) _permissionBanner(),
+              // Only worth asking once there is something to be on time for.
+              if (_allowed == true &&
+                  _exact == false &&
+                  (reminders.valueOrNull?.any((r) => r.enabled) ?? false))
+                _exactBanner(),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 activeThumbColor: AppColors.primaryColorPurple,

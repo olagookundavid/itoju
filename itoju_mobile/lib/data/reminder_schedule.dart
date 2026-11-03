@@ -216,9 +216,13 @@ tz.TZDateTime nextWeekly(tz.TZDateTime now, int weekday, int hour, int minute) {
 
 /// Payload carried by a scheduled notification: the reminder id first (what
 /// "Mark as taken" needs), then what makes this slot distinct, including the
-/// timezone it was scheduled in so a timezone change reschedules it.
-String slotPayload(ReminderSlot s, String timezone) =>
-    '${s.reminderId}|${s.weekday}|${formatHhmm(s.hour, s.minute)}|$timezone';
+/// timezone it was scheduled in so a timezone change reschedules it, and whether
+/// it is an exact alarm: when that permission is granted or revoked the payload
+/// differs, so every slot is rescheduled in the new mode (Android cancels all of
+/// an app's exact alarms when the permission is taken away).
+String slotPayload(ReminderSlot s, String timezone, {bool exact = false}) =>
+    '${s.reminderId}|${s.weekday}|${formatHhmm(s.hour, s.minute)}|$timezone'
+    '${exact ? '|exact' : ''}';
 
 /// The reminder id from a notification payload, or null. Accepts the bare id
 /// that early 1.2 builds used.

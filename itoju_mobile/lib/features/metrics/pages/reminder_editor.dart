@@ -248,6 +248,9 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
                 TextButton(
                     onPressed: () => setState(() => _days = 31),
                     child: const Text('Weekdays')),
+                TextButton(
+                    onPressed: () => setState(() => _days = 96),
+                    child: const Text('Weekends')),
               ]),
               _label('Times',
                   hint:

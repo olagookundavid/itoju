@@ -27,6 +27,13 @@ class FakeScheduler implements ReminderScheduler {
     return grantOnRequest;
   }
 
+  bool exact = true;
+  int exactRequests = 0;
+  @override
+  Future<bool> exactAllowed() async => exact;
+  @override
+  Future<void> requestExact() async => exactRequests++;
+
   @override
   Future<void> reschedule(List<MedReminderModel> reminders,
       {required bool hideNames}) async {

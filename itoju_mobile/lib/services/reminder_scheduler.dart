@@ -1,6 +1,7 @@
 import 'dart:ui' show DartPluginRegistrant, IsolateNameServer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -30,6 +31,15 @@ abstract class ReminderScheduler {
 
   /// Shows the system permission prompt (Android 13+, iOS). True if granted.
   Future<bool> requestPermission();
+
+  /// Whether reminders can fire at the exact minute. Android 12+ needs the
+  /// "Alarms & reminders" permission (off by default on 14+); without it they
+  /// still fire, a few minutes late. Always true where there is no such limit.
+  Future<bool> exactAllowed();
+
+  /// Opens the system "Alarms & reminders" screen for this app. The answer is
+  /// only known when the person comes back, so re-check [exactAllowed] on resume.
+  Future<void> requestExact();
 
   /// Replaces every scheduled reminder notification with the ones for
   /// [reminders]. Idempotent: calling it again with the same data changes nothing.
@@ -123,10 +133,26 @@ class LocalReminderScheduler implements ReminderScheduler {
     return false;
   }
 
+  AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+  @override
+  Future<bool> exactAllowed() async {
+    final android = _android;
+    if (android == null) return true; // iOS delivers on time; no such permission
+    return await android.canScheduleExactNotifications() ?? false;
+  }
+
+  @override
+  Future<void> requestExact() async {
+    await _android?.requestExactAlarmsPermission();
+  }
+
   @override
   Future<void> reschedule(List<MedReminderModel> reminders, {required bool hideNames}) async {
     await _applyDeviceTimezone();
     final zone = tz.local.name;
+    final exact = _android != null && await exactAllowed();
     final byId = {
       for (final r in reminders)
         if (r.id != null) r.id!: r
@@ -139,7 +165,8 @@ class LocalReminderScheduler implements ReminderScheduler {
           final text = reminderTexts(byId[slot.reminderId]!, hideNames: hideNames);
           return (
             slot: slot,
-            note: ScheduledNote(ids[slot]!, text.title, text.body, slotPayload(slot, zone)),
+            note: ScheduledNote(
+                ids[slot]!, text.title, text.body, slotPayload(slot, zone, exact: exact)),
           );
         }()
     ];
@@ -158,22 +185,36 @@ class LocalReminderScheduler implements ReminderScheduler {
     final changed = {for (final n in plan.schedule) n.id};
     for (final d in desired) {
       if (!changed.contains(d.note.id)) continue;
-      await _plugin.zonedSchedule(
-        d.note.id,
-        d.note.title,
-        d.note.body,
-        nextWeekly(now, d.slot.weekday, d.slot.hour, d.slot.minute),
+      final when = nextWeekly(now, d.slot.weekday, d.slot.hour, d.slot.minute);
+      try {
+        await _schedule(d.note, when, exact: exact);
+      } on PlatformException {
+        if (!exact) rethrow;
+        // The permission was taken away between the check and now: schedule it
+        // inexact rather than lose it. Its payload still says exact, so the next
+        // refresh (exact no longer allowed) reschedules it consistently.
+        await _schedule(d.note, when, exact: false);
+      }
+    }
+  }
+
+  Future<void> _schedule(ScheduledNote note, tz.TZDateTime when, {required bool exact}) =>
+      _plugin.zonedSchedule(
+        note.id,
+        note.title,
+        note.body,
+        when,
         _details,
-        payload: d.note.payload,
-        // Inexact: a reminder may arrive a few minutes late in Doze, but the app
-        // then needs no exact-alarm permission (which Google Play restricts).
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: note.payload,
+        // Exact when the person has allowed "Alarms & reminders": on time, even in
+        // Doze. Otherwise inexact, which Android may deliver several minutes late.
+        androidScheduleMode: exact
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
-    }
-  }
 
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(

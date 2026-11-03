@@ -5,11 +5,14 @@
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
     <!-- Medication reminders. POST_NOTIFICATIONS is a runtime permission on
          Android 13+. RECEIVE_BOOT_COMPLETED lets scheduled reminders survive a
-         restart. Exact-alarm permissions are deliberately NOT requested: reminders
-         use inexact alarms (minutes of slack), which needs no Play Store
-         declaration. -->
+         restart. SCHEDULE_EXACT_ALARM ("Alarms & reminders", granted by the person
+         in system settings, off by default on Android 14+) makes reminders fire
+         on the minute; without it they are inexact and can be minutes late.
+         USE_EXACT_ALARM is deliberately NOT used: Play restricts it to alarm-clock
+         and calendar apps. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
     <application

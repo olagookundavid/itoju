@@ -210,6 +210,20 @@ void main() {
       expect(reminderIdFromPayload(''), isNull);
     });
 
+    test('granting or losing exact timing changes the payload, so all slots reschedule',
+        () {
+      final inexact = slotPayload(a8, 'Europe/London');
+      final exact = slotPayload(a8, 'Europe/London', exact: true);
+      expect(exact, 'a|1|08:00|Europe/London|exact');
+      expect(reminderIdFromPayload(exact), 'a');
+
+      ScheduledNote note(String p) => ScheduledNote(1, 't', 'b', p);
+      final plan = planReschedule([note(exact)], [note(inexact)]);
+      expect(plan.cancel, isEmpty, reason: 'same id: replaced, not cancelled');
+      expect(plan.schedule.single.payload, exact);
+      expect(planReschedule([note(inexact)], [note(exact)]).schedule, hasLength(1));
+    });
+
     test('ids are stable, positive, 31-bit and unique', () {
       final first = notificationIds([a8, a20, b8]);
       final again = notificationIds([a8, a20, b8]);
