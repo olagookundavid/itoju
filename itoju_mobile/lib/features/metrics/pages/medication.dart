@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/medication_suggestions.dart';
+import 'package:itoju_mobile/data/repositories/medication_repository.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/add_button.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/medication_notifier.dart';
 import 'package:itoju_mobile/features/metrics/pages/medication_reminders.dart';
@@ -37,8 +39,57 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
       ref
           .read(medicationProvider.notifier)
           .getMedicationList(DateFormat('yyyy-MM-dd').format(selectedDate!));
+      _loadSuggestions();
     });
     super.initState();
+  }
+
+  /// This person's past medications and reminders, offered under the name box
+  /// so a regular medicine is one tap instead of retyping it every day.
+  List<MedicationModel> _suggestions = const [];
+
+  Future<void> _loadSuggestions() async {
+    try {
+      final s = await ref.read(medicationRepositoryProvider).suggestions();
+      if (mounted) setState(() => _suggestions = s);
+    } catch (_) {
+      // Suggestions are a convenience; typing still works without them.
+    }
+  }
+
+  /// Fills the form from a suggestion: name plus the dose, unit and quantity
+  /// last used, all still editable before Done.
+  void _useSuggestion(MedicationModel m) {
+    setState(() {
+      textCtrl.text = m.name.trim();
+      if (m.dosage > 0) doseCtrl.text = '${m.dosage}';
+      if (dropdownItems.contains(m.metric)) metric = m.metric;
+      if (m.quantity > 0) quantiyCtrl.text = '${m.quantity}';
+    });
+  }
+
+  Widget _suggestionChips() {
+    final shown = filterMedSuggestions(_suggestions, textCtrl.text);
+    if (shown.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8.h),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final m in shown)
+              ActionChip(
+                avatar: const Icon(Icons.history,
+                    size: 16, color: AppColors.primaryColorPurple),
+                label: Text(medSuggestionLabel(m)),
+                onPressed: () => _useSuggestion(m),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   List<String> dropdownItems = ['mg', 'mcl', 'tsp'];
@@ -211,7 +262,10 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                       ],
                                     ),
                                     CustomTextField(
-                                        filled: true, controller: textCtrl),
+                                        filled: true,
+                                        controller: textCtrl,
+                                        onChanged: (_) => setState(() {})),
+                                    _suggestionChips(),
                                     15.ph,
                                     CustomText(
                                       'Single Dosage',
@@ -298,6 +352,7 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                               textCtrl.clear();
                                               doseCtrl.clear();
                                               quantiyCtrl.clear();
+                                              _loadSuggestions();
 
                                               SchedulerBinding.instance
                                                   .addPostFrameCallback(

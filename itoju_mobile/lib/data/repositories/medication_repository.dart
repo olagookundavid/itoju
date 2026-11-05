@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
 import '../limits.dart';
+import '../medication_suggestions.dart';
 import '../ids.dart';
 import '../models/medication_model.dart';
 import '../providers.dart';
@@ -27,6 +28,43 @@ class MedicationRepository {
           ]))
         .get();
     return rows.map(_toModel).toList();
+  }
+
+  /// Medications this person has logged before (newest first) plus any they
+  /// set reminders for, one per name, for the name box to suggest. Local only,
+  /// so it works offline and never shows anyone else's medicines.
+  Future<List<MedicationModel>> suggestions() async {
+    final logged = await (_db.select(_db.medicationMetrics)
+          ..where((t) => t.deletedAt.isNull() & t.name.trim().equals('').not())
+          // Timestamps are stored to the second; the v7 id breaks ties in
+          // creation order.
+          ..orderBy([
+            (t) => OrderingTerm(
+                expression: t.localUpdatedAt, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.id, mode: OrderingMode.desc),
+          ])
+          ..limit(500))
+        .get();
+    final reminders = await (_db.select(_db.medReminders)
+          ..where((t) => t.deletedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(
+                expression: t.localUpdatedAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+    return mergeMedSuggestions(
+      logged.map(_toModel).toList(),
+      reminders
+          .map((r) => MedicationModel(
+                id: null,
+                time: '',
+                metric: r.unit,
+                name: r.name,
+                dosage: r.dosage,
+                quantity: r.quantity,
+              ))
+          .toList(),
+    );
   }
 
   Future<void> create(String date, MedicationModel m) async {
