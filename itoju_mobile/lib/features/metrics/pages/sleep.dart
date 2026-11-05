@@ -143,7 +143,11 @@ class _SleepWidgetState extends ConsumerState<SleepWidget> {
                                           .watch(sleepProvider)
                                           .sleepModels![index];
 
+                                      // Keyed by record: the list re-sorts by
+                                      // last edit, and an unkeyed card would
+                                      // keep the previous record's times.
                                       return SleepList(
+                                          key: ValueKey(sleepMetric.id),
                                           sleepMetric.isNight!
                                               ? 'Night'
                                               : 'Daytime',

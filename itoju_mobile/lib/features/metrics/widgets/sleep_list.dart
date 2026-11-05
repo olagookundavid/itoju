@@ -5,13 +5,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/sleep_logic.dart';
+import 'package:itoju_mobile/data/today_logic.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/slider_and_value.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/sleep_notifier.dart';
 import 'package:itoju_mobile/features/metrics/pages/sleep.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
 import 'package:itoju_mobile/features/widgets/custom_text.dart';
-import 'package:itoju_mobile/features/widgets/date_pick_widget.dart';
 import 'package:itoju_mobile/features/widgets/dates.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 import 'package:itoju_mobile/services/flush_bar_service.dart';
@@ -44,8 +45,6 @@ class _SleepListState extends ConsumerState<SleepList> {
   ];
   final Set userTags = {};
   double sev = 0;
-  DateTime? slept;
-  DateTime? wokeUp;
   String timeSlept = '';
   String timeWokeUp = '';
 
@@ -55,11 +54,8 @@ class _SleepListState extends ConsumerState<SleepList> {
   void initState() {
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) async {
       sev = widget.sleepModel.severity;
-      timeSlept = widget.sleepModel.timeSlept!;
-      slept = convertTimeStringToDateTime(timeSlept);
-      timeWokeUp = widget.sleepModel.timeWokeUp!;
-      wokeUp = convertTimeStringToDateTime(timeWokeUp);
-      duration = calculateTimeDifference(slept, wokeUp);
+      timeSlept = widget.sleepModel.timeSlept ?? '';
+      timeWokeUp = widget.sleepModel.timeWokeUp ?? '';
       final tags = (widget.sleepModel.tags);
       for (String tag in tags) {
         userTags.add(tag);
@@ -70,25 +66,64 @@ class _SleepListState extends ConsumerState<SleepList> {
   }
 
   bool isSaveVisible = false;
-  String duration = "00h 00m";
 
-  /// A night session spans two calendar days, so its label needs both dates
-  /// to be unambiguous (e.g. "13 Jul 11:00 PM - 14 Jul 7:00 AM"). Daytime
-  /// sessions stay within the tracked day, so times alone are unambiguous.
+  /// Wraps past midnight, so a 10 PM -> 6 AM night reads 8h (it used to show
+  /// the 16h gap between the two clock times on the same day).
+  String get duration => sleepDurationLabel(timeSlept, timeWokeUp);
+
+  /// The logged day ('yyyy-MM-dd'), at midnight.
+  DateTime? get _day => DateTime.tryParse(widget.date);
+
+  /// A night crosses midnight, so its label carries both dates to say which
+  /// night it was: on Thu 5 the night reads "4 Nov 10:00 PM - 5 Nov 6:00 AM"
+  /// (see sleep_logic.dart). A nap within one day needs times alone.
   String get _timeRangeLabel {
-    final timeSlept = widget.sleepModel.timeSlept;
-    final timeWokeUp = widget.sleepModel.timeWokeUp;
-    if (!widget.isNight) {
+    final timeSlept = widget.sleepModel.timeSlept ?? '';
+    final timeWokeUp = widget.sleepModel.timeWokeUp ?? '';
+    final day = _day;
+    final window = day == null
+        ? null
+        : sleepWindow(day, widget.isNight, timeSlept, timeWokeUp);
+    if (window == null ||
+        (!widget.isNight && window.start.day == window.end.day)) {
       return '$timeSlept - $timeWokeUp';
     }
-    final startDate = DateTime.tryParse(widget.date);
-    if (startDate == null) {
-      return '$timeSlept - $timeWokeUp';
-    }
-    final endDate = startDate.add(const Duration(days: 1));
-    final startLabel = DateFormatter.formatShortDayMonth(startDate);
-    final endLabel = DateFormatter.formatShortDayMonth(endDate);
+    final startLabel = DateFormatter.formatShortDayMonth(window.start);
+    final endLabel = DateFormatter.formatShortDayMonth(window.end);
     return '$startLabel $timeSlept - $endLabel $timeWokeUp';
+  }
+
+  /// Asks for a clock time only: the calendar day follows from the logged day
+  /// and the kind of sleep, so a date step would be ignored anyway. Returns
+  /// the time in the stored "10:00 PM" form, or null if cancelled.
+  Future<String?> _pickTime(String current, String helpText) async {
+    final minutes = parseClockMinutes(current);
+    final initial = minutes == null
+        ? TimeOfDay.now()
+        : TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+    final picked = await showTimePicker(
+        context: context, initialTime: initial, helpText: helpText);
+    if (picked == null) return null;
+    return DateFormatter.formatTime(
+        DateTime(2000, 1, 1, picked.hour, picked.minute).toString());
+  }
+
+  /// Applies a picked time unless it puts the sleep in the future, in which
+  /// case the previous times stay and the person is told why.
+  void _applyTimes(String slept, String woke) {
+    final day = _day;
+    final problem = day == null
+        ? null
+        : sleepFutureProblem(day, widget.isNight, slept, woke, DateTime.now());
+    if (problem != null) {
+      getAlert(problem);
+      return;
+    }
+    setState(() {
+      isSaveVisible = true;
+      timeSlept = slept;
+      timeWokeUp = woke;
+    });
   }
 
   @override
@@ -206,14 +241,9 @@ class _SleepListState extends ConsumerState<SleepList> {
                         10.ph,
                         InkWell(
                           onTap: () async {
-                            isSaveVisible = true;
-                            slept = await showDateTimePicker(context: context);
-                            timeSlept =
-                                DateFormatter.formatTime(slept.toString());
-                            wokeUp = null;
-                            timeWokeUp = '';
-                            duration = calculateTimeDifference(slept, wokeUp);
-                            setState(() {});
+                            final picked = await _pickTime(timeSlept,
+                                widget.isNight ? 'Went to bed' : 'Fell asleep');
+                            if (picked != null) _applyTimes(picked, timeWokeUp);
                           },
                           child: WhiteContainer(text: timeSlept),
                         )
@@ -230,15 +260,11 @@ class _SleepListState extends ConsumerState<SleepList> {
                         10.ph,
                         InkWell(
                             onTap: () async {
-                              isSaveVisible = true;
-                              wokeUp = await showDateTimePicker(
-                                  context: context,
-                                  initialDate: slept,
-                                  firstDate: slept);
-                              timeWokeUp =
-                                  DateFormatter.formatTime(wokeUp.toString());
-                              duration = calculateTimeDifference(slept, wokeUp);
-                              setState(() {});
+                              final picked =
+                                  await _pickTime(timeWokeUp, 'Woke up');
+                              if (picked != null) {
+                                _applyTimes(timeSlept, picked);
+                              }
                             },
                             child: WhiteContainer(text: timeWokeUp))
                       ],
@@ -345,6 +371,15 @@ class _SleepListState extends ConsumerState<SleepList> {
                             ref.watch(sleepProvider).updateStatus ==
                                 Loader.loading),
                         onPressed: () async {
+                          final day = _day;
+                          final problem = day == null
+                              ? null
+                              : sleepSaveProblem(day, widget.isNight,
+                                  timeSlept, timeWokeUp, DateTime.now());
+                          if (problem != null) {
+                            getAlert(problem);
+                            return;
+                          }
                           final response = await (widget.isNew
                               ? ref
                                   .read(sleepProvider.notifier)

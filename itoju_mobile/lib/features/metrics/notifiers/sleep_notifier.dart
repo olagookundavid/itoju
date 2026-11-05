@@ -48,7 +48,14 @@ class SleepNotifier extends StateNotifier<SleepState> {
   Future<ApiResponse> updateSleepMetric(String id, SleepModel model) async {
     state = state.copyWith(updateStatus: Loader.loading);
     try {
-      await repo.update(model);
+      // The card builds [model] without an id; the row to change is [id].
+      await repo.update(SleepModel(
+          id: id,
+          timeSlept: model.timeSlept,
+          timeWokeUp: model.timeWokeUp,
+          tags: model.tags,
+          severity: model.severity,
+          isNight: model.isNight));
       state = state.copyWith(updateStatus: Loader.loaded);
       return ApiResponse(successMessage: 'Successfully updated Sleep record');
     } catch (e) {
