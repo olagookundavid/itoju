@@ -89,6 +89,13 @@ var syncSpecs = map[string]syncSpec{
 		{"date", kDate}, {"name", kText}, {"dosage", kNum},
 		{"metric", kText}, {"quantity", kNum}, {"time", kText},
 	}},
+	// Decimal dose / quantity for app 1.2.1+. Same physical table as
+	// "user_medication_metric" above, which stays for builds that only know whole
+	// numbers; migration 045's trigger keeps the two column pairs in step.
+	"user_medication_metric_v2": {table: "user_medication_metric", idCol: "id", cols: []syncCol{
+		{"date", kDate}, {"name", kText}, {"dosage_dec", kNum},
+		{"metric", kText}, {"quantity_dec", kNum}, {"time", kText},
+	}},
 	"user_exercise_metric": {table: "user_exercise_metric", idCol: "id", cols: []syncCol{
 		{"date", kDate}, {"name", kText}, {"started", kText},
 		{"ended", kText}, {"tags", kTags}, {"no_of_times", kNum},
@@ -132,6 +139,11 @@ var syncSpecs = map[string]syncSpec{
 	// Medication reminders. days is a Mon..Sun bitmask, times a list of 'HH:mm'.
 	"user_med_reminder": {table: "user_med_reminder", idCol: "id", cols: []syncCol{
 		{"name", kText}, {"dosage", kNum}, {"unit", kText}, {"quantity", kNum},
+		{"days", kNum}, {"times", kTags}, {"enabled", kBool},
+	}},
+	// Decimal dose / quantity for app 1.2.1+ (1.2.0 keeps the spec above; 045).
+	"user_med_reminder_v2": {table: "user_med_reminder", idCol: "id", cols: []syncCol{
+		{"name", kText}, {"dosage_dec", kNum}, {"unit", kText}, {"quantity_dec", kNum},
 		{"days", kNum}, {"times", kTags}, {"enabled", kBool},
 	}},
 	// Points ledger. Keyed by its own uuid (sync_id); the SERIAL id stays for legacy
