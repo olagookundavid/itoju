@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/data/reminder_schedule.dart';
 import 'package:itoju_mobile/data/repositories/reminder_repository.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/reminders_provider.dart';
@@ -144,8 +145,8 @@ class _MedicationRemindersPageState extends ConsumerState<MedicationRemindersPag
 
   Widget _tile(MedReminderModel r) {
     final dose = [
-      if (r.dosage > 0) '${r.dosage} ${r.unit}',
-      if (r.quantity > 1) 'take ${r.quantity}',
+      if (r.dosage > 0) '${formatAmount(r.dosage)} ${r.unit}',
+      if (r.quantity != 1) 'take ${formatAmount(r.quantity)}',
     ].join(' · ');
     return Container(
       margin: EdgeInsets.only(bottom: 10.h),

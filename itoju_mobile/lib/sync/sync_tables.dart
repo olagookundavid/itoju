@@ -58,12 +58,15 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('tags', ColKind.tags),
     SyncCol('severity', ColKind.number),
   ]),
-  SyncTableSpec('user_medication_metric', 'medication_metrics', [
+  // Decimal dose / quantity (1.2.1+). The backend's whole-number
+  // `user_medication_metric` spec is left for older builds; both read and write
+  // the same server table (migration 045).
+  SyncTableSpec('user_medication_metric_v2', 'medication_metrics', [
     SyncCol('date', ColKind.date),
     SyncCol('name', ColKind.text),
-    SyncCol('dosage', ColKind.number),
+    SyncCol('dosage_dec', ColKind.number, local: 'dosage'),
     SyncCol('metric', ColKind.text),
-    SyncCol('quantity', ColKind.number),
+    SyncCol('quantity_dec', ColKind.number, local: 'quantity'),
     SyncCol('time', ColKind.text),
   ]),
   SyncTableSpec('user_exercise_metric', 'exercise_metrics', [
@@ -96,11 +99,12 @@ const List<SyncTableSpec> kSyncTables = [
     SyncCol('diastolic', ColKind.number),
     SyncCol('pulse', ColKind.number),
   ]),
-  SyncTableSpec('user_med_reminder', 'med_reminders', [
+  // Decimal dose / quantity (1.2.1+); 1.2.0 syncs `user_med_reminder` (045).
+  SyncTableSpec('user_med_reminder_v2', 'med_reminders', [
     SyncCol('name', ColKind.text),
-    SyncCol('dosage', ColKind.number),
+    SyncCol('dosage_dec', ColKind.number, local: 'dosage'),
     SyncCol('unit', ColKind.text),
-    SyncCol('quantity', ColKind.number),
+    SyncCol('quantity_dec', ColKind.number, local: 'quantity'),
     SyncCol('days', ColKind.number),
     SyncCol('times', ColKind.tags),
     SyncCol('enabled', ColKind.boolean),

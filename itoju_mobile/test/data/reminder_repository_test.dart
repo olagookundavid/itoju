@@ -8,9 +8,9 @@ import 'package:itoju_mobile/data/repositories/reminder_repository.dart';
 
 MedReminderModel draft({
   String name = 'Metformin',
-  int dosage = 500,
+  double dosage = 500,
   String unit = 'mg',
-  int quantity = 1,
+  double quantity = 1,
   int days = kAllDays,
   List<String> times = const ['08:00', '20:00'],
   bool enabled = true,
@@ -225,6 +225,12 @@ void main() {
           reminderTexts(draft(name: ' Metformin ', dosage: 500, quantity: 2));
       expect(t.title, 'Time for Metformin');
       expect(t.body, '500 mg · take 2');
+    });
+
+    test('decimal doses and half tablets read naturally', () {
+      expect(reminderTexts(draft(dosage: 2.5, quantity: 0.5)).body,
+          '2.5 mg · take 0.5');
+      expect(reminderTexts(draft(dosage: 500, quantity: 1)).body, '500 mg');
     });
 
     test('falls back to a generic body when there is no dose', () {

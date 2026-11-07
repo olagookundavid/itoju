@@ -4,6 +4,8 @@ library;
 
 import 'package:timezone/timezone.dart' as tz;
 
+import 'amounts.dart';
+
 /// A person can set up to this many reminder TIMES per medication per day.
 const int kMaxReminderTimes = 6;
 
@@ -40,9 +42,9 @@ class ReminderDays {
 class MedReminderModel {
   final String? id;
   final String name;
-  final int dosage;
+  final double dosage;
   final String unit;
-  final int quantity;
+  final double quantity;
   final int days;
   final List<String> times; // 'HH:mm', 24 h
   final bool enabled;
@@ -61,9 +63,9 @@ class MedReminderModel {
   MedReminderModel copyWith({
     String? id,
     String? name,
-    int? dosage,
+    double? dosage,
     String? unit,
-    int? quantity,
+    double? quantity,
     int? days,
     List<String>? times,
     bool? enabled,
@@ -118,7 +120,7 @@ String? validateReminder(MedReminderModel r, {List<MedReminderModel> others = co
   if (unique.length > kMaxReminderTimes) {
     return 'You can set up to $kMaxReminderTimes times a day for one medication';
   }
-  if (r.quantity < 1) return 'Quantity must be at least 1';
+  if (r.quantity <= 0) return 'Quantity must be more than 0';
   if (r.dosage < 0) return 'Dosage cannot be negative';
   if (r.enabled) {
     final mine = ReminderDays.weekdays(r.days).length * unique.length;
@@ -198,8 +200,8 @@ tz.TZDateTime nextWeekly(tz.TZDateTime now, int weekday, int hour, int minute) {
     return (title: 'Medication reminder', body: 'Time to take your medication');
   }
   final parts = <String>[
-    if (r.dosage > 0) '${r.dosage} ${r.unit}',
-    if (r.quantity > 1) 'take ${r.quantity}',
+    if (r.dosage > 0) '${formatAmount(r.dosage)} ${r.unit}',
+    if (r.quantity != 1) 'take ${formatAmount(r.quantity)}',
   ];
   return (
     title: 'Time for ${r.name.trim()}',

@@ -65,10 +65,10 @@ void main() {
 
     await container.read(syncEngineProvider).push();
 
-    final change = api.pushes.expand((p) => p).firstWhere((c) => c['table'] == 'user_med_reminder');
+    final change = api.pushes.expand((p) => p).firstWhere((c) => c['table'] == 'user_med_reminder_v2');
     final row = (change['rows'] as List).single as Map;
     expect(row['name'], 'Metformin');
-    expect([row['dosage'], row['unit'], row['quantity'], row['days']], [500, 'mg', 1, 31]);
+    expect([row['dosage_dec'], row['unit'], row['quantity_dec'], row['days']], [500, 'mg', 1, 31]);
     expect(row['times'], ['08:00', '20:00']);
     expect(row['enabled'], isTrue);
     expect((await db.select(db.medReminders).getSingle()).syncState, 'synced');
@@ -77,11 +77,11 @@ void main() {
   test('reminders restore on a new device; a deleted one stays gone', () async {
     api.pullResponse = {
       'changes': {
-        'user_med_reminder': [
-          {'id': 'r-1', 'name': 'Metformin', 'dosage': 500.0, 'unit': 'mg', 'quantity': 1.0,
+        'user_med_reminder_v2': [
+          {'id': 'r-1', 'name': 'Metformin', 'dosage_dec': 0.5, 'unit': 'g', 'quantity_dec': 1.5,
            'days': 127.0, 'times': ['08:00', '20:00'], 'enabled': true,
            'updated_at': '2026-10-01T08:00:00Z', 'deleted_at': null},
-          {'id': 'r-2', 'name': 'Old', 'dosage': 1.0, 'unit': 'mg', 'quantity': 1.0,
+          {'id': 'r-2', 'name': 'Old', 'dosage_dec': 1.0, 'unit': 'mg', 'quantity_dec': 1.0,
            'days': 1.0, 'times': ['09:00'], 'enabled': false,
            'updated_at': '2026-10-02T00:00:00Z', 'deleted_at': '2026-10-02T00:00:00Z'},
         ],
@@ -97,5 +97,7 @@ void main() {
     expect(all.single.times, ['08:00', '20:00']);
     expect(all.single.days, 127);
     expect(all.single.enabled, isTrue);
+    expect([all.single.dosage, all.single.quantity], [0.5, 1.5],
+        reason: 'decimal dose and quantity survive the restore');
   });
 }

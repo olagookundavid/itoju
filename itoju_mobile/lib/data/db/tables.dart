@@ -64,9 +64,10 @@ class SleepMetrics extends Table with SyncColumns {
 class MedicationMetrics extends Table with SyncColumns {
   TextColumn get date => text()();
   TextColumn get name => text().withDefault(const Constant(''))();
-  IntColumn get dosage => integer().withDefault(const Constant(0))();
+  // Decimal since schema v3 (0.5 mg, half a tablet); see data/amounts.dart.
+  RealColumn get dosage => real().withDefault(const Constant(0))();
   TextColumn get metric => text().withDefault(const Constant(''))();
-  IntColumn get quantity => integer().withDefault(const Constant(0))();
+  RealColumn get quantity => real().withDefault(const Constant(0))();
   TextColumn get time => text().withDefault(const Constant(''))();
 }
 
@@ -85,9 +86,9 @@ class BpMetrics extends Table with SyncColumns {
 /// notifications are derived from these rows on each device.
 class MedReminders extends Table with SyncColumns {
   TextColumn get name => text()();
-  IntColumn get dosage => integer().withDefault(const Constant(0))();
+  RealColumn get dosage => real().withDefault(const Constant(0))();
   TextColumn get unit => text().withDefault(const Constant('mg'))();
-  IntColumn get quantity => integer().withDefault(const Constant(1))();
+  RealColumn get quantity => real().withDefault(const Constant(1))();
   IntColumn get days => integer().withDefault(const Constant(127))();
   TextColumn get times =>
       text().map(const StringListConverter()).withDefault(const Constant('[]'))();

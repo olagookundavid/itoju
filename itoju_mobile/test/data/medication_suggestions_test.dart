@@ -1,12 +1,13 @@
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/data/db/app_database.dart';
 import 'package:itoju_mobile/data/medication_suggestions.dart';
 import 'package:itoju_mobile/data/models/medication_model.dart';
 import 'package:itoju_mobile/data/repositories/medication_repository.dart';
 
-MedicationModel med(String name, {int dosage = 0, String metric = 'mg'}) =>
+MedicationModel med(String name, {double dosage = 0, String metric = 'mg'}) =>
     MedicationModel(
         id: null,
         time: '',
@@ -45,7 +46,7 @@ void main() {
     final merged = mergeMedSuggestions(
         [med('Iron', dosage: 65), med('iron ', dosage: 10), med('')],
         [med('IRON', dosage: 200), med('Metformin', dosage: 500)]);
-    expect(merged.map((m) => '${m.name}:${m.dosage}'),
+    expect(merged.map((m) => '${m.name}:${formatAmount(m.dosage)}'),
         ['Iron:65', 'Metformin:500']);
     expect(medSuggestionLabel(merged.first), 'Iron 65 mg');
     expect(medSuggestionLabel(med('Iron')), 'Iron');

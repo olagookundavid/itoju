@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/data/account_service.dart';
 import 'package:itoju_mobile/data/db/app_database.dart';
 import 'package:itoju_mobile/data/limits.dart';
@@ -75,7 +76,7 @@ void main() {
               id: null,
               name: 'n', dosage: 99999, metric: 'mg', quantity: -3, time: '8'));
       final r = await db.select(db.medicationMetrics).getSingle();
-      expect(r.dosage, 32767);
+      expect(r.dosage, kMaxAmount);
       expect(r.quantity, 0);
     });
 

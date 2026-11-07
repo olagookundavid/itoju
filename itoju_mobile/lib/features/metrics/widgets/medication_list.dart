@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/features/metrics/notifiers/medication_notifier.dart';
 import 'package:itoju_mobile/features/widgets/constants.dart';
 import 'package:itoju_mobile/features/widgets/custom_button.dart';
@@ -28,13 +29,13 @@ class MedicationList extends ConsumerStatefulWidget {
 }
 
 class _MedicationListState extends ConsumerState<MedicationList> {
-  int dosage = 0;
-  int quantity = 0;
+  double dosage = 0;
+  double quantity = 0;
   DateTime? time;
   String timeValue = '';
-  String metric = '';
 
-  final List quantityNum = [1, 2, 3, 4, 5];
+  /// Half a tablet is a common dose, so it gets its own choice.
+  final List<double> quantityNum = [0.5, 1, 2, 3, 4, 5];
 
   final Set dayTags = {timeOfDay()};
   Set tester = {};
@@ -146,7 +147,7 @@ class _MedicationListState extends ConsumerState<MedicationList> {
                 ),
                 10.ph,
                 CustomText(
-                  '${(quantity * dosage).toString()}${widget.medicationModel.metric}',
+                  '${formatAmount(quantity * dosage)}${widget.medicationModel.metric}',
                   fontSize: 24.sp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xffFF9F00),
@@ -167,7 +168,7 @@ class _MedicationListState extends ConsumerState<MedicationList> {
                   child: Wrap(
                     alignment: WrapAlignment.spaceAround,
                     children: List.generate(quantityNum.length, (index) {
-                      final int quantityType = quantityNum[index];
+                      final double quantityType = quantityNum[index];
                       return InkWell(
                         onTap: () {
                           setState(() {
@@ -189,8 +190,9 @@ class _MedicationListState extends ConsumerState<MedicationList> {
                               ),
                               child: Center(
                                 child: CustomText(
-                                  'x${index + 1}',
-                                  // +(quantity > 4 ? '+' : ''),
+                                  quantityType == 0.5
+                                      ? '½'
+                                      : 'x${formatAmount(quantityType)}',
                                   fontSize: 12.sp,
                                   fontWeight: FontWeight.w600,
                                   color: quantity == quantityType
@@ -251,7 +253,9 @@ class _MedicationListState extends ConsumerState<MedicationList> {
                                 dosage: dosage,
                                 name: widget.medicationModel.name,
                                 quantity: quantity,
-                                metric: metric,
+                                // The entry's own unit: this card has no unit
+                                // picker (it used to save an empty one).
+                                metric: widget.medicationModel.metric,
                                 time: timeValue,
                               ));
 

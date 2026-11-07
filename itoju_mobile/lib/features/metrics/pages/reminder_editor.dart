@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/data/reminder_schedule.dart';
 import 'package:itoju_mobile/data/repositories/reminder_repository.dart';
 import 'package:itoju_mobile/features/widgets/back_button.dart';
@@ -36,12 +37,20 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
       TextEditingController(text: widget.existing?.name ?? '');
   late final TextEditingController _dose = TextEditingController(
       text: (widget.existing?.dosage ?? 0) > 0
-          ? '${widget.existing!.dosage}'
+          ? formatAmount(widget.existing!.dosage)
           : '');
   late String _unit = kReminderUnits.contains(widget.existing?.unit)
       ? widget.existing!.unit
       : kReminderUnits.first;
-  late int _quantity = widget.existing?.quantity ?? 1;
+  late double _quantity = widget.existing?.quantity ?? 1;
+
+  /// Half a tablet is common, so the steps are 0.5, 1, 2, 3 ... 99.
+  double get _fewer => _quantity <= 1 ? 0.5 : (_quantity - 1).ceilToDouble();
+  double get _more => _quantity < 1 ? 1 : (_quantity + 1).floorToDouble();
+
+  /// The typed dose isn't a number (e.g. "2.5.1"). Empty is fine: it's optional.
+  bool get _doseInvalid =>
+      _dose.text.trim().isNotEmpty && parseAmount(_dose.text) == null;
   late int _days = widget.existing?.days ?? kAllDays;
   late List<String> _times = [...?widget.existing?.times];
   bool _saving = false;
@@ -56,7 +65,7 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
   MedReminderModel _draft() => MedReminderModel(
         id: widget.existing?.id,
         name: _name.text,
-        dosage: int.tryParse(_dose.text.trim()) ?? 0,
+        dosage: parseAmount(_dose.text) ?? 0,
         unit: _unit,
         quantity: _quantity,
         days: _days,
@@ -76,6 +85,10 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
   }
 
   Future<void> _save() async {
+    if (_doseInvalid) {
+      getAlert('Enter the dose as a number, e.g. 2.5');
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ref.read(reminderRepositoryProvider).save(_draft());
@@ -184,12 +197,17 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
                 Expanded(
                   child: TextField(
                     controller: _dose,
-                    keyboardType: TextInputType.number,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(5),
+                      // Decimals allowed; comma for comma-decimal keyboards.
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                      LengthLimitingTextInputFormatter(9),
                     ],
-                    decoration: _fieldDecoration('e.g. 500'),
+                    onChanged: (_) => setState(() {}),
+                    decoration: _fieldDecoration('e.g. 500 or 2.5').copyWith(
+                        errorText:
+                            _doseInvalid ? 'Enter a number, e.g. 2.5' : null),
                   ),
                 ),
                 10.pw,
@@ -207,20 +225,22 @@ class _ReminderEditorPageState extends ConsumerState<ReminderEditorPage> {
               Row(children: [
                 IconButton.filledTonal(
                   tooltip: 'Fewer',
-                  onPressed:
-                      _quantity > 1 ? () => setState(() => _quantity--) : null,
+                  onPressed: _quantity > 0.5
+                      ? () => setState(() => _quantity = _fewer)
+                      : null,
                   icon: const Icon(Icons.remove),
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 18.w),
-                  child: Text('$_quantity',
+                  child: Text(formatAmount(_quantity),
                       style: TextStyle(
                           fontSize: 20.sp, fontWeight: FontWeight.w700)),
                 ),
                 IconButton.filledTonal(
                   tooltip: 'More',
-                  onPressed:
-                      _quantity < 99 ? () => setState(() => _quantity++) : null,
+                  onPressed: _quantity < 99
+                      ? () => setState(() => _quantity = _more)
+                      : null,
                   icon: const Icon(Icons.add),
                 ),
               ]),

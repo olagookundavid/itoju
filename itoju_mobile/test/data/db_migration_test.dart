@@ -105,6 +105,14 @@ void main() {
           sync_state TEXT NOT NULL DEFAULT 'pending', local_updated_at INTEGER NOT NULL,
           period_len INTEGER NOT NULL DEFAULT 0, cycle_len INTEGER NOT NULL DEFAULT 0,
           height INTEGER NOT NULL DEFAULT 0, weight INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE medication_metrics (
+          id TEXT NOT NULL PRIMARY KEY, updated_at INTEGER NULL, deleted_at INTEGER NULL,
+          sync_state TEXT NOT NULL DEFAULT 'pending', local_updated_at INTEGER NOT NULL,
+          date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', dosage INTEGER NOT NULL DEFAULT 0,
+          metric TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 0,
+          time TEXT NOT NULL DEFAULT '');
+        INSERT INTO medication_metrics (id, sync_state, local_updated_at, date, name, dosage, metric, quantity)
+          VALUES ('m1', 'synced', 1700000000, '2026-10-01', 'Iron', 65, 'mg', 2);
         INSERT INTO sync_meta VALUES ('catalogSeedVersion', '1');
         INSERT INTO tracked_metrics_catalog VALUES (1, 'Food Diary');
         INSERT INTO user_settings (id, sync_state, local_updated_at, period_len, cycle_len, height, weight)
@@ -137,6 +145,13 @@ void main() {
     expect([empty.heightCm, empty.weightKg], [0.0, 0.0]);
     expect(empty.syncState, 'synced');
 
+    // Medication entries survive the v3 rebuild, whole numbers as decimals,
+    // and are not re-queued (the server already holds the same values).
+    final med = await db.select(db.medicationMetrics).getSingle();
+    expect([med.name, med.dosage, med.quantity, med.metric],
+        ['Iron', 65.0, 2.0, 'mg']);
+    expect(med.syncState, 'synced');
+
     // The catalog top-up delivers Blood Pressure as id 9.
     final bp = await (db.select(db.trackedMetricsCatalog)
           ..where((t) => t.id.equals(9)))
@@ -145,11 +160,62 @@ void main() {
     expect(await meta(db, 'catalogSeedVersion'),
         '${AppDatabase.catalogSeedVersion}');
   });
+
+  test('upgrading a v2 (1.2.0) database to v3 makes doses decimal, data kept',
+      () async {
+    final raw = NativeDatabase(file, setup: (d) {
+      d.execute('''
+        CREATE TABLE sync_meta ("key" TEXT NOT NULL PRIMARY KEY, value TEXT NULL);
+        CREATE TABLE symptoms (id INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL);
+        CREATE TABLE tracked_metrics_catalog (id INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL);
+        CREATE TABLE smiley_catalog (id INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL);
+        CREATE TABLE conditions (id INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL);
+        CREATE TABLE medication_metrics (
+          id TEXT NOT NULL PRIMARY KEY, updated_at INTEGER NULL, deleted_at INTEGER NULL,
+          sync_state TEXT NOT NULL DEFAULT 'pending', local_updated_at INTEGER NOT NULL,
+          date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', dosage INTEGER NOT NULL DEFAULT 0,
+          metric TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 0,
+          time TEXT NOT NULL DEFAULT '');
+        INSERT INTO medication_metrics (id, sync_state, local_updated_at, date, name, dosage, metric, quantity)
+          VALUES ('m1', 'synced', 1700000000, '2026-10-01', 'Iron', 65, 'mg', 2);
+        CREATE TABLE med_reminders (
+          id TEXT NOT NULL PRIMARY KEY, updated_at INTEGER NULL, deleted_at INTEGER NULL,
+          sync_state TEXT NOT NULL DEFAULT 'pending', local_updated_at INTEGER NOT NULL,
+          name TEXT NOT NULL, dosage INTEGER NOT NULL DEFAULT 0,
+          unit TEXT NOT NULL DEFAULT 'mg', quantity INTEGER NOT NULL DEFAULT 1,
+          days INTEGER NOT NULL DEFAULT 127, times TEXT NOT NULL DEFAULT '[]',
+          enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)));
+        INSERT INTO med_reminders (id, sync_state, local_updated_at, name, dosage, quantity, times)
+          VALUES ('r1', 'synced', 1700000000, 'Metformin', 500, 2, '["08:00"]');
+        INSERT INTO sync_meta VALUES ('catalogSeedVersion', '${AppDatabase.catalogSeedVersion}');
+        PRAGMA user_version = 2;
+      ''');
+    });
+    await raw.ensureOpen(_NoUser(2));
+    await raw.close();
+
+    final db = open();
+    addTearDown(db.close);
+
+    final med = await db.select(db.medicationMetrics).getSingle();
+    expect([med.dosage, med.quantity, med.syncState], [65.0, 2.0, 'synced']);
+    final rem = await db.select(db.medReminders).getSingle();
+    expect([rem.name, rem.dosage, rem.quantity, rem.times, rem.syncState],
+        ['Metformin', 500.0, 2.0, ['08:00'], 'synced']);
+
+    // And a decimal now round-trips.
+    await (db.update(db.medicationMetrics)..where((t) => t.id.equals('m1')))
+        .write(const MedicationMetricsCompanion(
+            dosage: Value(2.5), quantity: Value(0.5)));
+    final after = await db.select(db.medicationMetrics).getSingle();
+    expect([after.dosage, after.quantity], [2.5, 0.5]);
+  });
 }
 
 class _NoUser extends QueryExecutorUser {
+  _NoUser([this.schemaVersion = 1]);
   @override
-  int get schemaVersion => 1;
+  final int schemaVersion;
   @override
   Future<void> beforeOpen(
       QueryExecutor executor, OpeningDetails details) async {}

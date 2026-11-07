@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../amounts.dart';
 import '../db/app_database.dart';
 import '../ids.dart';
 import '../limits.dart';
@@ -101,8 +102,9 @@ class ReminderRepository {
   MedReminderModel _normalise(MedReminderModel r) => r.copyWith(
         name: clipText(r.name.trim(), 100),
         unit: clipText(r.unit.trim().isEmpty ? 'mg' : r.unit.trim(), 16),
-        dosage: clampSmallInt(r.dosage),
-        quantity: r.quantity.clamp(1, 99),
+        dosage: clampAmount(r.dosage),
+        // Nothing set (or nonsense) means one; at most 99 of anything.
+        quantity: r.quantity <= 0 ? 1 : clampAmount(r.quantity.clamp(0, 99).toDouble()),
         days: r.days & kAllDays,
         times: parsedTimes(r.times),
       );

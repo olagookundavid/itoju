@@ -44,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bump when a table/column changes, and add the matching step in [onUpgrade].
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -70,6 +70,15 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
                 'UPDATE user_settings SET height_cm = height, weight_kg = weight, '
                 "sync_state = 'pending' WHERE height <> 0 OR weight <> 0");
+          }
+          if (from < 3) {
+            // 1.2.1: decimal medication dose / quantity. Rebuild the tables so
+            // the columns are REAL; the whole numbers copy over as they are.
+            // Nothing is re-queued: the server holds the same values (its
+            // migration 045 copied them into the decimal columns).
+            await m.alterTable(TableMigration(medicationMetrics));
+            // A v1 database got med_reminders above, already in the new shape.
+            if (from >= 2) await m.alterTable(TableMigration(medReminders));
           }
         },
         beforeOpen: (details) async {

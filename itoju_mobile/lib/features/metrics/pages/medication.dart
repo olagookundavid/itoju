@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/amounts.dart';
 import 'package:itoju_mobile/data/medication_suggestions.dart';
 import 'package:itoju_mobile/data/repositories/medication_repository.dart';
 import 'package:itoju_mobile/features/dashboard/widgets/add_button.dart';
@@ -62,9 +63,9 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
   void _useSuggestion(MedicationModel m) {
     setState(() {
       textCtrl.text = m.name.trim();
-      if (m.dosage > 0) doseCtrl.text = '${m.dosage}';
+      if (m.dosage > 0) doseCtrl.text = formatAmount(m.dosage);
       if (dropdownItems.contains(m.metric)) metric = m.metric;
-      if (m.quantity > 0) quantiyCtrl.text = '${m.quantity}';
+      if (m.quantity > 0) quantiyCtrl.text = formatAmount(m.quantity);
     });
   }
 
@@ -280,7 +281,8 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                             child: CustomTextField(
                                           filled: true,
                                           controller: doseCtrl,
-                                          inputType: TextInputType.number,
+                                          inputType: const TextInputType
+                                              .numberWithOptions(decimal: true),
                                         )),
                                         10.pw,
                                         DropdownExample(
@@ -306,7 +308,8 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                     CustomTextField(
                                       filled: true,
                                       controller: quantiyCtrl,
-                                      inputType: TextInputType.number,
+                                      inputType: const TextInputType
+                                          .numberWithOptions(decimal: true),
                                     ),
                                     10.ph,
                                     Row(
@@ -325,6 +328,15 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                                 quantiyCtrl.text.isEmpty) {
                                               return;
                                             }
+                                            final dose =
+                                                parseAmount(doseCtrl.text);
+                                            final qty =
+                                                parseAmount(quantiyCtrl.text);
+                                            if (dose == null || qty == null) {
+                                              getAlert(
+                                                  'Enter the dose and quantity as numbers, e.g. 2.5');
+                                              return;
+                                            }
                                             final response = await ref
                                                 .read(
                                                     medicationProvider.notifier)
@@ -339,10 +351,8 @@ class _MedicationMovementState extends ConsumerState<MedicationMovement> {
                                                                 .toString()),
                                                         metric: metric,
                                                         name: textCtrl.text,
-                                                        dosage: int.parse(
-                                                            doseCtrl.text),
-                                                        quantity: int.parse(
-                                                            quantiyCtrl.text)));
+                                                        dosage: dose,
+                                                        quantity: qty));
 
                                             if (response
                                                 .successMessage.isNotEmpty) {

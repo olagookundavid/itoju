@@ -2110,9 +2110,9 @@ class $MedicationMetricsTable extends MedicationMetrics
       defaultValue: const Constant(''));
   static const VerificationMeta _dosageMeta = const VerificationMeta('dosage');
   @override
-  late final GeneratedColumn<int> dosage = GeneratedColumn<int>(
+  late final GeneratedColumn<double> dosage = GeneratedColumn<double>(
       'dosage', aliasedName, false,
-      type: DriftSqlType.int,
+      type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
   static const VerificationMeta _metricMeta = const VerificationMeta('metric');
@@ -2125,9 +2125,9 @@ class $MedicationMetricsTable extends MedicationMetrics
   static const VerificationMeta _quantityMeta =
       const VerificationMeta('quantity');
   @override
-  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
       'quantity', aliasedName, false,
-      type: DriftSqlType.int,
+      type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
   static const VerificationMeta _timeMeta = const VerificationMeta('time');
@@ -2236,11 +2236,11 @@ class $MedicationMetricsTable extends MedicationMetrics
       name: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       dosage: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}dosage'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}dosage'])!,
       metric: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}metric'])!,
       quantity: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}quantity'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}quantity'])!,
       time: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}time'])!,
     );
@@ -2261,9 +2261,9 @@ class MedicationMetric extends DataClass
   final DateTime localUpdatedAt;
   final String date;
   final String name;
-  final int dosage;
+  final double dosage;
   final String metric;
-  final int quantity;
+  final double quantity;
   final String time;
   const MedicationMetric(
       {required this.id,
@@ -2291,9 +2291,9 @@ class MedicationMetric extends DataClass
     map['local_updated_at'] = Variable<DateTime>(localUpdatedAt);
     map['date'] = Variable<String>(date);
     map['name'] = Variable<String>(name);
-    map['dosage'] = Variable<int>(dosage);
+    map['dosage'] = Variable<double>(dosage);
     map['metric'] = Variable<String>(metric);
-    map['quantity'] = Variable<int>(quantity);
+    map['quantity'] = Variable<double>(quantity);
     map['time'] = Variable<String>(time);
     return map;
   }
@@ -2329,9 +2329,9 @@ class MedicationMetric extends DataClass
       localUpdatedAt: serializer.fromJson<DateTime>(json['localUpdatedAt']),
       date: serializer.fromJson<String>(json['date']),
       name: serializer.fromJson<String>(json['name']),
-      dosage: serializer.fromJson<int>(json['dosage']),
+      dosage: serializer.fromJson<double>(json['dosage']),
       metric: serializer.fromJson<String>(json['metric']),
-      quantity: serializer.fromJson<int>(json['quantity']),
+      quantity: serializer.fromJson<double>(json['quantity']),
       time: serializer.fromJson<String>(json['time']),
     );
   }
@@ -2346,9 +2346,9 @@ class MedicationMetric extends DataClass
       'localUpdatedAt': serializer.toJson<DateTime>(localUpdatedAt),
       'date': serializer.toJson<String>(date),
       'name': serializer.toJson<String>(name),
-      'dosage': serializer.toJson<int>(dosage),
+      'dosage': serializer.toJson<double>(dosage),
       'metric': serializer.toJson<String>(metric),
-      'quantity': serializer.toJson<int>(quantity),
+      'quantity': serializer.toJson<double>(quantity),
       'time': serializer.toJson<String>(time),
     };
   }
@@ -2361,9 +2361,9 @@ class MedicationMetric extends DataClass
           DateTime? localUpdatedAt,
           String? date,
           String? name,
-          int? dosage,
+          double? dosage,
           String? metric,
-          int? quantity,
+          double? quantity,
           String? time}) =>
       MedicationMetric(
         id: id ?? this.id,
@@ -2442,9 +2442,9 @@ class MedicationMetricsCompanion extends UpdateCompanion<MedicationMetric> {
   final Value<DateTime> localUpdatedAt;
   final Value<String> date;
   final Value<String> name;
-  final Value<int> dosage;
+  final Value<double> dosage;
   final Value<String> metric;
-  final Value<int> quantity;
+  final Value<double> quantity;
   final Value<String> time;
   final Value<int> rowid;
   const MedicationMetricsCompanion({
@@ -2485,9 +2485,9 @@ class MedicationMetricsCompanion extends UpdateCompanion<MedicationMetric> {
     Expression<DateTime>? localUpdatedAt,
     Expression<String>? date,
     Expression<String>? name,
-    Expression<int>? dosage,
+    Expression<double>? dosage,
     Expression<String>? metric,
-    Expression<int>? quantity,
+    Expression<double>? quantity,
     Expression<String>? time,
     Expression<int>? rowid,
   }) {
@@ -2515,9 +2515,9 @@ class MedicationMetricsCompanion extends UpdateCompanion<MedicationMetric> {
       Value<DateTime>? localUpdatedAt,
       Value<String>? date,
       Value<String>? name,
-      Value<int>? dosage,
+      Value<double>? dosage,
       Value<String>? metric,
-      Value<int>? quantity,
+      Value<double>? quantity,
       Value<String>? time,
       Value<int>? rowid}) {
     return MedicationMetricsCompanion(
@@ -2561,13 +2561,13 @@ class MedicationMetricsCompanion extends UpdateCompanion<MedicationMetric> {
       map['name'] = Variable<String>(name.value);
     }
     if (dosage.present) {
-      map['dosage'] = Variable<int>(dosage.value);
+      map['dosage'] = Variable<double>(dosage.value);
     }
     if (metric.present) {
       map['metric'] = Variable<String>(metric.value);
     }
     if (quantity.present) {
-      map['quantity'] = Variable<int>(quantity.value);
+      map['quantity'] = Variable<double>(quantity.value);
     }
     if (time.present) {
       map['time'] = Variable<String>(time.value);
@@ -3147,9 +3147,9 @@ class $MedRemindersTable extends MedReminders
       type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _dosageMeta = const VerificationMeta('dosage');
   @override
-  late final GeneratedColumn<int> dosage = GeneratedColumn<int>(
+  late final GeneratedColumn<double> dosage = GeneratedColumn<double>(
       'dosage', aliasedName, false,
-      type: DriftSqlType.int,
+      type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
   static const VerificationMeta _unitMeta = const VerificationMeta('unit');
@@ -3162,9 +3162,9 @@ class $MedRemindersTable extends MedReminders
   static const VerificationMeta _quantityMeta =
       const VerificationMeta('quantity');
   @override
-  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
       'quantity', aliasedName, false,
-      type: DriftSqlType.int,
+      type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(1));
   static const VerificationMeta _daysMeta = const VerificationMeta('days');
@@ -3289,11 +3289,11 @@ class $MedRemindersTable extends MedReminders
       name: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       dosage: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}dosage'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}dosage'])!,
       unit: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}unit'])!,
       quantity: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}quantity'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}quantity'])!,
       days: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}days'])!,
       times: $MedRemindersTable.$convertertimes.fromSql(attachedDatabase
@@ -3320,9 +3320,9 @@ class MedReminder extends DataClass implements Insertable<MedReminder> {
   final String syncState;
   final DateTime localUpdatedAt;
   final String name;
-  final int dosage;
+  final double dosage;
   final String unit;
-  final int quantity;
+  final double quantity;
   final int days;
   final List<String> times;
   final bool enabled;
@@ -3352,9 +3352,9 @@ class MedReminder extends DataClass implements Insertable<MedReminder> {
     map['sync_state'] = Variable<String>(syncState);
     map['local_updated_at'] = Variable<DateTime>(localUpdatedAt);
     map['name'] = Variable<String>(name);
-    map['dosage'] = Variable<int>(dosage);
+    map['dosage'] = Variable<double>(dosage);
     map['unit'] = Variable<String>(unit);
-    map['quantity'] = Variable<int>(quantity);
+    map['quantity'] = Variable<double>(quantity);
     map['days'] = Variable<int>(days);
     {
       map['times'] =
@@ -3395,9 +3395,9 @@ class MedReminder extends DataClass implements Insertable<MedReminder> {
       syncState: serializer.fromJson<String>(json['syncState']),
       localUpdatedAt: serializer.fromJson<DateTime>(json['localUpdatedAt']),
       name: serializer.fromJson<String>(json['name']),
-      dosage: serializer.fromJson<int>(json['dosage']),
+      dosage: serializer.fromJson<double>(json['dosage']),
       unit: serializer.fromJson<String>(json['unit']),
-      quantity: serializer.fromJson<int>(json['quantity']),
+      quantity: serializer.fromJson<double>(json['quantity']),
       days: serializer.fromJson<int>(json['days']),
       times: serializer.fromJson<List<String>>(json['times']),
       enabled: serializer.fromJson<bool>(json['enabled']),
@@ -3413,9 +3413,9 @@ class MedReminder extends DataClass implements Insertable<MedReminder> {
       'syncState': serializer.toJson<String>(syncState),
       'localUpdatedAt': serializer.toJson<DateTime>(localUpdatedAt),
       'name': serializer.toJson<String>(name),
-      'dosage': serializer.toJson<int>(dosage),
+      'dosage': serializer.toJson<double>(dosage),
       'unit': serializer.toJson<String>(unit),
-      'quantity': serializer.toJson<int>(quantity),
+      'quantity': serializer.toJson<double>(quantity),
       'days': serializer.toJson<int>(days),
       'times': serializer.toJson<List<String>>(times),
       'enabled': serializer.toJson<bool>(enabled),
@@ -3429,9 +3429,9 @@ class MedReminder extends DataClass implements Insertable<MedReminder> {
           String? syncState,
           DateTime? localUpdatedAt,
           String? name,
-          int? dosage,
+          double? dosage,
           String? unit,
-          int? quantity,
+          double? quantity,
           int? days,
           List<String>? times,
           bool? enabled}) =>
@@ -3515,9 +3515,9 @@ class MedRemindersCompanion extends UpdateCompanion<MedReminder> {
   final Value<String> syncState;
   final Value<DateTime> localUpdatedAt;
   final Value<String> name;
-  final Value<int> dosage;
+  final Value<double> dosage;
   final Value<String> unit;
-  final Value<int> quantity;
+  final Value<double> quantity;
   final Value<int> days;
   final Value<List<String>> times;
   final Value<bool> enabled;
@@ -3561,9 +3561,9 @@ class MedRemindersCompanion extends UpdateCompanion<MedReminder> {
     Expression<String>? syncState,
     Expression<DateTime>? localUpdatedAt,
     Expression<String>? name,
-    Expression<int>? dosage,
+    Expression<double>? dosage,
     Expression<String>? unit,
-    Expression<int>? quantity,
+    Expression<double>? quantity,
     Expression<int>? days,
     Expression<String>? times,
     Expression<bool>? enabled,
@@ -3593,9 +3593,9 @@ class MedRemindersCompanion extends UpdateCompanion<MedReminder> {
       Value<String>? syncState,
       Value<DateTime>? localUpdatedAt,
       Value<String>? name,
-      Value<int>? dosage,
+      Value<double>? dosage,
       Value<String>? unit,
-      Value<int>? quantity,
+      Value<double>? quantity,
       Value<int>? days,
       Value<List<String>>? times,
       Value<bool>? enabled,
@@ -3639,13 +3639,13 @@ class MedRemindersCompanion extends UpdateCompanion<MedReminder> {
       map['name'] = Variable<String>(name.value);
     }
     if (dosage.present) {
-      map['dosage'] = Variable<int>(dosage.value);
+      map['dosage'] = Variable<double>(dosage.value);
     }
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
     }
     if (quantity.present) {
-      map['quantity'] = Variable<int>(quantity.value);
+      map['quantity'] = Variable<double>(quantity.value);
     }
     if (days.present) {
       map['days'] = Variable<int>(days.value);
@@ -10411,9 +10411,9 @@ typedef $$MedicationMetricsTableCreateCompanionBuilder
   required DateTime localUpdatedAt,
   required String date,
   Value<String> name,
-  Value<int> dosage,
+  Value<double> dosage,
   Value<String> metric,
-  Value<int> quantity,
+  Value<double> quantity,
   Value<String> time,
   Value<int> rowid,
 });
@@ -10426,9 +10426,9 @@ typedef $$MedicationMetricsTableUpdateCompanionBuilder
   Value<DateTime> localUpdatedAt,
   Value<String> date,
   Value<String> name,
-  Value<int> dosage,
+  Value<double> dosage,
   Value<String> metric,
-  Value<int> quantity,
+  Value<double> quantity,
   Value<String> time,
   Value<int> rowid,
 });
@@ -10464,13 +10464,13 @@ class $$MedicationMetricsTableFilterComposer
   ColumnFilters<String> get name => $composableBuilder(
       column: $table.name, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get dosage => $composableBuilder(
+  ColumnFilters<double> get dosage => $composableBuilder(
       column: $table.dosage, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get metric => $composableBuilder(
       column: $table.metric, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get quantity => $composableBuilder(
+  ColumnFilters<double> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get time => $composableBuilder(
@@ -10508,13 +10508,13 @@ class $$MedicationMetricsTableOrderingComposer
   ColumnOrderings<String> get name => $composableBuilder(
       column: $table.name, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get dosage => $composableBuilder(
+  ColumnOrderings<double> get dosage => $composableBuilder(
       column: $table.dosage, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get metric => $composableBuilder(
       column: $table.metric, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get quantity => $composableBuilder(
+  ColumnOrderings<double> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get time => $composableBuilder(
@@ -10551,13 +10551,13 @@ class $$MedicationMetricsTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
-  GeneratedColumn<int> get dosage =>
+  GeneratedColumn<double> get dosage =>
       $composableBuilder(column: $table.dosage, builder: (column) => column);
 
   GeneratedColumn<String> get metric =>
       $composableBuilder(column: $table.metric, builder: (column) => column);
 
-  GeneratedColumn<int> get quantity =>
+  GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
 
   GeneratedColumn<String> get time =>
@@ -10599,9 +10599,9 @@ class $$MedicationMetricsTableTableManager extends RootTableManager<
             Value<DateTime> localUpdatedAt = const Value.absent(),
             Value<String> date = const Value.absent(),
             Value<String> name = const Value.absent(),
-            Value<int> dosage = const Value.absent(),
+            Value<double> dosage = const Value.absent(),
             Value<String> metric = const Value.absent(),
-            Value<int> quantity = const Value.absent(),
+            Value<double> quantity = const Value.absent(),
             Value<String> time = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -10627,9 +10627,9 @@ class $$MedicationMetricsTableTableManager extends RootTableManager<
             required DateTime localUpdatedAt,
             required String date,
             Value<String> name = const Value.absent(),
-            Value<int> dosage = const Value.absent(),
+            Value<double> dosage = const Value.absent(),
             Value<String> metric = const Value.absent(),
-            Value<int> quantity = const Value.absent(),
+            Value<double> quantity = const Value.absent(),
             Value<String> time = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -10919,9 +10919,9 @@ typedef $$MedRemindersTableCreateCompanionBuilder = MedRemindersCompanion
   Value<String> syncState,
   required DateTime localUpdatedAt,
   required String name,
-  Value<int> dosage,
+  Value<double> dosage,
   Value<String> unit,
-  Value<int> quantity,
+  Value<double> quantity,
   Value<int> days,
   Value<List<String>> times,
   Value<bool> enabled,
@@ -10935,9 +10935,9 @@ typedef $$MedRemindersTableUpdateCompanionBuilder = MedRemindersCompanion
   Value<String> syncState,
   Value<DateTime> localUpdatedAt,
   Value<String> name,
-  Value<int> dosage,
+  Value<double> dosage,
   Value<String> unit,
-  Value<int> quantity,
+  Value<double> quantity,
   Value<int> days,
   Value<List<String>> times,
   Value<bool> enabled,
@@ -10972,13 +10972,13 @@ class $$MedRemindersTableFilterComposer
   ColumnFilters<String> get name => $composableBuilder(
       column: $table.name, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get dosage => $composableBuilder(
+  ColumnFilters<double> get dosage => $composableBuilder(
       column: $table.dosage, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get unit => $composableBuilder(
       column: $table.unit, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get quantity => $composableBuilder(
+  ColumnFilters<double> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get days => $composableBuilder(
@@ -11021,13 +11021,13 @@ class $$MedRemindersTableOrderingComposer
   ColumnOrderings<String> get name => $composableBuilder(
       column: $table.name, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get dosage => $composableBuilder(
+  ColumnOrderings<double> get dosage => $composableBuilder(
       column: $table.dosage, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get unit => $composableBuilder(
       column: $table.unit, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get quantity => $composableBuilder(
+  ColumnOrderings<double> get quantity => $composableBuilder(
       column: $table.quantity, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get days => $composableBuilder(
@@ -11067,13 +11067,13 @@ class $$MedRemindersTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
-  GeneratedColumn<int> get dosage =>
+  GeneratedColumn<double> get dosage =>
       $composableBuilder(column: $table.dosage, builder: (column) => column);
 
   GeneratedColumn<String> get unit =>
       $composableBuilder(column: $table.unit, builder: (column) => column);
 
-  GeneratedColumn<int> get quantity =>
+  GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
 
   GeneratedColumn<int> get days =>
@@ -11118,9 +11118,9 @@ class $$MedRemindersTableTableManager extends RootTableManager<
             Value<String> syncState = const Value.absent(),
             Value<DateTime> localUpdatedAt = const Value.absent(),
             Value<String> name = const Value.absent(),
-            Value<int> dosage = const Value.absent(),
+            Value<double> dosage = const Value.absent(),
             Value<String> unit = const Value.absent(),
-            Value<int> quantity = const Value.absent(),
+            Value<double> quantity = const Value.absent(),
             Value<int> days = const Value.absent(),
             Value<List<String>> times = const Value.absent(),
             Value<bool> enabled = const Value.absent(),
@@ -11148,9 +11148,9 @@ class $$MedRemindersTableTableManager extends RootTableManager<
             Value<String> syncState = const Value.absent(),
             required DateTime localUpdatedAt,
             required String name,
-            Value<int> dosage = const Value.absent(),
+            Value<double> dosage = const Value.absent(),
             Value<String> unit = const Value.absent(),
-            Value<int> quantity = const Value.absent(),
+            Value<double> quantity = const Value.absent(),
             Value<int> days = const Value.absent(),
             Value<List<String>> times = const Value.absent(),
             Value<bool> enabled = const Value.absent(),

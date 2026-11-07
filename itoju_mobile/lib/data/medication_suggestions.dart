@@ -1,6 +1,7 @@
 /// Pure helpers behind the medication name suggestions: no database, no Flutter.
 library;
 
+import 'amounts.dart';
 import 'models/medication_model.dart';
 
 String _key(String name) => name.trim().toLowerCase();
@@ -40,5 +41,5 @@ List<MedicationModel> filterMedSuggestions(
 String medSuggestionLabel(MedicationModel m) {
   final name = m.name.trim();
   if (m.dosage <= 0) return name;
-  return '$name ${m.dosage} ${m.metric}'.trim();
+  return '$name ${formatAmount(m.dosage)} ${m.metric}'.trim();
 }

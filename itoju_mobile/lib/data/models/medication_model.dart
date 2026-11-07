@@ -3,8 +3,8 @@ class MedicationModel {
   final String time;
   final String metric;
   final String name;
-  final int dosage;
-  final int quantity;
+  final double dosage;
+  final double quantity;
   MedicationModel({
     required this.id,
     required this.time,
@@ -20,8 +20,8 @@ class MedicationModel {
       time: data['time'] ?? '',
       metric: data['metric'] ?? '',
       name: data['name'] ?? '',
-      dosage: data['dosage'] ?? 0,
-      quantity: data['quantity'] ?? 0,
+      dosage: (data['dosage'] as num? ?? 0).toDouble(),
+      quantity: (data['quantity'] as num? ?? 0).toDouble(),
     );
   }
 }

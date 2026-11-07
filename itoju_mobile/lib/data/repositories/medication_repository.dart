@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
+import '../amounts.dart';
 import '../limits.dart';
 import '../medication_suggestions.dart';
 import '../ids.dart';
@@ -76,9 +77,9 @@ class MedicationRepository {
           localUpdatedAt: now,
           date: date,
           name: Value(m.name),
-          dosage: Value(clampSmallInt(m.dosage)),
+          dosage: Value(clampAmount(m.dosage)),
           metric: Value(m.metric),
-          quantity: Value(clampSmallInt(m.quantity)),
+          quantity: Value(clampAmount(m.quantity)),
           time: Value(clipText(m.time, kMaxShortText)),
           updatedAt: Value(now),
         ));
@@ -91,9 +92,9 @@ class MedicationRepository {
         .write(
       MedicationMetricsCompanion(
         name: Value(m.name),
-        dosage: Value(clampSmallInt(m.dosage)),
+        dosage: Value(clampAmount(m.dosage)),
         metric: Value(m.metric),
-        quantity: Value(clampSmallInt(m.quantity)),
+        quantity: Value(clampAmount(m.quantity)),
         time: Value(clipText(m.time, kMaxShortText)),
         updatedAt: Value(now),
         localUpdatedAt: Value(now),

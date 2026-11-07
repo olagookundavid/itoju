@@ -131,6 +131,44 @@ void main() {
     expect(scheduler.calls.last.reminders.map((r) => r.name), ['Metformin']);
   });
 
+  page('a decimal dose and half a tablet are saved', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.text('Add a reminder'));
+    await tester.pumpAndSettle();
+    await fillBasics(tester, name: 'Warfarin', dose: '2,5');
+    await addTimeViaPicker(tester);
+
+    // Quantity starts at 1; one tap on "Fewer" is half a tablet, the floor.
+    await tester.ensureVisible(find.byTooltip('Fewer'));
+    await tester.tap(find.byTooltip('Fewer'));
+    await tester.pump();
+    expect(find.text('0.5'), findsOneWidget);
+    final fewer = tester.widget<IconButton>(find.ancestor(
+        of: find.byIcon(Icons.remove), matching: find.byType(IconButton)));
+    expect(fewer.onPressed, isNull);
+
+    await tester.ensureVisible(find.text('Save reminder'));
+    await tester.tap(find.text('Save reminder'));
+    await tester.pumpAndSettle();
+    final saved = (await ReminderRepository(db).getAll()).single;
+    expect([saved.dosage, saved.quantity], [2.5, 0.5]);
+    expect(find.textContaining('2.5 mg'), findsOneWidget);
+  });
+
+  page('a dose that is not a number is flagged and not saved', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.text('Add a reminder'));
+    await tester.pumpAndSettle();
+    await fillBasics(tester, dose: '2.5.1');
+    expect(find.text('Enter a number, e.g. 2.5'), findsOneWidget);
+    await addTimeViaPicker(tester);
+    await tester.ensureVisible(find.text('Save reminder'));
+    await tester.tap(find.text('Save reminder'));
+    await tester.pumpAndSettle();
+    expect(await ReminderRepository(db).getAll(), isEmpty);
+    await drainToast(tester);
+  });
+
   page('days: unticking Sunday saves Monday-Saturday; Weekdays preset works',
       (tester) async {
     await pumpPage(tester);
