@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "408390509656-7g23k5tmdtdd402b3lem6mbu577pq6tb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.itoju.app",
+            "certificate_hash": "f61f09edd293b058fa6a5acac09d664e087a0133"
+          }
+        },
+        {
           "client_id": "408390509656-vu87b03a159rmk7bes0abm485g8afjpk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

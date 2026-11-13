@@ -70,7 +70,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
             verticalSpaceMassive,
             Consumer(builder: (context, ref, child) {
               return CurvedButton(
-                text: "Send Link",
+                // It's a 6-digit code, not a link.
+                text: "Send code",
                 loading: ref.watch(forgotPasswordNotifier).loadStatus ==
                     Loader.loading,
                 onPressed: () async {

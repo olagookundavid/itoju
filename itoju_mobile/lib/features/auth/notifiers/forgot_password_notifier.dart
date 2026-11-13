@@ -21,6 +21,9 @@ class ForgotPasswordNotifier extends StateNotifier<ForgotPassword> {
   Future<ApiResponse> forgotPassword(
     String email,
   ) async {
+    // A pasted or autofilled email often carries a trailing space, which the
+    // server rejects as invalid; and verify/reset reuse this exact string.
+    email = email.trim();
     state = state.copyWith(loadStatus: Loader.loading);
     final Response response;
     try {

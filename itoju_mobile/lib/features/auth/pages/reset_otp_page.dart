@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,15 +18,70 @@ import 'package:itoju_mobile/features/widgets/custom_text.dart';
 import 'package:itoju_mobile/features/widgets/custom_text_field.dart';
 import 'package:itoju_mobile/features/widgets/dialog.dart';
 
-class ResetOtp extends StatefulWidget {
+class ResetOtp extends ConsumerStatefulWidget {
   const ResetOtp({super.key});
 
   @override
-  State<ResetOtp> createState() => _ResetOtpState();
+  ConsumerState<ResetOtp> createState() => _ResetOtpState();
 }
 
-class _ResetOtpState extends State<ResetOtp> {
+class _ResetOtpState extends ConsumerState<ResetOtp> {
   TextEditingController otpController = TextEditingController();
+
+  /// The server ignores a new code request within 60 s of the last one (and
+  /// says nothing, so it can't be used to spam an inbox). Make the person wait
+  /// it out here, or a tap would look like it worked when nothing was sent.
+  static const _cooldown = 60;
+  int _wait = _cooldown; // a code was just requested on the previous screen
+  Timer? _timer;
+  bool _resending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    otpController.dispose();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+    setState(() => _wait = _cooldown);
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _wait--);
+      if (_wait <= 0) t.cancel();
+    });
+  }
+
+  Future<void> _resend() async {
+    final email = ref.read(forgotPasswordNotifier).email;
+    if (email == null || email.isEmpty) {
+      // Lost the email (shouldn't happen): go back and enter it again.
+      Navigator.pop(context);
+      return;
+    }
+    setState(() => _resending = true);
+    final response =
+        await ref.read(forgotPasswordNotifier.notifier).forgotPassword(email);
+    if (!mounted) return;
+    setState(() => _resending = false);
+    if (response.successMessage.isNotEmpty) {
+      _startCountdown();
+      getAlert('We sent a new code to $email. Check your spam folder too.',
+          isWarning: false);
+    } else if (response.responseMessage?.isNotEmpty ?? false) {
+      getAlert(response.responseMessage!);
+    } else {
+      getAlert(response.errorMessage);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +122,7 @@ class _ResetOtpState extends State<ResetOtp> {
               title: "Enter OTP",
               hintText: "Enter the otp",
               controller: otpController,
+              inputType: TextInputType.number,
             ),
             verticalSpaceMassive,
             Consumer(builder: (context, ref, child) {
@@ -103,14 +161,19 @@ class _ResetOtpState extends State<ResetOtp> {
             }),
             20.ph,
             Center(
-              child: InkWell(
-                onTap: () {},
-                child: Text(
-                  "Didn't receive the OTP, Resend",
-                  style:
-                      TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
-                ),
-              ),
+              child: _resending
+                  ? const SizedBox(
+                      width: 20, height: 20, child: CircularProgressIndicator())
+                  : TextButton(
+                      onPressed: _wait > 0 ? null : _resend,
+                      child: Text(
+                        _wait > 0
+                            ? "Didn't get it? Resend in ${_wait}s"
+                            : "Didn't receive the code? Resend",
+                        style: TextStyle(
+                            fontSize: 14.sp, fontWeight: FontWeight.w600),
+                      ),
+                    ),
             )
           ],
         ),
