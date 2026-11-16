@@ -2,17 +2,35 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
-import 'package:drift/drift.dart' show TableUpdate;
+import 'package:drift/drift.dart' show TableUpdate, TableUpdateQuery;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/Storage/storage_class.dart';
+import '../data/daily_nudges.dart';
 import '../data/db/app_database.dart';
 import '../data/reminder_actions.dart';
 import '../data/repositories/reminder_repository.dart';
+import '../data/repositories/tracking_activity.dart';
 import '../data/providers.dart';
 import '../features/home/notifer/metrics_status_notifier.dart';
 import '../features/settings/notifier/points_notifier.dart';
 import 'reminder_scheduler.dart';
+
+/// The person's check-in choices from Settings (unset = the defaults, all on).
+NudgePrefs nudgePrefsFromStorage() {
+  const d = NudgePrefs.defaults;
+  int minutes(String key, int fallback) {
+    final v = HiveStorage.get(key);
+    return v is int && v >= 0 && v < 24 * 60 ? v : fallback;
+  }
+
+  return NudgePrefs(
+    morningOn: HiveStorage.get(HiveKeys.nudgeMorningOn) != false,
+    morningMinutes: minutes(HiveKeys.nudgeMorningMinutes, d.morningMinutes),
+    eveningOn: HiveStorage.get(HiveKeys.nudgeEveningOn) != false,
+    eveningMinutes: minutes(HiveKeys.nudgeEveningMinutes, d.eveningMinutes),
+  );
+}
 
 final reminderSchedulerProvider =
     Provider<ReminderScheduler>((ref) => LocalReminderScheduler());
@@ -24,6 +42,7 @@ final reminderCoordinatorProvider = Provider<ReminderCoordinator>((ref) {
     repository: ref.watch(reminderRepositoryProvider),
     db: db,
     hideNames: () => HiveStorage.get(HiveKeys.reminderHideNames) == true,
+    nudgePrefs: nudgePrefsFromStorage,
     onDataChanged: () {
       // Something wrote medication rows / points outside the UI (a notification
       // action): tell live queries and refresh what is derived from them.
@@ -39,6 +58,8 @@ final reminderCoordinatorProvider = Provider<ReminderCoordinator>((ref) {
   return c;
 });
 
+NudgePrefs _defaultNudgePrefs() => NudgePrefs.defaults;
+
 /// Keeps the phone's scheduled notifications equal to the reminders in the
 /// database, however those rows changed (edited here, restored by a sync, …),
 /// and handles "Mark as taken".
@@ -49,6 +70,7 @@ class ReminderCoordinator {
     required this.db,
     required this.hideNames,
     required this.onDataChanged,
+    this.nudgePrefs = _defaultNudgePrefs,
     this.debounce = const Duration(milliseconds: 400),
     this.listenForBackgroundEvents = true,
   });
@@ -57,11 +79,13 @@ class ReminderCoordinator {
   final ReminderRepository repository;
   final AppDatabase db;
   final bool Function() hideNames;
+  final NudgePrefs Function() nudgePrefs;
   final void Function() onDataChanged;
   final Duration debounce;
   final bool listenForBackgroundEvents;
 
   StreamSubscription<Object?>? _sub;
+  StreamSubscription<Object?>? _logSub;
   ReceivePort? _port;
   Timer? _timer;
   Future<void> _queue = Future.value();
@@ -84,6 +108,22 @@ class ReminderCoordinator {
     }
     // Emits once immediately (the initial schedule) and again on every change.
     _sub = repository.watchAll().listen((_) => _scheduleSoon());
+    // Logging anything changes whether tonight's check-in is still needed, and
+    // what a streak says, so rebuild when any tracker's rows change.
+    _logSub = db
+        .tableUpdates(TableUpdateQuery.onAllTables([
+          db.symptomMetrics,
+          db.foodMetrics,
+          db.sleepMetrics,
+          db.medicationMetrics,
+          db.exerciseMetrics,
+          db.urineMetrics,
+          db.bowelMetrics,
+          db.bpMetrics,
+          db.cycleDays,
+          db.smileyEntries,
+        ]))
+        .listen((_) => _scheduleSoon());
   }
 
   void _scheduleSoon() {
@@ -104,7 +144,30 @@ class ReminderCoordinator {
     // Scheduling without permission queues notifications the OS then discards;
     // wait until it is granted (enableNotifications / the next refresh).
     if (!await scheduler.notificationsAllowed()) return;
-    await scheduler.reschedule(reminders, hideNames: hideNames());
+    Object? reminderError;
+    try {
+      await scheduler.reschedule(reminders, hideNames: hideNames());
+    } catch (e) {
+      reminderError = e;
+    }
+    try {
+      await _refreshNudges();
+    } catch (_) {
+      // Check-ins are a nicety; the next refresh tries again.
+    }
+    if (reminderError != null) throw reminderError;
+  }
+
+  /// Rebuilds the daily check-ins from what is logged right now. Kept apart from
+  /// the reminders so a failure in one never stops the other.
+  Future<void> _refreshNudges() async {
+    final today = DateTime.now();
+    final activity = TrackingActivity(db);
+    await scheduler.rescheduleNudges(
+      prefs: nudgePrefs(),
+      trackedToday: await activity.trackedOn(today),
+      streak: await activity.streak(today),
+    );
   }
 
   /// Asks for notification permission if needed, then schedules. True if allowed.
@@ -151,6 +214,7 @@ class ReminderCoordinator {
   void dispose() {
     _timer?.cancel();
     _sub?.cancel();
+    _logSub?.cancel();
     if (_port != null) {
       IsolateNameServer.removePortNameMapping(kReminderPortName);
       _port!.close();

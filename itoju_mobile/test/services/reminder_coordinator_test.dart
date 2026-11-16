@@ -1,7 +1,11 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:itoju_mobile/data/daily_nudges.dart';
 import 'package:itoju_mobile/data/db/app_database.dart';
+import 'package:itoju_mobile/data/models/medication_model.dart';
 import 'package:itoju_mobile/data/reminder_schedule.dart';
+import 'package:itoju_mobile/data/repositories/medication_repository.dart';
 import 'package:itoju_mobile/data/repositories/reminder_repository.dart';
 import 'package:itoju_mobile/services/reminder_coordinator.dart';
 
@@ -161,6 +165,151 @@ void main() {
     await c2.refresh();
     expect(failing.attempts, greaterThanOrEqualTo(2));
     expect(failing.succeeded, greaterThanOrEqualTo(1));
+  });
+
+  group('daily check-ins', () {
+    String isoDay(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final today = isoDay(now);
+    final yesterday = isoDay(DateTime(now.year, now.month, now.day - 1));
+    final twoDaysAgo = isoDay(DateTime(now.year, now.month, now.day - 2));
+
+    Future<void> logMed(String date) => MedicationRepository(db).create(
+        date,
+        MedicationModel(
+            id: null, time: '', metric: 'mg', name: 'Iron', dosage: 65, quantity: 1));
+
+    test('with nothing logged they are scheduled for an unlogged day', () async {
+      await coordinator.start();
+      await settle();
+
+      expect(scheduler.nudgeCalls, isNotEmpty);
+      final call = scheduler.nudgeCalls.last;
+      expect(call.trackedToday, isFalse);
+      expect(call.streak, 0);
+      expect(call.prefs.morningOn && call.prefs.eveningOn, isTrue,
+          reason: 'both are on by default');
+    });
+
+    test('logging something tells the scheduler today is tracked', () async {
+      await coordinator.start();
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isFalse);
+
+      await logMed(today); // what makes tonight's nudge unnecessary
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isTrue);
+    });
+
+    test('deleting that entry brings tonight\'s nudge back', () async {
+      await logMed(today);
+      await coordinator.start();
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isTrue);
+
+      final row = (await MedicationRepository(db).getForDate(today)).single;
+      await MedicationRepository(db).delete(row.id!);
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isFalse);
+    });
+
+    test('the streak is handed over so the evening note can use it', () async {
+      await logMed(twoDaysAgo);
+      await logMed(yesterday);
+      await coordinator.start();
+      await settle();
+
+      final call = scheduler.nudgeCalls.last;
+      expect(call.trackedToday, isFalse);
+      expect(call.streak, 2, reason: 'alive through yesterday');
+    });
+
+    test('a mood or a period entry alone counts as having tracked', () async {
+      await coordinator.start();
+      await settle();
+
+      await db.into(db.smileyEntries).insert(SmileyEntriesCompanion.insert(
+          id: 's1', localUpdatedAt: now, smileyId: 3, grantedAt: now));
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isTrue);
+
+      await db.delete(db.smileyEntries).go();
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isFalse);
+
+      await db.into(db.cycleDays).insert(CycleDaysCompanion.insert(
+          id: 'c1', localUpdatedAt: now, cycleId: 'cy', date: today));
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isTrue);
+    });
+
+    test('a deleted entry does not count', () async {
+      await logMed(today);
+      final row = (await MedicationRepository(db).getForDate(today)).single;
+      await MedicationRepository(db).delete(row.id!);
+      await coordinator.start();
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isFalse);
+    });
+
+    test('an entry for another day does not count as today', () async {
+      await logMed(yesterday);
+      await coordinator.start();
+      await settle();
+      expect(scheduler.nudgeCalls.last.trackedToday, isFalse);
+    });
+
+    test('nothing is scheduled until notifications are allowed', () async {
+      scheduler.allowed = false;
+      await coordinator.start();
+      await settle();
+      expect(scheduler.nudgeCalls, isEmpty);
+
+      await coordinator.enableNotifications();
+      expect(scheduler.nudgeCalls, isNotEmpty);
+    });
+
+    test('the person\'s choices are read at schedule time', () async {
+      var prefs = const NudgePrefs(eveningOn: false);
+      final c = ReminderCoordinator(
+        scheduler: scheduler,
+        repository: repo,
+        db: db,
+        hideNames: () => false,
+        nudgePrefs: () => prefs,
+        onDataChanged: () {},
+        debounce: const Duration(milliseconds: 10),
+        listenForBackgroundEvents: false,
+      );
+      addTearDown(c.dispose);
+      await c.start();
+      await settle();
+      expect(scheduler.nudgeCalls.last.prefs.eveningOn, isFalse);
+
+      prefs = const NudgePrefs(morningOn: false, eveningMinutes: 20 * 60);
+      await c.refresh();
+      expect(scheduler.nudgeCalls.last.prefs.morningOn, isFalse);
+      expect(scheduler.nudgeCalls.last.prefs.eveningMinutes, 20 * 60);
+    });
+
+    test('a failing reminder refresh does not stop the check-ins', () async {
+      final failing = _ThrowOnce(scheduler);
+      final c = ReminderCoordinator(
+        scheduler: failing,
+        repository: repo,
+        db: db,
+        hideNames: () => false,
+        onDataChanged: () {},
+        debounce: const Duration(milliseconds: 10),
+        listenForBackgroundEvents: false,
+      );
+      addTearDown(c.dispose);
+      await c.start();
+      await settle();
+      expect(failing.attempts, greaterThanOrEqualTo(1));
+      expect(failing.nudgeCalls, isNotEmpty);
+    });
   });
 
   group('Mark as taken', () {

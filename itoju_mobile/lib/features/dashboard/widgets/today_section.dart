@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/core/colors/colors.dart';
+import 'package:itoju_mobile/data/daily_nudges.dart';
 import 'package:itoju_mobile/data/db/seed_catalogs.dart';
 import 'package:itoju_mobile/data/repositories/smiley_repository.dart';
 import 'package:itoju_mobile/data/repositories/tracked_metrics_repository.dart';
@@ -16,8 +17,10 @@ import 'package:itoju_mobile/features/home/notifer/getTrackedMetrics_notifier.da
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/metrics/pages/blood_pressure.dart';
 import 'package:itoju_mobile/features/metrics/pages/medication_reminders.dart';
+import 'package:itoju_mobile/features/settings/pages/daily_checkins.dart';
 import 'package:itoju_mobile/features/widgets/utills.dart';
 import 'package:itoju_mobile/services/flush_bar_service.dart';
+import 'package:itoju_mobile/services/reminder_coordinator.dart';
 import 'package:persistent_bottom_nav_bar_v2/persistent_bottom_nav_bar_v2.dart';
 
 const List<String> _moodEmoji = ['😃', '🙂', '😑', '🙁', '😢'];
@@ -434,6 +437,108 @@ class _WhatsNewCardState extends ConsumerState<WhatsNewCard> {
                   side: const BorderSide(color: AppColors.primaryColorPurple)),
               onPressed: _reminders,
               child: const Text('Set up reminders'),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+/// Introduces the daily check-ins (app 1.4) and, where the phone needs it, asks
+/// for notification permission. Dismissing it, or acting on either button, hides
+/// it for good.
+class CheckinCard extends ConsumerStatefulWidget {
+  const CheckinCard({super.key});
+
+  @override
+  ConsumerState<CheckinCard> createState() => _CheckinCardState();
+}
+
+class _CheckinCardState extends ConsumerState<CheckinCard> {
+  late bool _hidden = HiveStorage.get(HiveKeys.checkinCardSeen) == true;
+  bool? _allowed; // null until checked
+
+  @override
+  void initState() {
+    super.initState();
+    if (_hidden) return;
+    // Older Androids allow notifications without asking; newer ones and iOS
+    // need the person's say-so first.
+    ref.read(reminderCoordinatorProvider).notificationsAllowed.then((ok) {
+      if (mounted) setState(() => _allowed = ok);
+    }).catchError((Object _) {});
+  }
+
+  void _dismiss() {
+    HiveStorage.put(HiveKeys.checkinCardSeen, true);
+    setState(() => _hidden = true);
+  }
+
+  Future<void> _allow() async {
+    final ok = await ref.read(reminderCoordinatorProvider).enableNotifications();
+    if (!mounted) return;
+    if (ok) {
+      _dismiss();
+    } else {
+      getAlert('Notifications are blocked. You can allow them in Settings > Daily Check-ins.');
+    }
+  }
+
+  void _customise() {
+    _dismiss();
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyCheckinsPage()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hidden) return const SizedBox.shrink();
+    final prefs = nudgePrefsFromStorage();
+    return Container(
+      margin: EdgeInsets.only(top: 16.h),
+      padding: EdgeInsets.fromLTRB(14.w, 10.h, 6.w, 12.h),
+      decoration: BoxDecoration(
+        color: AppColors.opaquePurple,
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text('Daily check-ins',
+                  style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryColorPurple)),
+            ),
+            IconButton(
+              tooltip: 'Dismiss',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: _dismiss,
+            ),
+          ]),
+          Text(
+              'A good-morning note at ${nudgeTimeLabel(prefs.morningMinutes)}, and a nudge at '
+              '${nudgeTimeLabel(prefs.eveningMinutes)} only on days you have not logged anything.',
+              style: TextStyle(fontSize: 12.sp, color: AppColors.textGrey, height: 1.3)),
+          10.ph,
+          Wrap(spacing: 8.w, children: [
+            if (_allowed == false)
+              FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryColorPurple,
+                    foregroundColor: Colors.white),
+                onPressed: _allow,
+                child: const Text('Allow notifications'),
+              ),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryColorPurple,
+                  side: const BorderSide(color: AppColors.primaryColorPurple)),
+              onPressed: _customise,
+              child: const Text('Customise'),
             ),
           ]),
         ],

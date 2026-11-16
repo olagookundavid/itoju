@@ -10,6 +10,7 @@ import '../models/today_summary.dart';
 import '../providers.dart';
 import '../reminder_schedule.dart';
 import '../today_logic.dart';
+import 'tracking_activity.dart';
 
 final todayRepositoryProvider = Provider<TodayRepository>(
   (ref) => TodayRepository(ref.watch(appDatabaseProvider)),
@@ -298,21 +299,7 @@ class TodayRepository {
     return (id != null && id >= 1 && id <= 5) ? id : null;
   }
 
-  Future<int> _streak(DateTime today) async {
-    final rows = await _db.customSelect('''
-      SELECT DISTINCT date FROM (
-        SELECT date FROM symptom_metrics    WHERE deleted_at IS NULL UNION
-        SELECT date FROM food_metrics       WHERE deleted_at IS NULL UNION
-        SELECT date FROM sleep_metrics      WHERE deleted_at IS NULL UNION
-        SELECT date FROM medication_metrics WHERE deleted_at IS NULL UNION
-        SELECT date FROM exercise_metrics   WHERE deleted_at IS NULL UNION
-        SELECT date FROM urine_metrics      WHERE deleted_at IS NULL UNION
-        SELECT date FROM bowel_metrics      WHERE deleted_at IS NULL UNION
-        SELECT date FROM bp_metrics         WHERE deleted_at IS NULL
-      ) ORDER BY date DESC LIMIT 400
-    ''').get();
-    return computeStreak(rows.map((r) => r.read<String>('date')).toSet(), today);
-  }
+  Future<int> _streak(DateTime today) => TrackingActivity(_db).streak(today);
 
   /// Live rows for [date] in a table that has `date` and `deleted_at`.
   Future<int> _count(TableInfo<Table, dynamic> table, String date) async {

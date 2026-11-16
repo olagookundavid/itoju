@@ -7,11 +7,13 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../data/daily_nudges.dart';
 import '../data/db/app_database.dart';
 import '../data/reminder_actions.dart';
 import '../data/reminder_schedule.dart';
 
 const String kReminderChannelId = 'med_reminders';
+const String kNudgeChannelId = 'daily_checkins';
 const String kReminderCategory = 'medReminder';
 const String kActionTaken = 'taken';
 
@@ -44,6 +46,15 @@ abstract class ReminderScheduler {
   /// Replaces every scheduled reminder notification with the ones for
   /// [reminders]. Idempotent: calling it again with the same data changes nothing.
   Future<void> reschedule(List<MedReminderModel> reminders, {required bool hideNames});
+
+  /// Replaces the scheduled daily check-ins (good morning / evening nudge) with
+  /// the plan for the next few days; see planNudges. Touches only check-in
+  /// notifications, never medication reminders.
+  Future<void> rescheduleNudges({
+    required NudgePrefs prefs,
+    required bool trackedToday,
+    required int streak,
+  });
 }
 
 class LocalReminderScheduler implements ReminderScheduler {
@@ -84,6 +95,14 @@ class LocalReminderScheduler implements ReminderScheduler {
           'Medication reminders',
           description: 'Reminders to take your medication',
           importance: Importance.high,
+        ));
+    await _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+          kNudgeChannelId,
+          'Daily check-ins',
+          description: 'A good-morning note, and an evening nudge on days nothing is logged',
+          importance: Importance.defaultImportance,
         ));
     _ready = true;
   }
@@ -170,7 +189,10 @@ class LocalReminderScheduler implements ReminderScheduler {
           );
         }()
     ];
+    // Daily check-ins share the plugin but are managed separately: leaving them
+    // out here is what stops a reminder refresh from cancelling them.
     final pending = (await _plugin.pendingNotificationRequests())
+        .where((p) => !isNudgeId(p.id))
         .map((p) => ScheduledNote(p.id, p.title, p.body, p.payload))
         .toList();
 
@@ -197,6 +219,63 @@ class LocalReminderScheduler implements ReminderScheduler {
       }
     }
   }
+
+  @override
+  Future<void> rescheduleNudges({
+    required NudgePrefs prefs,
+    required bool trackedToday,
+    required int streak,
+  }) async {
+    await _applyDeviceTimezone();
+    final notes = planNudges(
+      now: tz.TZDateTime.now(tz.local),
+      prefs: prefs,
+      trackedToday: trackedToday,
+      streak: streak,
+    );
+    final byId = {for (final n in notes) n.id: n};
+    final pending = (await _plugin.pendingNotificationRequests())
+        .where((p) => isNudgeId(p.id))
+        .map((p) => ScheduledNote(p.id, p.title, p.body, p.payload))
+        .toList();
+
+    // As with reminders: cancelling an id also clears it from the tray, so only
+    // touch what changed (this runs on every launch and every log).
+    final plan = planReschedule(
+        [for (final n in notes) ScheduledNote(n.id, n.title, n.body, n.payload)],
+        pending);
+    for (final id in plan.cancel) {
+      await _plugin.cancel(id);
+    }
+    for (final changed in plan.schedule) {
+      final n = byId[changed.id]!;
+      await _plugin.zonedSchedule(
+        n.id,
+        n.title,
+        n.body,
+        n.when,
+        _nudgeDetails,
+        payload: n.payload,
+        // Inexact on purpose: a few minutes' drift doesn't matter for a friendly
+        // note, and it needs no "Alarms & reminders" permission.
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
+  }
+
+  static const _nudgeDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      kNudgeChannelId,
+      'Daily check-ins',
+      channelDescription: 'A good-morning note, and an evening nudge on days nothing is logged',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      category: AndroidNotificationCategory.recommendation,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
 
   Future<void> _schedule(ScheduledNote note, tz.TZDateTime when, {required bool exact}) =>
       _plugin.zonedSchedule(

@@ -218,6 +218,7 @@ class _DashBoardScreenState extends ConsumerState<DashBoardScreen>
                       20.ph,
                       const TodaySection(),
                       const WhatsNewCard(),
+                      const CheckinCard(),
                       20.ph,
                       DashedRect(
                         color: AppColors.primaryColorPurple,

@@ -51,6 +51,21 @@ class HiveKeys {
   /// dose) so nothing about the person's health appears on a lock screen.
   static const reminderHideNames = 'reminderHideNames';
 
+  /// Daily check-ins (good morning / evening nudge): on by default, so an unset
+  /// key means on. Times are minutes after midnight (defaults 7:00 and 18:00).
+  static const nudgeMorningOn = 'nudgeMorningOn';
+  static const nudgeMorningMinutes = 'nudgeMorningMinutes';
+  static const nudgeEveningOn = 'nudgeEveningOn';
+  static const nudgeEveningMinutes = 'nudgeEveningMinutes';
+
+  /// The last day (yyyy-MM-dd) the in-app "N-day streak" message was shown, so
+  /// it appears at most once a day.
+  static const streakCelebratedOn = 'streakCelebratedOn';
+
+  /// Set once the person dismisses (or acts on) the Home card introducing the
+  /// daily check-ins (app 1.4).
+  static const checkinCardSeen = 'checkinCardSeen';
+
   /// Set once the person dismisses (or acts on) the Home "what's new" card for
   /// blood pressure tracking and medication reminders (app 1.2).
   static const whatsNew12Seen = 'whatsNew12Seen';

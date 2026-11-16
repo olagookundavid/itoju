@@ -17,6 +17,7 @@ import 'package:itoju_mobile/features/auth/pages/add_tracked_metrics.dart';
 import 'package:itoju_mobile/features/auth/pages/change_password.dart';
 import 'package:itoju_mobile/features/landing/landing_page.dart';
 import 'package:itoju_mobile/features/metrics/pages/medication_reminders.dart';
+import 'package:itoju_mobile/features/settings/pages/daily_checkins.dart';
 import 'package:itoju_mobile/features/settings/pages/set_body_data.dart';
 import 'package:itoju_mobile/features/settings/pages/set_menses.dart';
 import 'package:itoju_mobile/features/settings/widgets/settings_tile.dart';
@@ -246,6 +247,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     Navigator.push(context, MaterialPageRoute(
                       builder: (context) {
                         return const MedicationRemindersPage();
+                      },
+                    ));
+                  }),
+              SettingsTile(
+                  image: 'drug',
+                  text: 'Daily Check-ins',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (context) {
+                        return const DailyCheckinsPage();
                       },
                     ));
                   }),

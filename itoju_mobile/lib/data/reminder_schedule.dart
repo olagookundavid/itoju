@@ -13,6 +13,15 @@ const int kMaxReminderTimes = 6;
 /// (weekday x time) pair is one of them. Stay under it with a little room.
 const int kMaxScheduledNotifications = 60;
 
+/// Notification ids reserved for the daily check-ins (daily_nudges.dart): base up
+/// to (not including) base + count. Reminder ids are hashed over the whole 31-bit
+/// range, so [notificationIds] steps over this block; that way refreshing one
+/// kind of notification can never cancel the other.
+const int kNudgeIdBase = 2000000000;
+const int kNudgeIdCount = 120;
+
+bool isNudgeId(int id) => id >= kNudgeIdBase && id < kNudgeIdBase + kNudgeIdCount;
+
 const int kAllDays = 127; // Mon..Sun bitmask, Mon = 1 ... Sun = 64
 
 /// Days are stored as a bitmask over ISO weekdays (DateTime.monday == 1).
@@ -253,7 +262,7 @@ Map<ReminderSlot, int> notificationIds(List<ReminderSlot> slots) {
   for (final s in slots) {
     var id = _fnv1a('${s.reminderId}|${s.weekday}|${formatHhmm(s.hour, s.minute)}') & 0x7fffffff;
     if (id == 0) id = 1;
-    while (used.contains(id)) {
+    while (used.contains(id) || isNudgeId(id)) {
       id = (id + 1) & 0x7fffffff;
       if (id == 0) id = 1;
     }

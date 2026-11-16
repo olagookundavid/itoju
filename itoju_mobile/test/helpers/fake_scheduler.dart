@@ -1,3 +1,4 @@
+import 'package:itoju_mobile/data/daily_nudges.dart';
 import 'package:itoju_mobile/data/reminder_schedule.dart';
 import 'package:itoju_mobile/services/reminder_scheduler.dart';
 
@@ -42,5 +43,15 @@ class FakeScheduler implements ReminderScheduler {
     await Future<void>.delayed(work);
     calls.add((reminders: reminders, hideNames: hideNames));
     running--;
+  }
+
+  final List<({NudgePrefs prefs, bool trackedToday, int streak})> nudgeCalls = [];
+  @override
+  Future<void> rescheduleNudges({
+    required NudgePrefs prefs,
+    required bool trackedToday,
+    required int streak,
+  }) async {
+    nudgeCalls.add((prefs: prefs, trackedToday: trackedToday, streak: streak));
   }
 }

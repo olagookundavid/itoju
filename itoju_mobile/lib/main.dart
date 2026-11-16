@@ -13,6 +13,7 @@ import 'package:itoju_mobile/features/auth/pages/auth_gate.dart';
 import 'package:itoju_mobile/core/Storage/storage_class.dart';
 import 'package:itoju_mobile/data/repositories/settings_repository.dart';
 import 'package:itoju_mobile/services/reminder_coordinator.dart';
+import 'package:itoju_mobile/services/streak_celebrator.dart';
 import 'package:itoju_mobile/firebase_options.dart';
 import 'package:itoju_mobile/sync/online_tasks.dart';
 import 'package:itoju_mobile/sync/purchase_service.dart';
@@ -78,6 +79,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // saved reminders. Never throws into the UI - reminders are a convenience.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(reminderCoordinatorProvider).start().catchError((Object _) {});
+      // In-app "N-day streak" message on the first log of the day.
+      ref.read(streakCelebratorProvider).start().catchError((Object _) {});
     });
   }
 
@@ -105,6 +108,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       ref.read(reminderCoordinatorProvider)
         ..refreshLiveQueries()
         ..refresh();
+      // Something logged while away (e.g. "Mark as taken") is celebrated now.
+      ref.read(streakCelebratorProvider).check();
     }
   }
 
